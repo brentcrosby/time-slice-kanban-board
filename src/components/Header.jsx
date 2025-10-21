@@ -1,5 +1,5 @@
 import React from "react";
-import { Settings as SettingsIcon, VolumeX } from "lucide-react";
+import { Settings as SettingsIcon } from "lucide-react";
 
 export function Header({
   filter,
@@ -10,8 +10,6 @@ export function Header({
   runningCount,
   palette,
   theme,
-  chimeActive,
-  onStopChime,
 }) {
   return (
     <div
@@ -56,16 +54,6 @@ export function Header({
           >
             Clear
           </button>
-          {chimeActive && (
-            <button
-              onClick={onStopChime}
-              title="Stop chime"
-              className="rounded-md p-2"
-              style={{ border: `1px solid ${palette.border}` }}
-            >
-              <VolumeX className="h-4 w-4" />
-            </button>
-          )}
           <button
             onClick={onOpenSettings}
             title="Settings"

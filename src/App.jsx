@@ -67,11 +67,27 @@ export default function KanbanTimerBoard() {
 
   const audioRef = useRef(null);
   const [chimeActive, setChimeActive] = useState(false);
+  const [loopingChimeSources, setLoopingChimeSources] = useState([]);
   const loopRef = useRef({ id: null });
 
-  const startLoopingChime = () => {
+  const startLoopingChime = (sourceIds = []) => {
+    if (sourceIds.length) {
+      setLoopingChimeSources((prev) => {
+        const merged = new Set(prev);
+        sourceIds.filter(Boolean).forEach((id) => merged.add(id));
+        return Array.from(merged);
+      });
+    }
+    console.log("[Audio] startLoopingChime", {
+      existingLoopId: loopRef.current.id,
+      sound,
+    });
     if (loopRef.current.id) return;
     const ctx = ensureAudioContext(audioRef);
+    console.log("[Audio] startLoopingChime ensureAudioContext", {
+      hasCtx: Boolean(ctx),
+      ctxState: ctx?.state,
+    });
     if (!ctx) return;
     setChimeActive(true);
     playChime(audioRef, { type: sound.type, volume: sound.volume });
@@ -82,16 +98,23 @@ export default function KanbanTimerBoard() {
   };
 
   const stopLoopingChime = () => {
+    console.log("[Audio] stopLoopingChime", { loopId: loopRef.current.id });
     if (loopRef.current.id) {
       clearInterval(loopRef.current.id);
       loopRef.current.id = null;
     }
     setChimeActive(false);
+    setLoopingChimeSources([]);
   };
 
   useEffect(() => {
     const arm = () => {
+      console.log("[Audio] pointerdown arm triggered");
       const ctx = ensureAudioContext(audioRef);
+      console.log("[Audio] pointerdown ensureAudioContext", {
+        hasCtx: Boolean(ctx),
+        ctxState: ctx?.state,
+      });
       const maybePromise = ctx?.resume?.();
       if (maybePromise && typeof maybePromise.catch === "function") {
         maybePromise.catch(() => {});
@@ -111,6 +134,10 @@ export default function KanbanTimerBoard() {
     [cardsByCol]
   );
   const tick = useNowTicker(runningCount);
+
+  useEffect(() => {
+    console.log("[Timer] runningCount updated", { runningCount });
+  }, [runningCount]);
 
   const recompute = (card) => {
     const baseSegments = card.segments?.length
@@ -141,17 +168,24 @@ export default function KanbanTimerBoard() {
         durationSec: 1,
       };
 
+    const baseRemaining = normalized.remainingSecAtStart ?? activeSegment.remainingSec;
+
     if (!normalized.running || !normalized.lastStartTs) {
-      return { ...normalized, computedActiveRemaining: activeSegment.remainingSec };
+      return {
+        ...normalized,
+        computedActiveRemaining: baseRemaining,
+        segments: normalized.segments.map((seg, idx) =>
+          idx === activeIdx ? { ...seg, remainingSec: baseRemaining } : seg
+        ),
+      };
     }
 
     const now = Date.now();
     const elapsed = (now - normalized.lastStartTs) / 1000;
-    const baseRemaining = normalized.remainingSecAtStart ?? activeSegment.remainingSec;
-    const computedRemaining = baseRemaining - elapsed;
+    const computedRemaining = Math.max(baseRemaining - elapsed, 0);
     const updatedSegments = normalized.segments.map((seg, idx) => {
       if (idx !== activeIdx) return seg;
-      const clamped = clamp(Math.max(computedRemaining, 0), 0, seg.durationSec);
+      const clamped = clamp(computedRemaining, 0, seg.durationSec);
       return { ...seg, remainingSec: clamped };
     });
     const totalRemaining = updatedSegments.reduce((sum, seg) => sum + seg.remainingSec, 0);
@@ -171,103 +205,143 @@ export default function KanbanTimerBoard() {
   }, [cardsByCol, columns, tick]);
 
   useEffect(() => {
-    const now = Date.now();
-    let chimeNeeded = false;
+    console.log("[Timer] completion sweep", { tick });
+    const completions = [];
+
+    for (const col of columns) {
+      if (col.id === "done") continue;
+      const cards = materialized[col.id] || [];
+      for (const card of cards) {
+        if (!card.running) continue;
+        const rawSegments = (card.segments || []).map((seg) => ({
+          ...seg,
+          remainingSec: clamp(seg.remainingSec ?? 0, 0, seg.durationSec ?? seg.remainingSec ?? 0),
+        }));
+        const activeIndex =
+          typeof card.activeSegmentIndex === "number" ? card.activeSegmentIndex : findNextActiveSegment(rawSegments);
+        const activeSegment = rawSegments[activeIndex] || rawSegments[rawSegments.length - 1];
+        const activeRemaining =
+          card.computedActiveRemaining ??
+          activeSegment?.remainingSec ??
+          (card.remainingSecAtStart ?? activeSegment?.durationSec ?? 0);
+        const normalizedSegments = rawSegments.map((seg, idx) =>
+          idx === activeIndex ? { ...seg, remainingSec: 0 } : seg
+        );
+        const totalRemaining = normalizedSegments.reduce((sum, seg) => sum + (seg.remainingSec ?? 0), 0);
+
+        console.log("[Timer] sweep evaluate", {
+          colId: col.id,
+          cardId: card.id,
+          totalRemaining,
+          activeRemaining,
+          activeIndex,
+          running: card.running,
+          segments: normalizedSegments.map((seg, idx) => ({
+            idx,
+            remainingSec: seg.remainingSec,
+            durationSec: seg.durationSec,
+          })),
+        });
+
+        if (activeRemaining > 0.05) continue;
+
+        const nextActiveIndex = findNextActiveSegment(normalizedSegments);
+
+        const payload = {
+          colId: col.id,
+          cardId: card.id,
+          totalRemaining,
+          activeRemaining,
+          segments: normalizedSegments,
+          activeIndex,
+          nextActiveIndex,
+          cardSnapshot: card,
+        };
+
+        completions.push(payload);
+      }
+    }
+
+    if (!completions.length) {
+      console.log("[Timer] completion sweep done", { completions: 0 });
+      return;
+    }
+
+    console.log("[Timer] completion sweep hits", completions);
+
+    if (sound.enabled) {
+      if (sound.loop) startLoopingChime(completions.map(({ cardId }) => cardId));
+      else {
+        setLoopingChimeSources([]);
+        playChime(audioRef, { type: sound.type, volume: sound.volume });
+      }
+    } else {
+      console.log("[Audio] chime skipped; sound disabled");
+    }
 
     setCardsByCol((prev) => {
       let mutated = false;
-      const next = {};
-      const doneIncoming = [];
+      const next = { ...prev };
+      const doneQueue = [];
 
-      for (const col of columns) {
-        const prevList = prev[col.id] || [];
+      completions.forEach(({ colId, cardId, totalRemaining, segments, nextActiveIndex, activeIndex }) => {
+        const list = [...(next[colId] || [])];
+        const idx = list.findIndex((c) => c.id === cardId);
+        if (idx === -1) return;
+        const source = list[idx];
+        mutated = true;
 
-        if (col.id === "done") {
-          next[col.id] = prevList;
-          continue;
-        }
-
-        let colChanged = false;
-        const newList = [];
-
-        for (const card of prevList) {
-          if (!card.running || !card.lastStartTs) {
-            newList.push(card);
-            continue;
-          }
-
-          const elapsed = Math.floor((now - card.lastStartTs) / 1000);
-          const remainingActive = (card.remainingSecAtStart ?? 0) - elapsed;
-
-          if (remainingActive > 0) {
-            newList.push(card);
-            continue;
-          }
-
-          colChanged = true;
-          mutated = true;
-          chimeNeeded = true;
-
-          const segments = (card.segments || []).map((seg, idx) =>
-            idx === card.activeSegmentIndex ? { ...seg, remainingSec: 0 } : seg
-          );
-
-          const totalRemaining = segments.reduce((sum, seg) => sum + (seg.remainingSec ?? 0), 0);
-
-          if (totalRemaining <= 0) {
-            const completed = deriveCardFromSegments(
-              { ...card, running: false, lastStartTs: null },
-              segments.length
-                ? segments
-                : [
-                    {
-                      id: `${card.id || "card"}-seg-0`,
-                      durationSec: card.durationSec ?? MIN_SEGMENT_SEC,
-                      remainingSec: 0,
-                    },
-                  ],
+        const finalizedSegments = segments.length
+          ? segments.map((seg) => ({ ...seg }))
+          : [
               {
-                remainingSecAtStart: 0,
-                activeSegmentIndex: Math.max(segments.length - 1, 0),
-                overtime: true,
-              }
-            );
-            if (autoMoveEnabled) {
-              doneIncoming.push({ from: col.id, card: completed });
-            } else {
-              newList.push(completed);
+                id: `${source.id || "card"}-seg-0`,
+                durationSec: source.durationSec ?? source.remainingSec ?? MIN_SEGMENT_SEC,
+                remainingSec: 0,
+              },
+            ];
+
+        if (totalRemaining <= 0.05) {
+          const completed = deriveCardFromSegments(
+            { ...source, running: false, lastStartTs: null },
+            finalizedSegments.map((seg) => ({ ...seg, remainingSec: 0 })),
+            {
+              remainingSecAtStart: 0,
+              activeSegmentIndex: Math.max(finalizedSegments.length - 1, 0),
+              overtime: true,
             }
+          );
+          if (autoMoveEnabled) {
+            list.splice(idx, 1);
+            doneQueue.push(completed);
           } else {
-            const nextActiveIndex = findNextActiveSegment(segments);
-            const paused = deriveCardFromSegments(
-              { ...card, running: false, lastStartTs: null },
-              segments,
-              {
-                remainingSecAtStart: segments[nextActiveIndex]?.remainingSec ?? 0,
-                activeSegmentIndex: nextActiveIndex,
-                overtime: false,
-              }
-            );
-            newList.push(paused);
+            list[idx] = completed;
           }
+        } else {
+          const paused = deriveCardFromSegments(
+            { ...source, running: false, lastStartTs: null },
+            finalizedSegments,
+            {
+              remainingSecAtStart: finalizedSegments[nextActiveIndex]?.remainingSec ?? 0,
+              activeSegmentIndex: nextActiveIndex,
+              overtime: false,
+            }
+          );
+          list[idx] = paused;
         }
 
-        next[col.id] = colChanged ? newList : prevList;
+        next[colId] = list;
+      });
+
+      if (doneQueue.length) {
+        const doneList = [...(next.done || [])];
+        doneQueue.forEach((card) => doneList.unshift(card));
+        next.done = doneList;
       }
 
-      if (!mutated) return prev;
-
-      const doneList = [...(next.done || prev.done || [])];
-      doneIncoming.forEach(({ card }) => doneList.unshift(card));
-      next.done = doneList;
-      return next;
+      return mutated ? next : prev;
     });
-
-      if (chimeNeeded && sound.enabled) {
-        if (sound.loop) startLoopingChime();
-        else playChime(audioRef, { type: sound.type, volume: sound.volume });
-      }
-  }, [tick, columns, sound, autoMoveEnabled]);
+  }, [materialized, columns, sound, autoMoveEnabled]);
 
   useEffect(() => {
     saveState({ cardsByCol, autoMoveEnabled });
@@ -334,6 +408,7 @@ export default function KanbanTimerBoard() {
   };
 
   const startTimer = (colId, card) => {
+    console.log("[Timer] startTimer", { colId, cardId: card.id });
     const now = Date.now();
     updateCard(colId, card.id, (current) => {
       if (current.running) return current;
@@ -386,6 +461,7 @@ export default function KanbanTimerBoard() {
   };
 
   const pauseTimer = (colId, card) => {
+    console.log("[Timer] pauseTimer", { colId, cardId: card.id, running: card.running });
     if (!card.running) return;
     const now = Date.now();
     updateCard(colId, card.id, (current) => {
@@ -437,6 +513,7 @@ export default function KanbanTimerBoard() {
   };
 
   const resetTimer = (colId, card) => {
+    console.log("[Timer] resetTimer", { colId, cardId: card.id });
     updateCard(colId, card.id, (current) => {
       const segments = (current.segments && current.segments.length
         ? current.segments
@@ -516,6 +593,7 @@ export default function KanbanTimerBoard() {
 
   const handleStart = (colId, card) => {
     const ctx = ensureAudioContext(audioRef);
+    console.log("[Timer] handleStart invoked", { colId, cardId: card.id, autoMoveEnabled });
     if (ctx && ctx.state === "suspended") {
       const resumeResult = ctx.resume?.();
       if (resumeResult && typeof resumeResult.catch === "function") {
@@ -523,9 +601,11 @@ export default function KanbanTimerBoard() {
       }
     }
     if (colId !== "todo" || !autoMoveEnabled) {
+      console.log("[Timer] handleStart direct path", { colId, cardId: card.id });
       startTimer(colId, card);
       return;
     }
+    console.log("[Timer] handleStart auto-move from todo", { cardId: card.id });
     setCardsByCol((prev) => {
       const src = [...(prev.todo || [])];
       const idx = src.findIndex((c) => c.id === card.id);
@@ -577,6 +657,18 @@ export default function KanbanTimerBoard() {
                 overtime: false,
               }
             );
+      console.log("[Timer] auto-move start result", {
+        cardId: runningCard.id,
+        running: runningCard.running,
+        lastStartTs: runningCard.lastStartTs,
+        remainingSecAtStart: runningCard.remainingSecAtStart,
+        activeSegmentIndex: runningCard.activeSegmentIndex,
+        segmentSnapshot: runningCard.segments.map((seg, idx) => ({
+          idx,
+          remainingSec: seg.remainingSec,
+          durationSec: seg.durationSec,
+        })),
+      });
       doing.unshift(runningCard);
       return { ...prev, todo: src, doing };
     });
@@ -605,8 +697,6 @@ export default function KanbanTimerBoard() {
         runningCount={runningCount}
         palette={palette}
         theme={theme}
-        chimeActive={chimeActive}
-        onStopChime={stopLoopingChime}
       />
 
       <div className="mx-auto max-w-7xl p-4">
@@ -635,6 +725,8 @@ export default function KanbanTimerBoard() {
                   onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
                   index={index}
                   palette={palette}
+                  isChiming={chimeActive && loopingChimeSources.includes(card.id)}
+                  onStopChime={stopLoopingChime}
                 />
               )}
               palette={palette}

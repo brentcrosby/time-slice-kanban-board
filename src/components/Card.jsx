@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Play, Pause, RotateCcw, Pencil, Trash2 } from "lucide-react";
+import { Play, Pause, RotateCcw, Pencil, Trash2, VolumeX } from "lucide-react";
 import { SegmentLimitEditor } from "./SegmentLimitEditor";
 import { MIN_SEGMENT_SEC } from "../constants";
 import { clamp } from "../utils/misc";
@@ -18,6 +18,8 @@ export function Card({
   onUpdateProgress,
   index,
   palette,
+  isChiming = false,
+  onStopChime,
 }) {
   const ref = useRef(null);
   const segments = (card.segments && card.segments.length
@@ -267,6 +269,17 @@ export function Card({
         >
           <RotateCcw className="h-4 w-4" />
         </button>
+        {isChiming && (
+          <button
+            onClick={onStopChime}
+            title="Stop chime"
+            aria-label="Stop chime"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md"
+            style={{ border: `1px solid ${palette.border}` }}
+          >
+            <VolumeX className="h-4 w-4" />
+          </button>
+        )}
         <button
           onClick={onEdit}
           title="Edit"

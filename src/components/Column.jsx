@@ -67,7 +67,7 @@ export function Column({ column, cards, onDropCard, onAddCard, renderCard, palet
         style={{ backgroundColor: palette.card, borderColor: palette.border, color: palette.subtext }}
       >
         <span className="text-lg leading-none">+</span>
-        <span>Add card</span>
+        <span>Add task</span>
       </button>
     </section>
   );
