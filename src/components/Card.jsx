@@ -229,12 +229,12 @@ export function Card({
           })}
         </div>
         <div className="mt-1 flex items-center justify-between text-xs" style={{ color: palette.subtext }}>
-          <SegmentLimitEditor card={card} onSetSegments={onSetSegments} palette={palette} />
           <span className={`${isOver ? "font-semibold" : ""}`} style={{ color: isOver ? "#b91c1c" : palette.subtext }}>
             {visualActiveRemaining < 0
               ? `Over: ${secsToHMS(Math.abs(visualActiveRemaining))}`
-              : `Left: ${secsToHMS(Math.max(visualActiveRemaining, 0))}`}
+              : secsToHMS(Math.max(visualActiveRemaining, 0))}
           </span>
+          <SegmentLimitEditor card={card} onSetSegments={onSetSegments} palette={palette} />
         </div>
       </div>
 
