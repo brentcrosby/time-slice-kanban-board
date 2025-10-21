@@ -25,11 +25,23 @@ export function parseDurationToSeconds(input) {
   const str = String(input ?? "").trim().toLowerCase();
   if (!str) return null;
 
-  const hhmm = str.match(/^(\d{1,2}):(\d{2})$/);
-  if (hhmm) {
-    const hours = parseInt(hhmm[1], 10) || 0;
-    const minutes = parseInt(hhmm[2], 10) || 0;
-    if (minutes >= 0 && minutes < 60) return hours * 3600 + minutes * 60;
+  const hhmmss = str.match(/^(\d+):(\d{1,2}):(\d{1,2})$/);
+  if (hhmmss) {
+    const hours = parseInt(hhmmss[1], 10) || 0;
+    const minutes = parseInt(hhmmss[2], 10) || 0;
+    const seconds = parseInt(hhmmss[3], 10) || 0;
+    if (minutes >= 0 && minutes < 60 && seconds >= 0 && seconds < 60) {
+      return hours * 3600 + minutes * 60 + seconds;
+    }
+  }
+
+  const mmss = str.match(/^(\d+):(\d{1,2})$/);
+  if (mmss) {
+    const minutes = parseInt(mmss[1], 10) || 0;
+    const seconds = parseInt(mmss[2], 10) || 0;
+    if (seconds >= 0 && seconds < 60) {
+      return minutes * 60 + seconds;
+    }
   }
 
   const verbose = str.match(/^(?:(\d+(?:\.\d+)?)\s*h(?:ours?)?)?\s*(?:(\d+(?:\.\d+)?)\s*m(?:in(?:ute)?s?)?)$/);
@@ -50,15 +62,17 @@ export function parseDurationToSeconds(input) {
 }
 
 const DURATION_TOKEN_RE =
-  /(?:\d{1,2}:\d{2})|(?:\d+(?:\.\d+)?\s*h(?:ours?)?(?:\s*\d+(?:\.\d+)?\s*m(?:in(?:ute)?s?)?)?)|(?:\d+(?:\.\d+)?\s*(?:h|hr|hrs|hour|hours|m|min|mins|minute|minutes))|(?:\b\d+(?:\.\d+)?\b)/gi;
+  /(?:\d+:\d{1,2}:\d{1,2})|(?:\d+:\d{1,2})|(?:\d+(?:\.\d+)?\s*h(?:ours?)?(?:\s*\d+(?:\.\d+)?\s*m(?:in(?:ute)?s?)?)?)|(?:\d+(?:\.\d+)?\s*(?:h|hr|hrs|hour|hours|m|min|mins|minute|minutes))|(?:\b\d+(?:\.\d+)?\b)/gi;
 
 export function parseTimeFromTitle(rawTitle) {
   let title = rawTitle || "";
   if (!rawTitle) return { cleanTitle: title, durationSec: null, segments: [] };
 
   const matches = [];
+  const numericOnly = /^\d+(?:\.\d+)?$/;
   for (const match of rawTitle.matchAll(DURATION_TOKEN_RE)) {
     const token = match[0];
+    if (numericOnly.test(token.trim())) continue;
     const sec = parseDurationToSeconds(token);
     if (sec && sec >= MIN_SEGMENT_SEC && sec <= MAX_SEGMENT_SEC) {
       matches.push({ token, sec: clamp(sec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC) });
@@ -85,13 +99,24 @@ export function parseTimeFromTitle(rawTitle) {
   const lower = rawTitle.toLowerCase();
   let durationSec = null;
 
-  const hhmm = lower.match(/\b(\d{1,2}):(\d{2})\b/);
-  if (hhmm) {
-    const hours = parseInt(hhmm[1], 10) || 0;
-    const minutes = parseInt(hhmm[2], 10) || 0;
-    if (minutes >= 0 && minutes < 60) {
-      durationSec = hours * 3600 + minutes * 60;
-      title = title.replace(hhmm[0], "");
+  const hhmmss = lower.match(/\b(\d+):(\d{1,2}):(\d{1,2})\b/);
+  if (hhmmss) {
+    const hours = parseInt(hhmmss[1], 10) || 0;
+    const minutes = parseInt(hhmmss[2], 10) || 0;
+    const seconds = parseInt(hhmmss[3], 10) || 0;
+    if (minutes >= 0 && minutes < 60 && seconds >= 0 && seconds < 60) {
+      durationSec = hours * 3600 + minutes * 60 + seconds;
+      title = title.replace(hhmmss[0], "");
+    }
+  }
+
+  const mmss = durationSec == null ? lower.match(/\b(\d+):(\d{1,2})\b/) : null;
+  if (mmss) {
+    const minutes = parseInt(mmss[1], 10) || 0;
+    const seconds = parseInt(mmss[2], 10) || 0;
+    if (seconds >= 0 && seconds < 60) {
+      durationSec = minutes * 60 + seconds;
+      title = title.replace(mmss[0], "");
     }
   }
 
