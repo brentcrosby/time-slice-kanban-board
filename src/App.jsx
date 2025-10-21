@@ -26,9 +26,194 @@ const secsToHHMM = (s) => {
   return `${pad2(h)}:${pad2(m)}`;
 };
 
+const MIN_SEGMENT_SEC = 5;
+const MAX_SEGMENT_SEC = 24 * 3600;
+
+const sanitizeSegmentDuration = (sec) => clamp(Math.floor(sec || 0), MIN_SEGMENT_SEC, MAX_SEGMENT_SEC);
+
+const coerceSegmentDurations = (rawSegments, fallbackSec = 1500) => {
+  const durations = (rawSegments || [])
+    .map((seg) => {
+      if (typeof seg === "number") return sanitizeSegmentDuration(seg);
+      if (seg == null) return null;
+      const candidate = seg.durationSec ?? seg.duration ?? seg.seconds ?? seg.remainingSec;
+      if (candidate == null) return null;
+      return sanitizeSegmentDuration(candidate);
+    })
+    .filter((sec) => Number.isFinite(sec) && sec >= MIN_SEGMENT_SEC);
+  if (durations.length) return durations;
+  return [sanitizeSegmentDuration(fallbackSec || 1500)];
+};
+
+const withSegmentIds = (segments, cardId = "card") =>
+  segments.map((seg, idx) => ({
+    id: seg.id || `${cardId}-seg-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+    durationSec: sanitizeSegmentDuration(seg.durationSec ?? seg.duration ?? seg.seconds ?? seg.remainingSec ?? MIN_SEGMENT_SEC),
+    remainingSec: clamp(
+      Math.floor(seg.remainingSec ?? seg.durationSec ?? seg.duration ?? seg.seconds ?? seg.remainingSec ?? MIN_SEGMENT_SEC),
+      0,
+      sanitizeSegmentDuration(seg.durationSec ?? seg.duration ?? seg.seconds ?? seg.remainingSec ?? MIN_SEGMENT_SEC)
+    ),
+  }));
+
+const normalizeSegments = (rawSegments, cardId = "card") => {
+  const withDurations = withSegmentIds(rawSegments, cardId).map((seg) => {
+    const durationSec = sanitizeSegmentDuration(seg.durationSec);
+    const remainingSec = clamp(Math.floor(seg.remainingSec ?? durationSec), 0, durationSec);
+    return { ...seg, durationSec, remainingSec };
+  });
+  return withDurations;
+};
+
+const totalFromSegments = (segments) => segments.reduce((acc, seg) => acc + Math.max(0, Math.floor(seg.durationSec || 0)), 0);
+
+const findNextActiveSegment = (segments) => {
+  const idx = segments.findIndex((seg) => (seg.remainingSec ?? 0) > 0);
+  if (idx === -1) return Math.max(0, segments.length - 1);
+  return idx;
+};
+
+const deriveCardFromSegments = (card, rawSegments, overrides = {}) => {
+  const segments = normalizeSegments(rawSegments, card.id || overrides.id || "card");
+  const totalDuration = totalFromSegments(segments);
+  const totalRemaining = segments.reduce((acc, seg) => acc + seg.remainingSec, 0);
+  const requestedIndex = overrides.activeSegmentIndex ?? card.activeSegmentIndex;
+  let activeSegmentIndex =
+    typeof requestedIndex === "number" && !Number.isNaN(requestedIndex)
+      ? clamp(requestedIndex, 0, Math.max(segments.length - 1, 0))
+      : findNextActiveSegment(segments);
+  if (!Number.isFinite(activeSegmentIndex)) activeSegmentIndex = findNextActiveSegment(segments);
+  const activeSegment = segments[activeSegmentIndex] || segments[segments.length - 1] || { remainingSec: 0 };
+  const isRunning = overrides.running ?? card.running ?? false;
+  const remainingSecAtStart =
+    overrides.remainingSecAtStart ?? (isRunning ? card.remainingSecAtStart ?? activeSegment.remainingSec : activeSegment.remainingSec);
+  const overtime = overrides.overtime ?? (totalRemaining <= 0 && activeSegmentIndex === segments.length - 1);
+  return {
+    ...card,
+    ...overrides,
+    segments,
+    durationSec: totalDuration,
+    remainingSec: totalRemaining,
+    activeSegmentIndex,
+    remainingSecAtStart,
+    running: isRunning && totalRemaining > 0,
+    overtime,
+  };
+};
+
+const upgradeLegacyCard = (card) => {
+  if (!card) return card;
+  if (Array.isArray(card.segments) && card.segments.length) {
+    return deriveCardFromSegments({ ...card }, card.segments, {
+      running: card.running,
+      remainingSecAtStart: card.remainingSecAtStart,
+      activeSegmentIndex: card.activeSegmentIndex,
+      overtime: card.overtime,
+    });
+  }
+
+  const baseDuration = sanitizeSegmentDuration(card.durationSec ?? card.remainingSec ?? 1500);
+  const baseRemaining = clamp(Math.floor(card.remainingSec ?? baseDuration), 0, baseDuration);
+  return deriveCardFromSegments({ ...card }, [
+    {
+      id: `${card.id || "card"}-seg-0`,
+      durationSec: baseDuration,
+      remainingSec: baseRemaining,
+    },
+  ], {
+    running: card.running,
+    remainingSecAtStart: card.remainingSecAtStart ?? baseRemaining,
+    activeSegmentIndex: 0,
+    overtime: card.overtime,
+  });
+};
+
+const formatSegmentForInput = (sec) => {
+  const minutes = Math.max((sec || 0) / 60, MIN_SEGMENT_SEC / 60);
+  if (!Number.isFinite(minutes)) return "1";
+  if (Number.isInteger(minutes)) return String(minutes);
+  return minutes.toFixed(2).replace(/\.0+$/, "").replace(/0+$/, "").replace(/\.$/, "");
+};
+
+const segmentDraftsFromSegments = (segments) => {
+  const src = segments && segments.length ? segments : [];
+  if (!src.length) {
+    return [{ id: `draft-${uid()}`, value: "25" }];
+  }
+  return src.map((seg) => ({ id: seg.id || `draft-${uid()}`, value: formatSegmentForInput(seg.durationSec ?? 1500) }));
+};
+
+function SegmentRowsEditor({ rows, errors, onChange, onRemove, palette, maxHeight = "", showIndex = true }) {
+  const containerCls = maxHeight ? `space-y-2 ${maxHeight} overflow-y-auto pr-1` : "space-y-2";
+  return (
+    <div className={containerCls}>
+      {rows.map((row, idx) => (
+        <div key={row.id} className="space-y-1">
+          <div className="flex items-center gap-2">
+            {showIndex ? (
+              <span className="text-[11px]" style={{ color: palette.subtext, minWidth: 18 }}>#{idx + 1}</span>
+            ) : null}
+            <input
+              value={row.value}
+              onChange={(e) => onChange(row.id, e.target.value)}
+              placeholder="25m"
+              className="flex-1 rounded-md px-2 py-1 text-xs outline-none"
+              style={{ border: `1px solid ${palette.border}`, backgroundColor: "transparent", color: palette.text }}
+            />
+            {onRemove ? (
+              <button
+                type="button"
+                className="rounded-md p-1"
+                style={{ border: `1px solid ${palette.border}`, color: palette.subtext }}
+                onClick={() => onRemove(row.id)}
+                aria-label="Remove segment"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            ) : null}
+          </div>
+          {errors?.[row.id] ? (
+            <p className="text-[10px]" style={{ color: palette.dangerText }}>{errors[row.id]}</p>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Parse time expressions embedded in a title string.
+const DURATION_TOKEN_RE = /(?:\d{1,2}:\d{2})|(?:\d+(?:\.\d+)?\s*h(?:ours?)?(?:\s*\d+(?:\.\d+)?\s*m(?:in(?:ute)?s?)?)?)|(?:\d+(?:\.\d+)?\s*(?:h|hr|hrs|hour|hours|m|min|mins|minute|minutes))|(?:\b\d+(?:\.\d+)?\b)/gi;
+
 function parseTimeFromTitle(rawTitle) {
   let title = rawTitle || "";
+  if (!rawTitle) return { cleanTitle: title, durationSec: null, segments: [] };
+
+  const matches = [];
+  for (const match of rawTitle.matchAll(DURATION_TOKEN_RE)) {
+    const token = match[0];
+    const sec = parseDurationToSeconds(token);
+    if (sec && sec >= MIN_SEGMENT_SEC) {
+      matches.push({ token, sec });
+    }
+  }
+
+  if (matches.length > 1) {
+    matches.forEach(({ token }) => {
+      title = title.replace(token, " ");
+    });
+    title = title.replace(/[()\[\]\-_,]+/g, " ").replace(/\s{2,}/g, " ").trim();
+    const durations = matches.map((m) => m.sec);
+    const total = durations.reduce((acc, sec) => acc + sec, 0);
+    return { cleanTitle: title || rawTitle, durationSec: total, segments: durations };
+  }
+
+  if (matches.length === 1) {
+    const [{ token, sec }] = matches;
+    title = title.replace(token, " ");
+    title = title.replace(/[()\[\]\-_,]+/g, " ").replace(/\s{2,}/g, " ").trim();
+    return { cleanTitle: title || rawTitle, durationSec: sec, segments: [] };
+  }
+
   const s = rawTitle.toLowerCase();
   let durationSec = null;
 
@@ -66,7 +251,7 @@ function parseTimeFromTitle(rawTitle) {
   }
 
   title = title.replace(/[()\[\]\-_,]+/g, " ").replace(/\s{2,}/g, " ").trim();
-  return { cleanTitle: title || rawTitle, durationSec };
+  return { cleanTitle: title || rawTitle, durationSec, segments: [] };
 }
 
 // Parse free-form duration like 90, 25m, 1:30, 1h 20m, 2h
@@ -212,7 +397,14 @@ function playChime(ctxRef, { type = "ping", volume = 0.7 } = {}) {
 // =====================
 export default function KanbanTimerBoard() {
   const [columns] = useState(DEFAULT_COLUMNS);
-  const [cardsByCol, setCardsByCol] = useState(() => loadState()?.cardsByCol || { todo: [], doing: [], done: [] });
+  const [cardsByCol, setCardsByCol] = useState(() => {
+    const stored = loadState()?.cardsByCol || {};
+    const initial = {};
+    DEFAULT_COLUMNS.forEach((col) => {
+      initial[col.id] = (stored[col.id] || []).map(upgradeLegacyCard);
+    });
+    return initial;
+  });
 
   const [filter, setFilter] = useState("");
   const [showNewCard, setShowNewCard] = useState(false);
@@ -275,13 +467,50 @@ export default function KanbanTimerBoard() {
 
   // Update derived remaining for running cards
   const recompute = (card) => {
-    if (!card.running || !card.lastStartTs) return card;
+    const baseSegments = card.segments?.length
+      ? card.segments
+      : [
+          {
+            id: `${card.id || "card"}-seg-0`,
+            durationSec: card.durationSec ?? card.remainingSec ?? 1500,
+            remainingSec: card.remainingSec ?? card.durationSec ?? 1500,
+          },
+        ];
+    const normalized = deriveCardFromSegments(
+      { ...card },
+      baseSegments,
+      {
+        running: card.running,
+        remainingSecAtStart: card.remainingSecAtStart,
+        activeSegmentIndex: card.activeSegmentIndex,
+        overtime: card.overtime,
+      }
+    );
+
+    const activeIdx = normalized.activeSegmentIndex;
+    const activeSegment = normalized.segments[activeIdx] || normalized.segments[normalized.segments.length - 1] || { remainingSec: 0, durationSec: 1 };
+
+    if (!normalized.running || !normalized.lastStartTs) {
+      return { ...normalized, computedActiveRemaining: activeSegment.remainingSec };
+    }
+
     const now = Date.now();
-    const elapsed = Math.floor((now - card.lastStartTs) / 1000);
-    const newRemaining = card.remainingSecAtStart - elapsed;
-    const remainingSec = Math.max(newRemaining, -359999);
-    const overtime = remainingSec <= 0;
-    return { ...card, remainingSec, overtime };
+    const elapsed = (now - normalized.lastStartTs) / 1000;
+    const baseRemaining = normalized.remainingSecAtStart ?? activeSegment.remainingSec;
+    const computedRemaining = baseRemaining - elapsed;
+    const updatedSegments = normalized.segments.map((seg, idx) => {
+      if (idx !== activeIdx) return seg;
+      const clamped = clamp(Math.max(computedRemaining, 0), 0, seg.durationSec);
+      return { ...seg, remainingSec: clamped };
+    });
+    const totalRemaining = updatedSegments.reduce((sum, seg) => sum + seg.remainingSec, 0);
+    return {
+      ...normalized,
+      segments: updatedSegments,
+      remainingSec: totalRemaining,
+      computedActiveRemaining: computedRemaining,
+      overtime: computedRemaining <= 0 && activeIdx === updatedSegments.length - 1,
+    };
   };
 
   const materialized = useMemo(() => {
@@ -292,34 +521,100 @@ export default function KanbanTimerBoard() {
 
   // Complete cards auto-move to top of Done + chime
   useEffect(() => {
-    const toComplete = [];
-    for (const col of columns) {
-      if (col.id === "done") continue;
-      for (const c of (materialized[col.id] || [])) {
-        if (c.remainingSec <= 0) toComplete.push({ from: col.id, cardId: c.id });
-      }
-    }
-    if (!toComplete.length) return;
-
-    if (sound.enabled) {
-      if (sound.loop) startLoopingChime(); else playChime(audioRef, { type: sound.type, volume: sound.volume });
-    }
+    const now = Date.now();
+    let chimeNeeded = false;
 
     setCardsByCol(prev => {
-      let next = { ...prev };
-      toComplete.forEach(({ from, cardId }) => {
-        const src = [...(next[from] || [])];
-        const idx = src.findIndex(x => x.id === cardId);
-        if (idx === -1) return;
-        const [card] = src.splice(idx, 1);
-        const done = [...(next["done"] || [])];
-        const updated = { ...card, running: false, overtime: true, lastStartTs: null, remainingSec: 0, remainingSecAtStart: 0 };
-        done.unshift(updated);
-        next = { ...next, [from]: src, ["done"]: done };
-      });
+      let mutated = false;
+      const next = {};
+      const doneIncoming = [];
+
+      for (const col of columns) {
+        const prevList = prev[col.id] || [];
+
+        if (col.id === "done") {
+          next[col.id] = prevList;
+          continue;
+        }
+
+        let colChanged = false;
+        const newList = [];
+
+        for (const card of prevList) {
+          if (!card.running || !card.lastStartTs) {
+            newList.push(card);
+            continue;
+          }
+
+          const elapsed = Math.floor((now - card.lastStartTs) / 1000);
+          const remainingActive = (card.remainingSecAtStart ?? 0) - elapsed;
+
+          if (remainingActive > 0) {
+            newList.push(card);
+            continue;
+          }
+
+          colChanged = true;
+          mutated = true;
+          chimeNeeded = true;
+
+          const segments = (card.segments || []).map((seg, idx) =>
+            idx === card.activeSegmentIndex ? { ...seg, remainingSec: 0 } : seg
+          );
+
+          const totalRemaining = segments.reduce((sum, seg) => sum + (seg.remainingSec ?? 0), 0);
+
+          if (totalRemaining <= 0) {
+            const completed = deriveCardFromSegments(
+              { ...card, running: false, lastStartTs: null },
+              segments.length ? segments : [
+                {
+                  id: `${card.id || "card"}-seg-0`,
+                  durationSec: card.durationSec ?? MIN_SEGMENT_SEC,
+                  remainingSec: 0,
+                },
+              ],
+              {
+                remainingSecAtStart: 0,
+                activeSegmentIndex: Math.max(segments.length - 1, 0),
+                overtime: true,
+              }
+            );
+            doneIncoming.push({ from: col.id, card: completed });
+          } else {
+            const nextActiveIndex = findNextActiveSegment(segments);
+            const paused = deriveCardFromSegments(
+              { ...card, running: false, lastStartTs: null },
+              segments,
+              {
+                remainingSecAtStart: segments[nextActiveIndex]?.remainingSec ?? 0,
+                activeSegmentIndex: nextActiveIndex,
+                overtime: false,
+              }
+            );
+            newList.push(paused);
+          }
+        }
+
+        if (colChanged) {
+          next[col.id] = newList;
+        } else {
+          next[col.id] = prevList;
+        }
+      }
+
+      if (!mutated) return prev;
+
+      const doneList = [...(next.done || prev.done || [])];
+      doneIncoming.forEach(({ card }) => doneList.unshift(card));
+      next.done = doneList;
       return next;
     });
-  }, [materialized, columns, sound]);
+
+    if (chimeNeeded && sound.enabled) {
+      if (sound.loop) startLoopingChime(); else playChime(audioRef, { type: sound.type, volume: sound.volume });
+    }
+  }, [tick, columns, sound]);
 
   // Persist board state
   useEffect(() => { saveState({ cardsByCol }); }, [cardsByCol]);
@@ -329,26 +624,40 @@ export default function KanbanTimerBoard() {
   // =====================
   const addCard = (colId, payload) => {
     const id = uid();
-    const durationSec = Math.max(5, payload.durationSec || 1500);
-    const card = {
+    const durations = coerceSegmentDurations(payload.segments, payload.durationSec || 1500);
+    const segments = durations.map((sec, idx) => ({
+      id: `${id}-seg-${idx}`,
+      durationSec: sec,
+      remainingSec: sec,
+    }));
+    const baseCard = {
       id,
       title: payload.title?.trim() || "Untitled",
       notes: payload.notes?.trim() || "",
-      durationSec,
-      remainingSec: durationSec,
-      remainingSecAtStart: durationSec,
       running: false,
       lastStartTs: null,
       overtime: false,
       createdAt: Date.now(),
     };
+    const card = deriveCardFromSegments(baseCard, segments, {
+      remainingSecAtStart: segments[0]?.remainingSec ?? durations[0],
+      activeSegmentIndex: 0,
+    });
     setCardsByCol(prev => ({ ...prev, [colId]: [...(prev[colId] || []), card] }));
   };
 
   const updateCard = (colId, cardId, patch) => {
+    const updater = typeof patch === "function" ? patch : (card) => ({ ...card, ...patch });
     setCardsByCol(prev => ({
       ...prev,
-      [colId]: (prev[colId] || []).map(c => (c.id === cardId ? { ...c, ...patch } : c)),
+      [colId]: (prev[colId] || []).map((c) => {
+        if (c.id !== cardId) return c;
+        const candidate = updater(c);
+        if (candidate.segments) {
+          return deriveCardFromSegments({ ...candidate }, candidate.segments, candidate);
+        }
+        return candidate;
+      }),
     }));
   };
 
@@ -370,25 +679,154 @@ export default function KanbanTimerBoard() {
   };
 
   const startTimer = (colId, card) => {
-    if (card.running) return;
-    updateCard(colId, card.id, { running: true, lastStartTs: Date.now(), remainingSecAtStart: card.remainingSec });
+    const now = Date.now();
+    updateCard(colId, card.id, (current) => {
+      if (current.running) return current;
+      const segments = (current.segments && current.segments.length
+        ? current.segments
+        : [
+            {
+              id: `${current.id || card.id}-seg-0`,
+              durationSec: current.durationSec ?? current.remainingSec ?? 1500,
+              remainingSec: current.remainingSec ?? current.durationSec ?? 1500,
+            },
+          ]
+      ).map((seg) => ({ ...seg }));
+      const activeIndex = findNextActiveSegment(segments);
+      const activeSegment = segments[activeIndex];
+      if (!activeSegment || activeSegment.remainingSec <= 0) {
+        return { ...current, running: false, lastStartTs: null };
+      }
+      return {
+        ...current,
+        segments,
+        running: true,
+        lastStartTs: now,
+        remainingSecAtStart: activeSegment.remainingSec,
+        activeSegmentIndex: activeIndex,
+        overtime: false,
+      };
+    });
   };
 
   const pauseTimer = (colId, card) => {
     if (!card.running) return;
     const now = Date.now();
-    const elapsed = Math.floor((now - card.lastStartTs) / 1000);
-    const remaining = card.remainingSecAtStart - elapsed;
-    updateCard(colId, card.id, { running: false, remainingSec: remaining, remainingSecAtStart: remaining, lastStartTs: null });
+    updateCard(colId, card.id, (current) => {
+      if (!current.running || !current.lastStartTs) return current;
+      const elapsed = Math.floor((now - current.lastStartTs) / 1000);
+      const activeIndex = current.activeSegmentIndex ?? findNextActiveSegment(current.segments || []);
+      const segments = (current.segments && current.segments.length
+        ? current.segments
+        : [
+            {
+              id: `${current.id || card.id}-seg-0`,
+              durationSec: current.durationSec ?? current.remainingSec ?? 1500,
+              remainingSec: current.remainingSec ?? current.durationSec ?? 1500,
+            },
+          ]
+      ).map((seg) => ({ ...seg }));
+      const activeSegment = segments[activeIndex];
+      if (!activeSegment) {
+        return {
+          ...current,
+          segments,
+          running: false,
+          lastStartTs: null,
+          remainingSec: segments.reduce((sum, seg) => sum + (seg.remainingSec ?? seg.durationSec ?? 0), 0),
+          remainingSecAtStart: 0,
+          activeSegmentIndex: findNextActiveSegment(segments),
+          overtime: false,
+        };
+      }
+      const baseRemaining = current.remainingSecAtStart ?? activeSegment.remainingSec;
+      const remaining = clamp(baseRemaining - elapsed, 0, activeSegment.durationSec);
+      segments[activeIndex] = { ...activeSegment, remainingSec: remaining };
+      const nextActiveIndex = findNextActiveSegment(segments);
+      const totalRemaining = segments.reduce((sum, seg) => sum + (seg.remainingSec ?? 0), 0);
+      return {
+        ...current,
+        segments,
+        running: false,
+        lastStartTs: null,
+        remainingSec: totalRemaining,
+        remainingSecAtStart: segments[nextActiveIndex]?.remainingSec ?? 0,
+        activeSegmentIndex: nextActiveIndex,
+        overtime: false,
+      };
+    });
   };
 
   const resetTimer = (colId, card) => {
-    updateCard(colId, card.id, { running: false, remainingSec: card.durationSec, remainingSecAtStart: card.durationSec, lastStartTs: null, overtime: false });
+    updateCard(colId, card.id, (current) => {
+      const segments = (current.segments && current.segments.length
+        ? current.segments
+        : [
+            {
+              id: `${current.id || card.id}-seg-0`,
+              durationSec: current.durationSec ?? current.remainingSec ?? 1500,
+              remainingSec: current.remainingSec ?? current.durationSec ?? 1500,
+            },
+          ]
+      ).map((seg) => ({ ...seg, remainingSec: seg.durationSec }));
+      return {
+        ...current,
+        segments,
+        running: false,
+        lastStartTs: null,
+        remainingSecAtStart: segments[0]?.remainingSec ?? 0,
+        activeSegmentIndex: 0,
+        overtime: false,
+      };
+    });
   };
 
-  const setNewDuration = (colId, card, durationSec) => {
-    const d = clamp(Math.floor(durationSec), 5, 24 * 3600);
-    updateCard(colId, card.id, { durationSec: d, remainingSec: d, remainingSecAtStart: d, running: false, lastStartTs: null, overtime: false });
+  const setCardSegments = (colId, card, segmentDurations) => {
+    const durations = coerceSegmentDurations(segmentDurations, card.durationSec || segmentDurations?.[0] || 1500);
+    updateCard(colId, card.id, (current) => {
+      const existing = current.segments || [];
+      const segments = durations.map((sec, idx) => {
+        const prevSeg = existing[idx];
+        const remaining = prevSeg ? clamp(Math.floor(prevSeg.remainingSec ?? sec), 0, sec) : sec;
+        return {
+          id: prevSeg?.id || `${current.id || card.id}-seg-${idx}-${uid()}`,
+          durationSec: sec,
+          remainingSec: remaining,
+        };
+      });
+      const nextActiveIndex = findNextActiveSegment(segments);
+      return {
+        ...current,
+        segments,
+        running: false,
+        lastStartTs: null,
+        remainingSecAtStart: segments[nextActiveIndex]?.remainingSec ?? 0,
+        activeSegmentIndex: nextActiveIndex,
+        overtime: false,
+      };
+    });
+  };
+
+  const setCardProgress = (colId, card, remainingBySegment) => {
+    updateCard(colId, card.id, (current) => {
+      const existing = current.segments || [];
+      const segments = existing.map((seg, idx) => {
+        const nextRemaining = remainingBySegment?.[idx];
+        const safeRemaining = nextRemaining == null ? seg.remainingSec : clamp(Math.floor(nextRemaining), 0, seg.durationSec);
+        return { ...seg, remainingSec: safeRemaining };
+      });
+      const nextActiveIndex = findNextActiveSegment(segments);
+      const overtime = segments.every((seg) => (seg.remainingSec ?? 0) <= 0);
+      return {
+        ...current,
+        segments,
+        running: false,
+        lastStartTs: null,
+        remainingSecAtStart: segments[nextActiveIndex]?.remainingSec ?? 0,
+        activeSegmentIndex: nextActiveIndex,
+        overtime,
+      };
+    });
   };
 
   const doClearAll = () => { setCardsByCol({ todo: [], doing: [], done: [] }); setConfirmClearOpen(false); };
@@ -403,8 +841,41 @@ export default function KanbanTimerBoard() {
       const [item] = src.splice(idx, 1);
       const doing = [...(prev["doing"] || [])];
       const now = Date.now();
-      const updated = { ...item, running: true, lastStartTs: now, remainingSecAtStart: item.remainingSec };
-      doing.unshift(updated);
+      const segments = (item.segments && item.segments.length
+        ? item.segments
+        : [
+            {
+              id: `${item.id}-seg-0`,
+              durationSec: item.durationSec ?? item.remainingSec ?? 1500,
+              remainingSec: item.remainingSec ?? item.durationSec ?? 1500,
+            },
+          ]
+      ).map((seg) => ({ ...seg }));
+      const activeIndex = findNextActiveSegment(segments);
+      const activeSegment = segments[activeIndex];
+      const runningCard = activeSegment && activeSegment.remainingSec > 0
+        ? deriveCardFromSegments(
+            { ...item, running: true, lastStartTs: now },
+            segments,
+            {
+              running: true,
+              lastStartTs: now,
+              remainingSecAtStart: activeSegment.remainingSec,
+              activeSegmentIndex: activeIndex,
+              overtime: false,
+            }
+          )
+        : deriveCardFromSegments(
+            { ...item, running: false, lastStartTs: null },
+            segments,
+            {
+              running: false,
+              lastStartTs: null,
+              remainingSecAtStart: segments[activeIndex]?.remainingSec ?? 0,
+              activeSegmentIndex: activeIndex,
+            }
+          );
+      doing.unshift(runningCard);
       return { ...prev, todo: src, doing };
     });
   };
@@ -459,7 +930,8 @@ export default function KanbanTimerBoard() {
                   onReset={() => resetTimer(col.id, card)}
                   onRemove={() => removeCard(col.id, card.id)}
                   onEdit={() => setEditCard({ colId: col.id, card })}
-                  onSetDuration={(s) => setNewDuration(col.id, card, s)}
+                  onSetSegments={(segments) => setCardSegments(col.id, card, segments)}
+                  onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
                   index={index}
                   palette={palette}
                 />
@@ -599,55 +1071,221 @@ function Column({ column, cards, onDropCard, onAddCard, renderCard, palette }) {
   );
 }
 
-function LimitEditor({ card, onSetDuration, palette }) {
+function SegmentLimitEditor({ card, onSetSegments, palette }) {
+  const containerRef = useRef(null);
   const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState(String(Math.round(card.durationSec / 60)));
-  const inputRef = useRef(null);
-  useEffect(() => { if (editing) setTimeout(() => inputRef.current?.focus(), 0); }, [editing]);
+  const [rows, setRows] = useState(() => segmentDraftsFromSegments(card.segments));
+  const [errors, setErrors] = useState({});
 
-  if (!editing) {
-    return (
-      <button type="button" className="underline decoration-dotted underline-offset-2" style={{ color: palette.subtext }} onClick={() => setEditing(true)} title="Click to change limit">
-        Limit: {secsToHMS(card.durationSec)}
-      </button>
-    );
-  }
+  useEffect(() => {
+    if (!editing) {
+      setRows(segmentDraftsFromSegments(card.segments));
+      setErrors({});
+    }
+  }, [card, editing]);
+
+  useEffect(() => {
+    if (!editing) return;
+    const handler = (e) => {
+      if (!containerRef.current || containerRef.current.contains(e.target)) return;
+      setEditing(false);
+    };
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
+  }, [editing]);
+
+  const activeIdx = card.activeSegmentIndex ?? findNextActiveSegment(card.segments || []);
+  const totalLimit = card.durationSec ?? (card.segments || []).reduce((sum, seg) => sum + (seg.durationSec ?? 0), 0);
+  const currentLimit = card.segments?.[activeIdx]?.durationSec ?? totalLimit;
+
+  const handleSave = () => {
+    const parsed = [];
+    const nextErrors = {};
+    rows.forEach((row) => {
+      const sec = parseDurationToSeconds(row.value);
+      if (!sec || sec < MIN_SEGMENT_SEC || sec > MAX_SEGMENT_SEC) {
+        nextErrors[row.id] = "Enter 5s–24h";
+      } else {
+        parsed.push(sec);
+      }
+    });
+    if (Object.keys(nextErrors).length) {
+      setErrors(nextErrors);
+      return;
+    }
+    onSetSegments(parsed);
+    setEditing(false);
+  };
+
+  const handleAddRow = () => {
+    setRows((prev) => [...prev, { id: `draft-${uid()}`, value: prev.length ? prev[prev.length - 1].value : "25" }]);
+  };
+
+  const handleRemoveRow = (id) => {
+    setRows((prev) => prev.filter((row) => row.id !== id));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
 
   return (
-    <span className="inline-flex items-center gap-2">
-      <input
-        ref={inputRef}
-        value={val}
-        onChange={(e) => setVal(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            const sec = parseDurationToSeconds(val);
-            if (sec && sec >= 5) { onSetDuration(sec); setEditing(false); }
-          } else if (e.key === "Escape") {
-            setEditing(false); setVal(String(Math.round(card.durationSec / 60)));
-          }
-        }}
-        placeholder="e.g. 25m or 1:30"
-        className="w-28 rounded-md px-2 py-1 text-[11px] outline-none"
-        style={{ backgroundColor: "transparent", border: `1px solid ${palette.border}`, color: palette.text }}
-      />
-      <button className="rounded-md px-2 py-1 text-[11px]" style={{ border: `1px solid ${palette.border}` }} onClick={() => { const sec = parseDurationToSeconds(val); if (sec && sec >= 5) { onSetDuration(sec); setEditing(false); } }}>Save</button>
-      <button className="rounded-md px-2 py-1 text-[11px]" style={{ border: `1px solid ${palette.border}` }} onClick={() => { setEditing(false); setVal(String(Math.round(card.durationSec / 60))); }}>Cancel</button>
-    </span>
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        className="rounded px-2 py-0.5 text-xs tabular-nums"
+        style={{ color: palette.subtext, backgroundColor: "transparent", border: `1px dashed ${palette.border}` }}
+        onClick={() => setEditing((v) => !v)}
+        title="Edit segment durations"
+      >
+        {`${secsToHHMM(currentLimit || 0)}/${secsToHHMM(totalLimit || 0)}`}
+      </button>
+
+      {editing && (
+        <div
+          className="absolute z-30 mt-2 w-64 space-y-3 rounded-xl p-3"
+          style={{ backgroundColor: palette.surface, border: `1px solid ${palette.border}`, boxShadow: "0 12px 24px rgba(0,0,0,0.25)" }}
+        >
+          <h4 className="text-xs font-semibold" style={{ color: palette.text }}>Segments</h4>
+          <SegmentRowsEditor
+            rows={rows}
+            errors={errors}
+            onChange={(id, value) => {
+              setRows((prev) => prev.map((r) => (r.id === id ? { ...r, value } : r)));
+              setErrors((prev) => ({ ...prev, [id]: undefined }));
+            }}
+            onRemove={rows.length > 1 ? (id) => handleRemoveRow(id) : null}
+            palette={palette}
+            maxHeight="max-h-60"
+          />
+          <button
+            type="button"
+            className="w-full rounded-md px-2 py-1 text-xs"
+            style={{ border: `1px dashed ${palette.border}`, color: palette.subtext }}
+            onClick={handleAddRow}
+          >
+            Add segment
+          </button>
+          <div className="flex justify-end gap-2 text-xs">
+            <button type="button" className="rounded-md px-2 py-1" style={{ border: `1px solid ${palette.border}`, color: palette.subtext }} onClick={() => setEditing(false)}>Cancel</button>
+            <button type="button" className="rounded-md px-2 py-1 font-medium" style={{ backgroundColor: palette.text, color: palette.bg }} onClick={handleSave}>Save</button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
-function Card({ card, colId, onStart, onPause, onReset, onRemove, onEdit, onSetDuration, index, palette }) {
+function Card({ card, colId, onStart, onPause, onReset, onRemove, onEdit, onSetSegments, onUpdateProgress, index, palette }) {
   const ref = useRef(null);
-  const percent = (() => {
-    if (card.running && card.lastStartTs) {
-      const elapsed = (Date.now() - card.lastStartTs) / 1000; // fractional seconds for smooth bar
-      const remaining = card.remainingSecAtStart - elapsed;
-      return clamp(100 * (1 - remaining / card.durationSec), 0, 100);
-    }
-    return clamp(100 * (1 - card.remainingSec / card.durationSec), 0, 100);
+  const segments = (card.segments && card.segments.length ? card.segments : [
+    {
+      id: `${card.id}-seg-0`,
+      durationSec: card.durationSec ?? card.remainingSec ?? MIN_SEGMENT_SEC,
+      remainingSec: card.remainingSec ?? card.durationSec ?? MIN_SEGMENT_SEC,
+    },
+  ]).map((seg) => ({ ...seg }));
+  const totalDuration = segments.reduce((sum, seg) => sum + (seg.durationSec ?? 0), 0) || 1;
+  const totalRemaining = segments.reduce((sum, seg) => sum + (seg.remainingSec ?? 0), 0);
+  const baseIsOver = totalRemaining <= 0;
+  const activeIdx = card.activeSegmentIndex ?? findNextActiveSegment(segments);
+  const activeRemaining = (() => {
+    const base = card.computedActiveRemaining ?? segments[activeIdx]?.remainingSec ?? 0;
+    return Math.max(base, 0);
   })();
-  const isOver = card.remainingSec <= 0;
+  const barRef = useRef(null);
+  const dragPointerIdRef = useRef(null);
+  const [dragState, setDragState] = useState({ active: false, ratio: 0, displaySec: 0 });
+
+  const computeRemainingFromRatio = (ratio) => {
+    let spent = totalDuration * clamp(ratio, 0, 1);
+    return segments.map((seg) => {
+      if (spent <= 0) return seg.durationSec;
+      if (spent >= seg.durationSec) {
+        spent -= seg.durationSec;
+        return 0;
+      }
+      const remaining = seg.durationSec - spent;
+      spent = 0;
+      return remaining;
+    });
+  };
+
+  const getRatioFromEvent = (event) => {
+    if (!barRef.current) return 0;
+    const rect = barRef.current.getBoundingClientRect();
+    const ratio = (event.clientX - rect.left) / rect.width;
+    return clamp(ratio, 0, 1);
+  };
+
+  const updateDrag = (ratio) => {
+    setDragState({ active: true, ratio, displaySec: Math.max(totalDuration - ratio * totalDuration, 0) });
+  };
+
+  const handlePointerDown = (event) => {
+    if (!onUpdateProgress) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const ratio = getRatioFromEvent(event);
+    dragPointerIdRef.current = event.pointerId;
+    barRef.current?.setPointerCapture?.(event.pointerId);
+    updateDrag(ratio);
+  };
+
+  const handlePointerMove = (event) => {
+    if (dragPointerIdRef.current !== event.pointerId) return;
+    const ratio = getRatioFromEvent(event);
+    updateDrag(ratio);
+  };
+
+  const commitDrag = (ratio) => {
+    if (!onUpdateProgress) return;
+    const remainingArray = computeRemainingFromRatio(ratio);
+    onUpdateProgress(remainingArray);
+  };
+
+  const resetDragState = () => {
+    dragPointerIdRef.current = null;
+    setDragState({ active: false, ratio: 0, displaySec: 0 });
+  };
+
+  const handlePointerUp = (event) => {
+    if (dragPointerIdRef.current !== event.pointerId) return;
+    const ratio = getRatioFromEvent(event);
+    barRef.current?.releasePointerCapture?.(event.pointerId);
+    commitDrag(ratio);
+    resetDragState();
+  };
+
+  const handlePointerCancel = (event) => {
+    if (dragPointerIdRef.current !== event.pointerId) return;
+    barRef.current?.releasePointerCapture?.(event.pointerId);
+    resetDragState();
+  };
+
+  const previewRemainings = dragState.active ? computeRemainingFromRatio(dragState.ratio) : null;
+
+  const visualProgressList = dragState.active
+    ? segments.map((seg, idx) => {
+        const rem = previewRemainings[idx];
+        return seg.durationSec ? clamp(1 - rem / seg.durationSec, 0, 1) : 0;
+      })
+    : segments.map((seg) => {
+        const rem = seg.remainingSec ?? 0;
+        return seg.durationSec ? clamp(1 - rem / seg.durationSec, 0, 1) : 0;
+      });
+
+  const visualSegmentsForIndex = dragState.active
+    ? segments.map((seg, idx) => ({ ...seg, remainingSec: previewRemainings[idx] }))
+    : segments;
+
+  const visualActiveIndex = findNextActiveSegment(visualSegmentsForIndex);
+  const visualActiveRemaining = dragState.active ? previewRemainings[visualActiveIndex] ?? 0 : activeRemaining;
+  const visualTotalRemaining = dragState.active
+    ? previewRemainings.reduce((sum, val) => sum + val, 0)
+    : card.remainingSec ?? totalRemaining;
+  const isOver = dragState.active ? visualTotalRemaining <= 0 : baseIsOver;
 
   const onDragStart = (e) => {
     e.dataTransfer.setData("application/x-card", JSON.stringify({ cardId: card.id, fromCol: colId, fromIndex: index }));
@@ -678,13 +1316,72 @@ function Card({ card, colId, onStart, onPause, onReset, onRemove, onEdit, onSetD
       </div>
 
       <div className="mb-2">
-        <div className="relative h-2 w-full overflow-hidden rounded-full" style={{ backgroundColor: palette.barBg }}>
-          <div className="absolute left-0 top-0 h-full transition-all duration-200" style={{ width: `${percent}%`, backgroundColor: isOver ? '#fda4af' : palette.barFill }} />
+        <div
+          ref={barRef}
+          draggable={false}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          className="relative flex h-2 w-full cursor-ew-resize items-stretch gap-[2px] select-none"
+        >
+          {dragState.active && (
+            <>
+              <div
+                className="pointer-events-none absolute -top-6 rounded-full px-2 py-1 text-[10px] font-medium"
+                style={{
+                  left: `${dragState.ratio * 100}%`,
+                  transform: 'translateX(-50%)',
+                  backgroundColor: palette.surface,
+                  border: `1px solid ${palette.border}`,
+                  color: palette.text,
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+                }}
+              >
+                {secsToHMS(Math.round(dragState.displaySec))}
+              </div>
+              <div
+                className="pointer-events-none absolute inset-y-[-4px] w-px"
+                style={{
+                  left: `${dragState.ratio * 100}%`,
+                  transform: 'translateX(-0.5px)',
+                  backgroundColor: palette.text,
+                  opacity: 0.6,
+                }}
+              />
+            </>
+          )}
+          {segments.map((seg, idx) => {
+            const progress = visualProgressList[idx] ?? 0;
+            const isActive = idx === visualActiveIndex;
+            return (
+              <div
+                key={seg.id || `${card.id}-seg-${idx}`}
+                className="relative flex-1 overflow-hidden rounded-full"
+                style={{
+                  backgroundColor: palette.barBg,
+                  flexGrow: seg.durationSec || 1,
+                  boxShadow: isActive ? `0 0 0 1px ${palette.text} inset` : "none",
+                }}
+              >
+                <div
+                  className="absolute inset-y-0 left-0"
+                  style={{
+                    width: `${progress * 100}%`,
+                    backgroundColor: isOver ? '#fda4af' : palette.barFill,
+                    transition: 'width 0.2s ease',
+                  }}
+                />
+              </div>
+            );
+          })}
         </div>
         <div className="mt-1 flex items-center justify-between text-xs" style={{ color: palette.subtext }}>
-          <LimitEditor card={card} onSetDuration={(sec) => onSetDuration(sec)} palette={palette} />
+          <SegmentLimitEditor card={card} onSetSegments={onSetSegments} palette={palette} />
           <span className={`${isOver ? "font-semibold" : ""}`} style={{ color: isOver ? '#b91c1c' : palette.subtext }}>
-            {isOver ? `Over: ${secsToHMS(-card.remainingSec)}` : `Left: ${secsToHMS(card.remainingSec)}`}
+            {isOver
+              ? `Over: ${secsToHMS(Math.abs(visualTotalRemaining ?? 0))}`
+              : `Left: ${secsToHMS(Math.max(visualActiveRemaining, 0))}/${secsToHMS(Math.max(visualTotalRemaining, 0))}`}
           </span>
         </div>
       </div>
@@ -714,13 +1411,73 @@ function NewCardModal({ defaultCol, onClose, onCreate, columns, palette }) {
   const [colId, setColId] = useState(defaultCol);
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
-  const [mins, setMins] = useState("25");
+  const [limitInput, setLimitInput] = useState("25");
+  const [useSegments, setUseSegments] = useState(false);
+  const [segmentRows, setSegmentRows] = useState(() => segmentDraftsFromSegments([]));
+  const [segmentErrors, setSegmentErrors] = useState({});
+
+  useEffect(() => {
+    if (!useSegments) setSegmentErrors({});
+  }, [useSegments]);
+
+  const handleSegmentChange = (id, value) => {
+    setSegmentRows((prev) => prev.map((row) => (row.id === id ? { ...row, value } : row)));
+    setSegmentErrors((prev) => ({ ...prev, [id]: undefined }));
+  };
+
+  const handleRemoveSegment = (id) => {
+    setSegmentRows((prev) => (prev.length <= 1 ? prev : prev.filter((row) => row.id !== id)));
+    setSegmentErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const handleAddSegment = () => {
+    setSegmentRows((prev) => [...prev, { id: `draft-${uid()}`, value: prev.length ? prev[prev.length - 1].value : "25" }]);
+  };
 
   const submit = () => {
     const parsed = parseTimeFromTitle(title);
-    const fallback = clamp(parseInt(mins || "25", 10) * 60, 5, 24 * 3600);
-    const effective = parsed.durationSec != null ? clamp(parsed.durationSec, 5, 24 * 3600) : fallback;
-    onCreate(colId, { title: parsed.cleanTitle, notes, durationSec: effective });
+    let segments = [];
+
+    if (useSegments) {
+      const nextErrors = {};
+      const parsedSegments = [];
+      segmentRows.forEach((row) => {
+        const sec = parseDurationToSeconds(row.value);
+        if (!sec || sec < MIN_SEGMENT_SEC || sec > MAX_SEGMENT_SEC) {
+          nextErrors[row.id] = "Enter 5s–24h";
+        } else {
+          parsedSegments.push(clamp(sec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC));
+        }
+      });
+      if (Object.keys(nextErrors).length) {
+        setSegmentErrors(nextErrors);
+        return;
+      }
+      segments = parsedSegments;
+    } else if (parsed.segments?.length > 1) {
+      segments = parsed.segments.map((sec) => clamp(sec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC));
+    } else if (parsed.durationSec != null) {
+      segments = [clamp(parsed.durationSec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC)];
+    } else {
+      const manualSec = parseDurationToSeconds(limitInput);
+      const fallback = clamp(
+        manualSec != null ? manualSec : parseInt(limitInput || "25", 10) * 60,
+        MIN_SEGMENT_SEC,
+        MAX_SEGMENT_SEC
+      );
+      segments = [fallback];
+    }
+
+    if (!segments.length) {
+      segments = [MIN_SEGMENT_SEC];
+    }
+    setSegmentErrors({});
+    const total = segments.reduce((acc, sec) => acc + sec, 0);
+    onCreate(colId, { title: parsed.cleanTitle, notes, durationSec: total, segments });
   };
 
   return (
@@ -763,15 +1520,44 @@ function NewCardModal({ defaultCol, onClose, onCreate, columns, palette }) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium" style={{ color: palette.subtext }}>Time limit (minutes)</label>
-            <input
-              value={mins}
-              onChange={(e) => setMins(e.target.value.replace(/[^0-9]/g, ""))}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
-              className="mt-1 w-full rounded-xl px-3 py-2 text-sm outline-none"
-              inputMode="numeric"
-              style={{ backgroundColor: 'transparent', border: `1px solid ${palette.border}`, color: palette.text }}
-            />
+            <label className="block text-xs font-medium" style={{ color: palette.subtext }}>Timing</label>
+            <div className="mt-1 flex items-center gap-3 text-xs" style={{ color: palette.subtext }}>
+              <label className="inline-flex items-center gap-1">
+                <input type="radio" checked={!useSegments} onChange={() => setUseSegments(false)} /> Single limit
+              </label>
+              <label className="inline-flex items-center gap-1">
+                <input type="radio" checked={useSegments} onChange={() => setUseSegments(true)} /> Segments
+              </label>
+            </div>
+            {!useSegments ? (
+              <input
+                value={limitInput}
+                onChange={(e) => setLimitInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
+                className="mt-2 w-full rounded-xl px-3 py-2 text-sm outline-none"
+                placeholder="25 or 1:00"
+                style={{ backgroundColor: 'transparent', border: `1px solid ${palette.border}`, color: palette.text }}
+              />
+            ) : (
+              <div className="mt-2 space-y-2">
+                <SegmentRowsEditor
+                  rows={segmentRows}
+                  errors={segmentErrors}
+                  onChange={handleSegmentChange}
+                  onRemove={segmentRows.length > 1 ? handleRemoveSegment : null}
+                  palette={palette}
+                  showIndex={true}
+                />
+                <button
+                  type="button"
+                  className="w-full rounded-md px-2 py-1 text-xs"
+                  style={{ border: `1px dashed ${palette.border}`, color: palette.subtext }}
+                  onClick={handleAddSegment}
+                >
+                  Add segment
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
@@ -786,12 +1572,85 @@ function NewCardModal({ defaultCol, onClose, onCreate, columns, palette }) {
 function EditCardModal({ card, onClose, onSave, palette }) {
   const [title, setTitle] = useState(card.title);
   const [notes, setNotes] = useState(card.notes || "");
-  const [mins, setMins] = useState(String(Math.round(card.durationSec / 60)));
+  const [limitInput, setLimitInput] = useState(formatSegmentForInput(card.durationSec || MIN_SEGMENT_SEC));
+  const [useSegments, setUseSegments] = useState((card.segments?.length || 0) > 1);
+  const [segmentRows, setSegmentRows] = useState(() => segmentDraftsFromSegments(card.segments));
+  const [segmentErrors, setSegmentErrors] = useState({});
+  const [limitError, setLimitError] = useState("");
+
+  useEffect(() => {
+    if (!useSegments) setSegmentErrors({});
+  }, [useSegments]);
+
+  const handleSegmentChange = (id, value) => {
+    setSegmentRows((prev) => prev.map((row) => (row.id === id ? { ...row, value } : row)));
+    setSegmentErrors((prev) => ({ ...prev, [id]: undefined }));
+  };
+
+  const handleRemoveSegment = (id) => {
+    setSegmentRows((prev) => (prev.length <= 1 ? prev : prev.filter((row) => row.id !== id)));
+    setSegmentErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const handleAddSegment = () => {
+    setSegmentRows((prev) => [...prev, { id: `draft-${uid()}`, value: prev.length ? prev[prev.length - 1].value : formatSegmentForInput(MIN_SEGMENT_SEC) }]);
+  };
 
   const submit = () => {
-    const durationSec = clamp(parseInt(mins || "25", 10) * 60, 5, 24 * 3600);
-    const running = false;
-    onSave({ title, notes, durationSec, remainingSec: durationSec, remainingSecAtStart: durationSec, running, lastStartTs: null, overtime: false });
+    let durations = [];
+
+    if (useSegments) {
+      const nextErrors = {};
+      segmentRows.forEach((row) => {
+        const sec = parseDurationToSeconds(row.value);
+        if (!sec || sec < MIN_SEGMENT_SEC || sec > MAX_SEGMENT_SEC) {
+          nextErrors[row.id] = "Enter 5s–24h";
+        } else {
+          durations.push(clamp(sec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC));
+        }
+      });
+      if (Object.keys(nextErrors).length) {
+        setSegmentErrors(nextErrors);
+        return;
+      }
+    } else {
+      const sec = parseDurationToSeconds(limitInput);
+      if (!sec || sec < MIN_SEGMENT_SEC || sec > MAX_SEGMENT_SEC) {
+        setLimitError("Enter 5s–24h");
+        return;
+      }
+      setLimitError("");
+      durations = [clamp(sec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC)];
+    }
+
+    if (!durations.length) durations = [MIN_SEGMENT_SEC];
+
+    const segmentsPayload = durations.map((sec, idx) => {
+      const existing = card.segments?.[idx];
+      const remaining = existing ? clamp(Math.floor(existing.remainingSec ?? sec), 0, sec) : sec;
+      return {
+        id: existing?.id || `${card.id}-seg-${idx}-${uid()}`,
+        durationSec: sec,
+        remainingSec: remaining,
+      };
+    });
+
+    const nextActiveIndex = findNextActiveSegment(segmentsPayload);
+
+    onSave({
+      title,
+      notes,
+      segments: segmentsPayload,
+      running: false,
+      lastStartTs: null,
+      remainingSecAtStart: segmentsPayload[nextActiveIndex]?.remainingSec ?? 0,
+      activeSegmentIndex: nextActiveIndex,
+      overtime: false,
+    });
   };
 
   return (
@@ -820,15 +1679,47 @@ function EditCardModal({ card, onClose, onSave, palette }) {
           />
         </div>
         <div>
-          <label className="block text-xs font-medium" style={{ color: palette.subtext }}>Time limit (minutes)</label>
-          <input
-            value={mins}
-            onChange={(e) => setMins(e.target.value.replace(/[^0-9]/g, ""))}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
-            className="mt-1 w-full rounded-xl px-3 py-2 text-sm outline-none"
-            inputMode="numeric"
-            style={{ backgroundColor: 'transparent', border: `1px solid ${palette.border}`, color: palette.text }}
-          />
+          <label className="block text-xs font-medium" style={{ color: palette.subtext }}>Timing</label>
+          <div className="mt-1 flex items-center gap-3 text-xs" style={{ color: palette.subtext }}>
+            <label className="inline-flex items-center gap-1">
+              <input type="radio" checked={!useSegments} onChange={() => setUseSegments(false)} /> Single limit
+            </label>
+            <label className="inline-flex items-center gap-1">
+              <input type="radio" checked={useSegments} onChange={() => setUseSegments(true)} /> Segments
+            </label>
+          </div>
+          {!useSegments ? (
+            <>
+              <input
+                value={limitInput}
+                onChange={(e) => setLimitInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
+                className="mt-2 w-full rounded-xl px-3 py-2 text-sm outline-none"
+                placeholder="25 or 1:00"
+                style={{ backgroundColor: 'transparent', border: `1px solid ${palette.border}`, color: palette.text }}
+              />
+              {limitError ? <p className="mt-1 text-[11px]" style={{ color: palette.dangerText }}>{limitError}</p> : null}
+            </>
+          ) : (
+            <div className="mt-2 space-y-2">
+              <SegmentRowsEditor
+                rows={segmentRows}
+                errors={segmentErrors}
+                onChange={handleSegmentChange}
+                onRemove={segmentRows.length > 1 ? handleRemoveSegment : null}
+                palette={palette}
+                showIndex={true}
+              />
+              <button
+                type="button"
+                className="w-full rounded-md px-2 py-1 text-xs"
+                style={{ border: `1px dashed ${palette.border}`, color: palette.subtext }}
+                onClick={handleAddSegment}
+              >
+                Add segment
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <button onClick={onClose} className="rounded-xl px-3 py-2 text-sm" style={{ border: `1px solid ${palette.border}` }}>Cancel</button>
