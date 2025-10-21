@@ -45,6 +45,8 @@ export default function KanbanTimerBoard() {
   useEffect(() => saveTheme(theme), [theme]);
   useEffect(() => saveSound(sound), [sound]);
 
+  const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+
   const isDark = theme === "dark";
   const palette = useMemo(
     () => ({
@@ -698,12 +700,9 @@ export default function KanbanTimerBoard() {
   return (
     <div className="min-h-screen w-full" style={{ backgroundColor: palette.bg, color: palette.text }}>
       <Header
-        filter={filter}
-        setFilter={setFilter}
-        onAdd={() => setShowNewCard(true)}
         onClear={() => setConfirmClearOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
-        runningCount={runningCount}
+        onToggleTheme={toggleTheme}
         palette={palette}
         theme={theme}
       />
