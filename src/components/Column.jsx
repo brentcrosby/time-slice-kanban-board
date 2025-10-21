@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { secsToHHMM } from "../utils/time";
+import { secsToHMS } from "../utils/time";
 
 export function Column({ column, cards, onDropCard, onAddCard, renderCard, palette }) {
   const [dropIndex, setDropIndex] = useState(null);
@@ -76,7 +76,7 @@ export function Column({ column, cards, onDropCard, onAddCard, renderCard, palet
             title="Total planned time"
             style={{ backgroundColor: palette.badge, color: palette.text }}
           >
-            {secsToHHMM(totalSecs)}
+            {secsToHMS(totalSecs)}
           </span>
         </h2>
       </header>

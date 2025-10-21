@@ -13,13 +13,6 @@ export const secsToHMS = (s) => {
   return `${sign}${m}:${pad2(sec)}`;
 };
 
-export const secsToHHMM = (s) => {
-  s = Math.max(0, Math.floor(s || 0));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return `${pad2(h)}:${pad2(m)}`;
-};
-
 // Parse free-form duration like 90, 25m, 1:30, 1h 20m, 2h
 export function parseDurationToSeconds(input) {
   const str = String(input ?? "").trim().toLowerCase();
