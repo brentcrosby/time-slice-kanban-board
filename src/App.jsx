@@ -15,7 +15,7 @@ import {
   findNextActiveSegment,
   upgradeLegacyCard,
 } from "./utils/segments";
-import { createAudioCtx, playChime } from "./utils/audio";
+import { ensureAudioContext, playChime } from "./utils/audio";
 import { loadSound, loadState, loadTheme, saveSound, saveState, saveTheme } from "./utils/storage";
 
 export default function KanbanTimerBoard() {
@@ -67,6 +67,8 @@ export default function KanbanTimerBoard() {
 
   const startLoopingChime = () => {
     if (loopRef.current.id) return;
+    const ctx = ensureAudioContext(audioRef);
+    if (!ctx) return;
     setChimeActive(true);
     playChime(audioRef, { type: sound.type, volume: sound.volume });
     loopRef.current.id = setInterval(
@@ -85,8 +87,11 @@ export default function KanbanTimerBoard() {
 
   useEffect(() => {
     const arm = () => {
-      if (!audioRef.current) audioRef.current = createAudioCtx();
-      audioRef.current?.resume?.();
+      const ctx = ensureAudioContext(audioRef);
+      const maybePromise = ctx?.resume?.();
+      if (maybePromise && typeof maybePromise.catch === "function") {
+        maybePromise.catch(() => {});
+      }
       window.removeEventListener("pointerdown", arm);
     };
     window.addEventListener("pointerdown", arm, { once: true });

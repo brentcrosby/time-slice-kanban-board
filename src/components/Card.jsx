@@ -34,10 +34,8 @@ export function Card({
   const totalRemaining = segments.reduce((sum, seg) => sum + (seg.remainingSec ?? 0), 0);
   const baseIsOver = totalRemaining <= 0;
   const activeIdx = card.activeSegmentIndex ?? findNextActiveSegment(segments);
-  const activeRemaining = (() => {
-    const base = card.computedActiveRemaining ?? segments[activeIdx]?.remainingSec ?? 0;
-    return Math.max(base, 0);
-  })();
+  const activeRemainingRaw = card.computedActiveRemaining ?? segments[activeIdx]?.remainingSec ?? 0;
+  const activeRemaining = Math.max(activeRemainingRaw, 0);
   const barRef = useRef(null);
   const dragPointerIdRef = useRef(null);
   const [dragState, setDragState] = useState({ active: false, ratio: 0, displaySec: 0 });
@@ -125,7 +123,7 @@ export function Card({
     : segments;
 
   const visualActiveIndex = findNextActiveSegment(visualSegmentsForIndex);
-  const visualActiveRemaining = dragState.active ? previewRemainings[visualActiveIndex] ?? 0 : activeRemaining;
+  const visualActiveRemaining = dragState.active ? previewRemainings[visualActiveIndex] ?? 0 : activeRemainingRaw;
   const visualTotalRemaining = dragState.active
     ? previewRemainings.reduce((sum, val) => sum + val, 0)
     : card.remainingSec ?? totalRemaining;
@@ -231,11 +229,9 @@ export function Card({
         <div className="mt-1 flex items-center justify-between text-xs" style={{ color: palette.subtext }}>
           <SegmentLimitEditor card={card} onSetSegments={onSetSegments} palette={palette} />
           <span className={`${isOver ? "font-semibold" : ""}`} style={{ color: isOver ? "#b91c1c" : palette.subtext }}>
-            {isOver
-              ? `Over: ${secsToHMS(Math.abs(visualTotalRemaining ?? 0))}`
-              : `Left: ${secsToHMS(Math.max(visualActiveRemaining, 0))}/${secsToHMS(
-                  Math.max(visualTotalRemaining, 0)
-                )}`}
+            {visualActiveRemaining < 0
+              ? `Over: ${secsToHMS(Math.abs(visualActiveRemaining))}`
+              : `Left: ${secsToHMS(Math.max(visualActiveRemaining, 0))}`}
           </span>
         </div>
       </div>

@@ -33,13 +33,13 @@ export function Column({ column, cards, onDropCard, onAddCard, renderCard, palet
 
   return (
     <section
-      className="flex min-h-[60vh] flex-col rounded-2xl p-3 shadow-sm border"
+      className="flex flex-col gap-3 rounded-2xl border p-4 shadow-sm transition-shadow"
       style={{ backgroundColor: palette.surface, borderColor: palette.border }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <header className="mb-2 flex items-center justify-between">
+      <header className="flex items-center">
         <h2 className="text-sm font-semibold tracking-tight flex items-center" style={{ color: palette.text }}>
           {column.name}
           <span
@@ -56,17 +56,19 @@ export function Column({ column, cards, onDropCard, onAddCard, renderCard, palet
             {secsToHHMM(totalSecs)}
           </span>
         </h2>
-        <button
-          onClick={onAddCard}
-          className="rounded-lg px-2 py-1 text-xs"
-          style={{ border: `1px solid ${palette.border}` }}
-        >
-          Add
-        </button>
       </header>
-      <div data-list className="flex flex-1 flex-col gap-3">
+      <div data-list className="flex flex-col gap-3">
         {cards.map((card, index) => renderCard(card, index))}
       </div>
+      <button
+        type="button"
+        onClick={onAddCard}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium transition"
+        style={{ backgroundColor: palette.card, borderColor: palette.border, color: palette.subtext }}
+      >
+        <span className="text-lg leading-none">+</span>
+        <span>Add card</span>
+      </button>
     </section>
   );
 }

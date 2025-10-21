@@ -6,9 +6,31 @@ export function createAudioCtx() {
   return new AudioContextCtor();
 }
 
-export function playChime(ctxRef, { type = "ping", volume = 0.7 } = {}) {
-  const ctx = ctxRef.current;
+export function ensureAudioContext(ctxRef) {
+  if (!ctxRef) return null;
+  if (!ctxRef.current || ctxRef.current.state === "closed") {
+    ctxRef.current = createAudioCtx();
+  }
+  return ctxRef.current;
+}
+
+export function playChime(ctxRef, { type = "ping", volume = 0.7 } = {}, attempt = 0) {
+  const ctx = ensureAudioContext(ctxRef);
   if (!ctx) return;
+  if (ctx.state !== "running") {
+    if (attempt > 2) return;
+    try {
+      const resumeResult = ctx.resume?.();
+      if (resumeResult && typeof resumeResult.then === "function") {
+        resumeResult
+          .then(() => playChime(ctxRef, { type, volume }, attempt + 1))
+          .catch(() => {});
+      }
+    } catch {
+      // Ignore resume errors; if resume fails we simply bail for this attempt.
+    }
+    return;
+  }
   const start = ctx.currentTime;
   const master = ctx.createGain();
   master.gain.value = clamp(volume, 0, 1);

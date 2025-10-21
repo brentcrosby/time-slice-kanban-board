@@ -3,7 +3,7 @@ import { SegmentRowsEditor } from "./SegmentRowsEditor";
 import { MIN_SEGMENT_SEC, MAX_SEGMENT_SEC } from "../constants";
 import { findNextActiveSegment, segmentDraftsFromSegments } from "../utils/segments";
 import { uid } from "../utils/misc";
-import { parseDurationToSeconds, secsToHHMM } from "../utils/time";
+import { parseDurationToSeconds, secsToHMS } from "../utils/time";
 
 export function SegmentLimitEditor({ card, onSetSegments, palette }) {
   const containerRef = useRef(null);
@@ -78,7 +78,7 @@ export function SegmentLimitEditor({ card, onSetSegments, palette }) {
         onClick={() => setEditing((v) => !v)}
         title="Edit segment durations"
       >
-        {`${secsToHHMM(currentLimit || 0)}/${secsToHHMM(totalLimit || 0)}`}
+        {secsToHMS(currentLimit || 0)}
       </button>
 
       {editing && (
