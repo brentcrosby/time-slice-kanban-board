@@ -148,6 +148,7 @@ export function Card({
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      data-card-id={card.id}
       className={`group rounded-xl p-3 shadow-sm transition ${isOver ? "ring-1" : ""}`}
       style={{ backgroundColor: palette.card, border: `1px solid ${palette.border}` }}
     >

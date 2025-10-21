@@ -394,15 +394,24 @@ export default function KanbanTimerBoard() {
   };
 
   const moveCard = (fromCol, toCol, cardId, index = null) => {
-    if (fromCol === toCol) return;
     setCardsByCol((prev) => {
       const src = [...(prev[fromCol] || [])];
       const idx = src.findIndex((c) => c.id === cardId);
       if (idx === -1) return prev;
       const [card] = src.splice(idx, 1);
+      if (fromCol === toCol) {
+        let targetIndex = typeof index === "number" ? index : src.length;
+        if (targetIndex < 0) targetIndex = 0;
+        if (idx < targetIndex) targetIndex -= 1;
+        if (targetIndex < 0) targetIndex = 0;
+        if (targetIndex > src.length) targetIndex = src.length;
+        src.splice(targetIndex, 0, card);
+        return { ...prev, [fromCol]: src };
+      }
       const dest = [...(prev[toCol] || [])];
-      if (index === null || index < 0 || index > dest.length) dest.push(card);
-      else dest.splice(index, 0, card);
+      let targetIndex = typeof index === "number" ? index : dest.length;
+      if (targetIndex < 0 || targetIndex > dest.length) targetIndex = dest.length;
+      dest.splice(targetIndex, 0, card);
       return { ...prev, [fromCol]: src, [toCol]: dest };
     });
   };

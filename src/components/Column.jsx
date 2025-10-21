@@ -1,35 +1,58 @@
-import React from "react";
+import React, { useState } from "react";
 import { secsToHHMM } from "../utils/time";
 
 export function Column({ column, cards, onDropCard, onAddCard, renderCard, palette }) {
-  const handleDragOver = (event) => {
-    event.preventDefault();
-    event.currentTarget.classList.add("ring", "ring-neutral-700");
-  };
+  const [dropIndex, setDropIndex] = useState(null);
 
-  const handleDragLeave = (event) => {
-    event.currentTarget.classList.remove("ring", "ring-neutral-700");
-  };
-
-  const handleDrop = (event) => {
-    event.preventDefault();
-    event.currentTarget.classList.remove("ring", "ring-neutral-700");
-    const payload = JSON.parse(event.dataTransfer.getData("application/x-card"));
+  const findInsertIndex = (event) => {
     const list = event.currentTarget.querySelector("[data-list]");
-    const children = Array.from(list.children);
-    let insertIndex = children.length;
+    if (!list) return null;
+    const items = Array.from(list.querySelectorAll("[data-card-id]"));
     const y = event.clientY;
-    for (let i = 0; i < children.length; i += 1) {
-      const rect = children[i].getBoundingClientRect();
+    let insertIndex = items.length;
+    for (let i = 0; i < items.length; i += 1) {
+      const rect = items[i].getBoundingClientRect();
       if (y < rect.top + rect.height / 2) {
         insertIndex = i;
         break;
       }
     }
-    onDropCard(payload.cardId, payload.fromCol, insertIndex);
+    return insertIndex;
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    event.currentTarget.classList.add("ring", "ring-neutral-700");
+    const insertIndex = findInsertIndex(event);
+    if (insertIndex !== null) setDropIndex(insertIndex);
+    else setDropIndex(null);
+  };
+
+  const handleDragLeave = (event) => {
+    if (event.currentTarget.contains(event.relatedTarget)) return;
+    event.currentTarget.classList.remove("ring", "ring-neutral-700");
+    setDropIndex(null);
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    event.currentTarget.classList.remove("ring", "ring-neutral-700");
+    const insertIndex = findInsertIndex(event);
+    setDropIndex(null);
+    const payload = JSON.parse(event.dataTransfer.getData("application/x-card"));
+    onDropCard(payload.cardId, payload.fromCol, insertIndex ?? cards.length);
   };
 
   const totalSecs = (cards || []).reduce((acc, c) => acc + (c?.durationSec || 0), 0);
+
+  const renderDropIndicator = (position) => (
+    <div
+      key={`drop-indicator-${position}`}
+      data-drop-indicator="true"
+      className="pointer-events-none h-0 border-t-2 border-dashed"
+      style={{ borderColor: palette.text, opacity: 0.6 }}
+    />
+  );
 
   return (
     <section
@@ -58,7 +81,13 @@ export function Column({ column, cards, onDropCard, onAddCard, renderCard, palet
         </h2>
       </header>
       <div data-list className="flex flex-col gap-3">
-        {cards.map((card, index) => renderCard(card, index))}
+        {cards.map((card, index) => (
+          <React.Fragment key={card.id}>
+            {dropIndex === index ? renderDropIndicator(index) : null}
+            {renderCard(card, index)}
+          </React.Fragment>
+        ))}
+        {dropIndex !== null && dropIndex >= cards.length ? renderDropIndicator("end") : null}
       </div>
       <button
         type="button"
