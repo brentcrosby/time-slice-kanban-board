@@ -83,7 +83,9 @@ export function SegmentLimitEditor({ card, onSetSegments, palette }) {
         onClick={() => setEditing((v) => !v)}
         title="Edit segment durations"
       >
-        {`${secsToHMS(currentSegmentTotalSec)}/${secsToHMS(totalLimitSec)}`}
+        {segments.length <= 1
+          ? secsToHMS(totalLimitSec)
+          : `${secsToHMS(currentSegmentTotalSec)}/${secsToHMS(totalLimitSec)}`}
       </button>
 
       {editing && (
