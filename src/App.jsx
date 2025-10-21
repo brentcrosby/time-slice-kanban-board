@@ -708,7 +708,7 @@ export default function KanbanTimerBoard() {
       />
 
       <div className="mx-auto max-w-7xl p-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 items-start">
           {columns.map((col) => (
             <Column
               key={col.id}
