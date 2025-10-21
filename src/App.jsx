@@ -432,6 +432,7 @@ export default function KanbanTimerBoard() {
     badge: isDark ? "#262626" : "#f3f4f6",
     barBg: isDark ? "#262626" : "#e5e7eb",
     barFill: isDark ? "#e5e5e5" : "#111827",
+    barOutline: isDark ? "#4b5563" : "#d1d5db",
     dangerBg: isDark ? "#7f1d1d" : "#fee2e2",
     dangerText: isDark ? "#fecaca" : "#b91c1c",
   }), [isDark]);
@@ -1361,7 +1362,7 @@ function Card({ card, colId, onStart, onPause, onReset, onRemove, onEdit, onSetS
                 style={{
                   backgroundColor: palette.barBg,
                   flexGrow: seg.durationSec || 1,
-                  boxShadow: isActive ? `0 0 0 1px ${palette.text} inset` : "none",
+                  boxShadow: isActive ? `0 0 0 1px ${palette.barOutline} inset` : "none",
                 }}
               >
                 <div
