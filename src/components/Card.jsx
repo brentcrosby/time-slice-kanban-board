@@ -214,7 +214,6 @@ export function Card({
                 style={{
                   backgroundColor: palette.barBg,
                   flexGrow: seg.durationSec || 1,
-                  boxShadow: isActive ? `0 0 0 1px ${palette.barOutline} inset` : "none",
                 }}
               >
                 <div
