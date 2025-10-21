@@ -28,9 +28,14 @@ export function SegmentLimitEditor({ card, onSetSegments, palette }) {
     return () => document.removeEventListener("pointerdown", handler);
   }, [editing]);
 
-  const activeIdx = card.activeSegmentIndex ?? findNextActiveSegment(card.segments || []);
-  const totalLimit = card.durationSec ?? (card.segments || []).reduce((sum, seg) => sum + (seg.durationSec ?? 0), 0);
-  const currentLimit = card.segments?.[activeIdx]?.durationSec ?? totalLimit;
+  const segments = card.segments || [];
+  const totalLimit =
+    card.durationSec ?? segments.reduce((sum, seg) => sum + (seg.durationSec ?? 0), 0);
+  const totalLimitSec = Math.max(totalLimit ?? 0, 0);
+  const activeIdx = card.activeSegmentIndex ?? findNextActiveSegment(segments);
+  const currentSegmentTotal =
+    segments?.[activeIdx]?.durationSec ?? segments?.[0]?.durationSec ?? totalLimitSec;
+  const currentSegmentTotalSec = Math.max(currentSegmentTotal ?? 0, 0);
 
   const handleSave = () => {
     const parsed = [];
@@ -78,7 +83,7 @@ export function SegmentLimitEditor({ card, onSetSegments, palette }) {
         onClick={() => setEditing((v) => !v)}
         title="Edit segment durations"
       >
-        {secsToHMS(currentLimit || 0)}
+        {`${secsToHMS(currentSegmentTotalSec)}/${secsToHMS(totalLimitSec)}`}
       </button>
 
       {editing && (
