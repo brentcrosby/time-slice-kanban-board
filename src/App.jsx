@@ -19,9 +19,12 @@ import { ensureAudioContext, playChime } from "./utils/audio";
 import { loadSound, loadState, loadTheme, saveSound, saveState, saveTheme } from "./utils/storage";
 
 export default function KanbanTimerBoard() {
+  const initialStoredStateRef = useRef(loadState());
+  const initialStoredState = initialStoredStateRef.current;
+
   const [columns] = useState(DEFAULT_COLUMNS);
   const [cardsByCol, setCardsByCol] = useState(() => {
-    const stored = loadState()?.cardsByCol || {};
+    const stored = initialStoredState?.cardsByCol || {};
     const initial = {};
     DEFAULT_COLUMNS.forEach((col) => {
       initial[col.id] = (stored[col.id] || []).map(upgradeLegacyCard);
@@ -38,6 +41,7 @@ export default function KanbanTimerBoard() {
 
   const [theme, setTheme] = useState(loadTheme());
   const [sound, setSound] = useState(loadSound());
+  const [autoMoveEnabled, setAutoMoveEnabled] = useState(() => initialStoredState?.autoMoveEnabled ?? true);
   useEffect(() => saveTheme(theme), [theme]);
   useEffect(() => saveSound(sound), [sound]);
 
@@ -228,7 +232,11 @@ export default function KanbanTimerBoard() {
                 overtime: true,
               }
             );
-            doneIncoming.push({ from: col.id, card: completed });
+            if (autoMoveEnabled) {
+              doneIncoming.push({ from: col.id, card: completed });
+            } else {
+              newList.push(completed);
+            }
           } else {
             const nextActiveIndex = findNextActiveSegment(segments);
             const paused = deriveCardFromSegments(
@@ -255,15 +263,15 @@ export default function KanbanTimerBoard() {
       return next;
     });
 
-    if (chimeNeeded && sound.enabled) {
-      if (sound.loop) startLoopingChime();
-      else playChime(audioRef, { type: sound.type, volume: sound.volume });
-    }
-  }, [tick, columns, sound]);
+      if (chimeNeeded && sound.enabled) {
+        if (sound.loop) startLoopingChime();
+        else playChime(audioRef, { type: sound.type, volume: sound.volume });
+      }
+  }, [tick, columns, sound, autoMoveEnabled]);
 
   useEffect(() => {
-    saveState({ cardsByCol });
-  }, [cardsByCol]);
+    saveState({ cardsByCol, autoMoveEnabled });
+  }, [cardsByCol, autoMoveEnabled]);
 
   const addCard = (colId, payload) => {
     const id = uid();
@@ -329,7 +337,7 @@ export default function KanbanTimerBoard() {
     const now = Date.now();
     updateCard(colId, card.id, (current) => {
       if (current.running) return current;
-      const segments = (current.segments && current.segments.length
+      const baseSegments = (current.segments && current.segments.length
         ? current.segments
         : [
             {
@@ -338,11 +346,31 @@ export default function KanbanTimerBoard() {
               remainingSec: current.remainingSec ?? current.durationSec ?? 1500,
             },
           ]
-      ).map((seg) => ({ ...seg }));
-      const activeIndex = findNextActiveSegment(segments);
-      const activeSegment = segments[activeIndex];
+      );
+      let segments = baseSegments.map((seg) => ({ ...seg }));
+      let activeIndex = findNextActiveSegment(segments);
+      let activeSegment = segments[activeIndex];
+
       if (!activeSegment || activeSegment.remainingSec <= 0) {
-        return { ...current, running: false, lastStartTs: null };
+        segments = segments.map((seg) => ({
+          ...seg,
+          remainingSec: seg.durationSec ?? seg.remainingSec ?? 0,
+        }));
+        activeIndex = findNextActiveSegment(segments);
+        activeSegment = segments[activeIndex];
+      }
+
+      if (!activeSegment || activeSegment.remainingSec <= 0) {
+        return {
+          ...current,
+          segments,
+          running: false,
+          lastStartTs: null,
+          remainingSec: segments.reduce((sum, seg) => sum + (seg.remainingSec ?? 0), 0),
+          remainingSecAtStart: 0,
+          activeSegmentIndex: activeIndex ?? 0,
+          overtime: false,
+        };
       }
       return {
         ...current,
@@ -351,6 +379,7 @@ export default function KanbanTimerBoard() {
         lastStartTs: now,
         remainingSecAtStart: activeSegment.remainingSec,
         activeSegmentIndex: activeIndex,
+        remainingSec: segments.reduce((sum, seg) => sum + (seg.remainingSec ?? 0), 0),
         overtime: false,
       };
     });
@@ -486,7 +515,14 @@ export default function KanbanTimerBoard() {
   };
 
   const handleStart = (colId, card) => {
-    if (colId !== "todo") {
+    const ctx = ensureAudioContext(audioRef);
+    if (ctx && ctx.state === "suspended") {
+      const resumeResult = ctx.resume?.();
+      if (resumeResult && typeof resumeResult.catch === "function") {
+        resumeResult.catch(() => {});
+      }
+    }
+    if (colId !== "todo" || !autoMoveEnabled) {
       startTimer(colId, card);
       return;
     }
@@ -497,7 +533,7 @@ export default function KanbanTimerBoard() {
       const [item] = src.splice(idx, 1);
       const doing = [...(prev.doing || [])];
       const now = Date.now();
-      const segments = (item.segments && item.segments.length
+      let segments = (item.segments && item.segments.length
         ? item.segments
         : [
             {
@@ -507,8 +543,16 @@ export default function KanbanTimerBoard() {
             },
           ]
       ).map((seg) => ({ ...seg }));
-      const activeIndex = findNextActiveSegment(segments);
-      const activeSegment = segments[activeIndex];
+      let activeIndex = findNextActiveSegment(segments);
+      let activeSegment = segments[activeIndex];
+      if (!activeSegment || activeSegment.remainingSec <= 0) {
+        segments = segments.map((seg) => ({
+          ...seg,
+          remainingSec: seg.durationSec ?? seg.remainingSec ?? 0,
+        }));
+        activeIndex = findNextActiveSegment(segments);
+        activeSegment = segments[activeIndex];
+      }
       const runningCard =
         activeSegment && activeSegment.remainingSec > 0
           ? deriveCardFromSegments(
@@ -518,7 +562,7 @@ export default function KanbanTimerBoard() {
                 running: true,
                 lastStartTs: now,
                 remainingSecAtStart: activeSegment.remainingSec,
-                activeSegmentIndex: activeIndex,
+                activeSegmentIndex: activeIndex ?? 0,
                 overtime: false,
               }
             )
@@ -529,7 +573,8 @@ export default function KanbanTimerBoard() {
                 running: false,
                 lastStartTs: null,
                 remainingSecAtStart: segments[activeIndex]?.remainingSec ?? 0,
-                activeSegmentIndex: activeIndex,
+                activeSegmentIndex: activeIndex ?? 0,
+                overtime: false,
               }
             );
       doing.unshift(runningCard);
@@ -657,6 +702,8 @@ export default function KanbanTimerBoard() {
           setTheme={setTheme}
           sound={sound}
           setSound={setSound}
+          autoMoveEnabled={autoMoveEnabled}
+          setAutoMoveEnabled={setAutoMoveEnabled}
           onTest={() => playChime(audioRef, { type: sound.type, volume: sound.volume })}
           palette={palette}
           chimeActive={chimeActive}

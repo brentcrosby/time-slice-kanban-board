@@ -2,7 +2,19 @@ import React from "react";
 import { Volume2, VolumeX, Sun, Moon } from "lucide-react";
 import { Modal } from "./Modal";
 
-export function SettingsModal({ onClose, theme, setTheme, sound, setSound, onTest, palette, chimeActive, onStopChime }) {
+export function SettingsModal({
+  onClose,
+  theme,
+  setTheme,
+  sound,
+  setSound,
+  autoMoveEnabled,
+  setAutoMoveEnabled,
+  onTest,
+  palette,
+  chimeActive,
+  onStopChime,
+}) {
   return (
     <Modal onClose={onClose} title="Settings" palette={palette}>
       <div className="space-y-6">
@@ -111,6 +123,25 @@ export function SettingsModal({ onClose, theme, setTheme, sound, setSound, onTes
                 </span>
               </div>
             )}
+          </div>
+        </section>
+
+        <section>
+          <h4 className="text-sm font-semibold" style={{ color: palette.text }}>
+            Tasks
+          </h4>
+          <div className="mt-2 space-y-3">
+            <label className="inline-flex items-center gap-2 text-sm" style={{ color: palette.text }}>
+              <input
+                type="checkbox"
+                checked={!!autoMoveEnabled}
+                onChange={(event) => setAutoMoveEnabled(!!event.target.checked)}
+              />
+              Auto move tasks with timer
+            </label>
+            <p className="text-xs" style={{ color: palette.subtext }}>
+              When off, cards stay in their column after starting or finishing a timer.
+            </p>
           </div>
         </section>
 
