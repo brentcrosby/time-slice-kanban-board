@@ -142,6 +142,9 @@ export function Card({
 
   const onDragEnd = () => ref.current?.classList.remove("opacity-60");
 
+  const controlButtonClass =
+    "rounded-md p-1 transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30";
+
   return (
     <article
       ref={ref}
@@ -163,9 +166,66 @@ export function Card({
             </p>
           ) : null}
         </div>
-        <button onClick={onRemove} title="Delete" className="rounded-md p-1" style={{ color: palette.subtext }}>
-          <Trash2 className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {isChiming ? (
+            <button
+              onClick={onStopChime}
+              title="Mute chime"
+              aria-label="Mute chime"
+              className={controlButtonClass}
+              style={{ color: palette.subtext }}
+            >
+              <VolumeX className="h-4 w-4" />
+            </button>
+          ) : card.running ? (
+            <button
+              onClick={onPause}
+              title="Pause"
+              aria-label="Pause"
+              className={controlButtonClass}
+              style={{ color: palette.subtext }}
+            >
+              <Pause className="h-4 w-4" />
+            </button>
+          ) : (
+            <button
+              onClick={onStart}
+              title="Start"
+              aria-label="Start"
+              className={controlButtonClass}
+              style={{ color: palette.subtext }}
+            >
+              <Play className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={onReset}
+            title="Reset"
+            aria-label="Reset"
+            className={controlButtonClass}
+            style={{ color: palette.subtext }}
+          >
+            <RotateCcw className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onEdit}
+            title="Edit"
+            aria-label="Edit"
+            className={controlButtonClass}
+            style={{ color: palette.subtext }}
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onRemove}
+            title="Delete"
+            aria-label="Delete"
+            className={controlButtonClass}
+            style={{ color: palette.subtext }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div className="mb-2">
@@ -238,58 +298,6 @@ export function Card({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-nowrap">
-        {card.running ? (
-          <button
-            onClick={onPause}
-            title="Pause"
-            aria-label="Pause"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md"
-            style={{ border: `1px solid ${palette.border}` }}
-          >
-            <Pause className="h-4 w-4" />
-          </button>
-        ) : (
-          <button
-            onClick={onStart}
-            title="Start"
-            aria-label="Start"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md"
-            style={{ border: `1px solid ${palette.border}` }}
-          >
-            <Play className="h-4 w-4" />
-          </button>
-        )}
-        <button
-          onClick={onReset}
-          title="Reset"
-          aria-label="Reset"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md"
-          style={{ border: `1px solid ${palette.border}` }}
-        >
-          <RotateCcw className="h-4 w-4" />
-        </button>
-        {isChiming && (
-          <button
-            onClick={onStopChime}
-            title="Stop chime"
-            aria-label="Stop chime"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md"
-            style={{ border: `1px solid ${palette.border}` }}
-          >
-            <VolumeX className="h-4 w-4" />
-          </button>
-        )}
-        <button
-          onClick={onEdit}
-          title="Edit"
-          aria-label="Edit"
-          className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md"
-          style={{ border: `1px solid ${palette.border}` }}
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
-      </div>
     </article>
   );
 }
