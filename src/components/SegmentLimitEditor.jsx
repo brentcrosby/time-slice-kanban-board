@@ -5,7 +5,7 @@ import { findNextActiveSegment, segmentDraftsFromSegments } from "../utils/segme
 import { uid } from "../utils/misc";
 import { parseDurationToSeconds, secsToHMS } from "../utils/time";
 
-export function SegmentLimitEditor({ card, onSetSegments, palette }) {
+export function SegmentLimitEditor({ card, onSetSegments, palette, onEditingChange }) {
   const containerRef = useRef(null);
   const [editing, setEditing] = useState(false);
   const [rows, setRows] = useState(() => segmentDraftsFromSegments(card.segments));
@@ -27,6 +27,11 @@ export function SegmentLimitEditor({ card, onSetSegments, palette }) {
     document.addEventListener("pointerdown", handler);
     return () => document.removeEventListener("pointerdown", handler);
   }, [editing]);
+
+  useEffect(() => {
+    onEditingChange?.(editing);
+    return () => onEditingChange?.(false);
+  }, [editing, onEditingChange]);
 
   const segments = card.segments || [];
   const totalLimit =
@@ -90,8 +95,13 @@ export function SegmentLimitEditor({ card, onSetSegments, palette }) {
 
       {editing && (
         <div
-          className="absolute z-30 mt-2 w-64 space-y-3 rounded-xl p-3"
-          style={{ backgroundColor: palette.surface, border: `1px solid ${palette.border}`, boxShadow: "0 12px 24px rgba(0,0,0,0.25)" }}
+          className="absolute mt-2 w-64 space-y-3 rounded-xl p-3"
+          style={{
+            zIndex: 9999,
+            backgroundColor: palette.surface,
+            border: `1px solid ${palette.border}`,
+            boxShadow: "0 12px 24px rgba(0,0,0,0.25)",
+          }}
         >
           <h4 className="text-xs font-semibold" style={{ color: palette.text }}>
             Segments

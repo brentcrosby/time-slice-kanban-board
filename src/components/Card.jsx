@@ -22,6 +22,7 @@ export function Card({
   onStopChime,
 }) {
   const ref = useRef(null);
+  const [limitEditorActive, setLimitEditorActive] = useState(false);
   const segments = (card.segments && card.segments.length
     ? card.segments
     : [
@@ -152,8 +153,12 @@ export function Card({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       data-card-id={card.id}
-      className={`interactive-card group rounded-xl p-3 shadow-sm ${isOver ? "ring-1" : ""}`}
-      style={{ backgroundColor: palette.card, border: `1px solid ${palette.border}` }}
+      className={`relative interactive-card group rounded-xl p-3 shadow-sm ${isOver ? "ring-1" : ""}`}
+      style={{
+        backgroundColor: palette.card,
+        border: `1px solid ${palette.border}`,
+        zIndex: limitEditorActive ? 200 : undefined,
+      }}
     >
       <div className="mb-2 flex items-start gap-2">
         <div className="flex-1">
@@ -294,7 +299,12 @@ export function Card({
               ? `Over: ${secsToHMS(Math.abs(visualActiveRemaining))}`
               : secsToHMS(Math.max(visualActiveRemaining, 0))}
           </span>
-          <SegmentLimitEditor card={card} onSetSegments={onSetSegments} palette={palette} />
+          <SegmentLimitEditor
+            card={card}
+            onSetSegments={onSetSegments}
+            palette={palette}
+            onEditingChange={setLimitEditorActive}
+          />
         </div>
       </div>
 
