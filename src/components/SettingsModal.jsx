@@ -14,6 +14,7 @@ export function SettingsModal({
   palette,
   chimeActive,
   onStopChime,
+  onRequestClearAll,
 }) {
   return (
     <Modal onClose={onClose} title="Settings" palette={palette}>
@@ -142,6 +143,14 @@ export function SettingsModal({
             <p className="text-xs" style={{ color: palette.subtext }}>
               When off, cards stay in their column after starting or finishing a timer.
             </p>
+            <button
+              type="button"
+              onClick={() => onRequestClearAll?.()}
+              className="interactive-button w-full rounded-lg px-3 py-2 text-sm font-semibold"
+              style={{ backgroundColor: palette.dangerBg, color: palette.dangerText }}
+            >
+              Clear all tasks…
+            </button>
           </div>
         </section>
 

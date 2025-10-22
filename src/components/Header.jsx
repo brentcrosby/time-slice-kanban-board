@@ -1,13 +1,7 @@
 import React from "react";
 import { Moon, Settings as SettingsIcon, Sun } from "lucide-react";
 
-export function Header({
-  onClear,
-  onOpenSettings,
-  onToggleTheme,
-  palette,
-  theme,
-}) {
+export function Header({ onOpenSettings, onToggleTheme, palette, theme }) {
   return (
     <div
       className="sticky top-0 z-10 w-full border-b backdrop-blur"
@@ -18,13 +12,6 @@ export function Header({
           Kanban Timers
         </h1>
         <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={onClear}
-            className="interactive-button rounded-xl px-3 py-2 text-sm"
-            style={{ border: `1px solid ${palette.border}` }}
-          >
-            Clear
-          </button>
           <button
             onClick={onOpenSettings}
             title="Settings"

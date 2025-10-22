@@ -853,7 +853,6 @@ export default function KanbanTimerBoard() {
       style={{ backgroundColor: palette.bg, color: palette.text }}
     >
       <Header
-        onClear={() => setConfirmClearOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onToggleTheme={toggleTheme}
         palette={palette}
@@ -999,6 +998,10 @@ export default function KanbanTimerBoard() {
           palette={palette}
           chimeActive={chimeActive}
           onStopChime={stopLoopingChime}
+          onRequestClearAll={() => {
+            setSettingsOpen(false);
+            setConfirmClearOpen(true);
+          }}
         />
       )}
     </div>
