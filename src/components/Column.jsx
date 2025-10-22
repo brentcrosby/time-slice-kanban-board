@@ -1,8 +1,19 @@
 import React, { useState } from "react";
 import { secsToHMS } from "../utils/time";
 
-export function Column({ column, cards, onDropCard, onAddCard, renderCard, palette }) {
+export function Column({
+  column,
+  cards,
+  totalCount,
+  onDropCard,
+  onAddCard,
+  onClearColumn,
+  renderCard,
+  palette,
+}) {
   const [dropIndex, setDropIndex] = useState(null);
+  const cardCount = totalCount != null ? totalCount : cards.length;
+  const hasCards = cardCount > 0;
 
   const findInsertIndex = (event) => {
     const list = event.currentTarget.querySelector("[data-list]");
@@ -62,7 +73,7 @@ export function Column({ column, cards, onDropCard, onAddCard, renderCard, palet
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <header className="flex items-center">
+      <header className="flex items-center gap-2">
         <h2 className="text-sm font-semibold tracking-tight flex items-center" style={{ color: palette.text }}>
           {column.name}
           <span
@@ -79,6 +90,22 @@ export function Column({ column, cards, onDropCard, onAddCard, renderCard, palet
             {secsToHMS(totalSecs)}
           </span>
         </h2>
+        {typeof onClearColumn === "function" ? (
+          <button
+            type="button"
+            onClick={onClearColumn}
+            disabled={!hasCards}
+            className="interactive-button ml-auto rounded-lg border px-2 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+            style={{
+              borderColor: palette.border,
+              color: hasCards ? palette.dangerText : palette.subtext,
+              backgroundColor: palette.surface,
+            }}
+            title="Remove all tasks in this column"
+          >
+            Clear
+          </button>
+        ) : null}
       </header>
       <div data-list className="flex flex-col gap-3">
         {cards.map((card, index) => (

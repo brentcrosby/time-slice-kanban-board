@@ -37,6 +37,7 @@ export default function KanbanTimerBoard() {
   const [newCardCol, setNewCardCol] = useState("todo");
   const [editCard, setEditCard] = useState(null); // { colId, card }
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+  const [confirmColumnClear, setConfirmColumnClear] = useState(null); // { colId, name }
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [theme, setTheme] = useState(loadTheme());
@@ -395,6 +396,33 @@ export default function KanbanTimerBoard() {
     }));
   };
 
+  const clearColumn = (colId) => {
+    let removedIds = [];
+    setCardsByCol((prev) => {
+      const existing = prev[colId] || [];
+      if (!existing.length) return prev;
+      removedIds = existing.map((card) => card.id);
+      return { ...prev, [colId]: [] };
+    });
+
+    if (!removedIds.length) return;
+
+    const removedSet = new Set(removedIds);
+    setLoopingChimeSources((prevSources) => {
+      if (!prevSources.length) return prevSources;
+      const nextSources = prevSources.filter((id) => !removedSet.has(id));
+      if (!nextSources.length && prevSources.length) {
+        if (loopRef.current.id) {
+          clearInterval(loopRef.current.id);
+          loopRef.current.id = null;
+        }
+        setChimeActive(false);
+        return [];
+      }
+      return nextSources;
+    });
+  };
+
   const moveCard = (fromCol, toCol, cardId, index = null) => {
     setCardsByCol((prev) => {
       const src = [...(prev[fromCol] || [])];
@@ -722,37 +750,43 @@ export default function KanbanTimerBoard() {
 
       <div className="mx-auto max-w-7xl p-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3 items-start">
-          {columns.map((col) => (
-            <Column
-              key={col.id}
-              column={col}
-              cards={filtered[col.id] || []}
-              onDropCard={(cardId, fromCol, insertIndex) => moveCard(fromCol, col.id, cardId, insertIndex)}
-              onAddCard={() => {
-                setNewCardCol(col.id);
-                setShowNewCard(true);
-              }}
-              renderCard={(card, index) => (
-                <Card
-                  key={card.id}
-                  card={card}
-                  colId={col.id}
-                  onStart={() => handleStart(col.id, card)}
-                  onPause={() => pauseTimer(col.id, card)}
-                  onReset={() => resetTimer(col.id, card)}
-                  onRemove={() => removeCard(col.id, card.id)}
-                  onEdit={() => setEditCard({ colId: col.id, card })}
-                  onSetSegments={(segments) => setCardSegments(col.id, card, segments)}
-                  onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
-                  index={index}
-                  palette={palette}
-                  isChiming={chimeActive && loopingChimeSources.includes(card.id)}
-                  onStopChime={stopLoopingChime}
-                />
-              )}
-              palette={palette}
-            />
-          ))}
+          {columns.map((col) => {
+            const visibleCards = filtered[col.id] || [];
+            const totalCount = (materialized[col.id] || []).length;
+            return (
+              <Column
+                key={col.id}
+                column={col}
+                cards={visibleCards}
+                totalCount={totalCount}
+                onDropCard={(cardId, fromCol, insertIndex) => moveCard(fromCol, col.id, cardId, insertIndex)}
+                onAddCard={() => {
+                  setNewCardCol(col.id);
+                  setShowNewCard(true);
+                }}
+                onClearColumn={() => setConfirmColumnClear({ colId: col.id, name: col.name })}
+                renderCard={(card, index) => (
+                  <Card
+                    key={card.id}
+                    card={card}
+                    colId={col.id}
+                    onStart={() => handleStart(col.id, card)}
+                    onPause={() => pauseTimer(col.id, card)}
+                    onReset={() => resetTimer(col.id, card)}
+                    onRemove={() => removeCard(col.id, card.id)}
+                    onEdit={() => setEditCard({ colId: col.id, card })}
+                    onSetSegments={(segments) => setCardSegments(col.id, card, segments)}
+                    onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
+                    index={index}
+                    palette={palette}
+                    isChiming={chimeActive && loopingChimeSources.includes(card.id)}
+                    onStopChime={stopLoopingChime}
+                  />
+                )}
+                palette={palette}
+              />
+            );
+          })}
         </div>
       </div>
 
@@ -779,6 +813,39 @@ export default function KanbanTimerBoard() {
           }}
           palette={palette}
         />
+      )}
+
+      {confirmColumnClear && (
+        <Modal
+          title={`Clear ${confirmColumnClear.name}?`}
+          onClose={() => setConfirmColumnClear(null)}
+          palette={palette}
+        >
+          <div className="space-y-3">
+            <p className="text-sm" style={{ color: palette.subtext }}>
+              This removes every task in <em>{confirmColumnClear.name}</em>. This cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setConfirmColumnClear(null)}
+                className="interactive-button rounded-xl px-3 py-2 text-sm"
+                style={{ border: `1px solid ${palette.border}` }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  clearColumn(confirmColumnClear.colId);
+                  setConfirmColumnClear(null);
+                }}
+                className="interactive-button rounded-xl px-3 py-2 text-sm font-medium"
+                style={{ backgroundColor: palette.dangerBg, color: palette.dangerText }}
+              >
+                Clear column
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {confirmClearOpen && (
