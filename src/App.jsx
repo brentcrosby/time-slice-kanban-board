@@ -58,7 +58,7 @@ export default function KanbanTimerBoard() {
       text: isDark ? "#e5e5e5" : "#111827",
       subtext: isDark ? "#a3a3a3" : "#6b7280",
       badge: isDark ? "#262626" : "#f3f4f6",
-      barBg: isDark ? "#262626" : "#e5e7eb",
+      barBg: isDark ? "#343434" : "#e5e7eb",
       barFill: isDark ? "#e5e5e5" : "#111827",
       barOutline: isDark ? "#4b5563" : "#d1d5db",
       dangerBg: isDark ? "#7f1d1d" : "#fee2e2",

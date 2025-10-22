@@ -40,11 +40,11 @@ body {
   }
 
   [data-theme="dark"] .interactive-button:hover {
-    filter: brightness(1.08);
+    filter: brightness(1.14);
   }
 
   [data-theme="dark"] .interactive-button:active {
-    filter: brightness(0.94);
+    filter: brightness(0.9);
   }
 
   .interactive-surface {
