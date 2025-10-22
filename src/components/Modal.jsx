@@ -21,7 +21,7 @@ export function Modal({ title, onClose, children, palette }) {
           <h3 className="text-base font-semibold" style={{ color: palette.text }}>
             {title}
           </h3>
-          <button onClick={onClose} className="rounded-md p-1" style={{ color: palette.subtext }}>
+          <button onClick={onClose} className="interactive-button rounded-md p-1" style={{ color: palette.subtext }}>
             <X className="h-4 w-4" />
           </button>
         </div>

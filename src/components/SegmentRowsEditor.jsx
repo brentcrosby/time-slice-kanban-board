@@ -24,7 +24,7 @@ export function SegmentRowsEditor({ rows, errors, onChange, onRemove, palette, m
             {onRemove ? (
               <button
                 type="button"
-                className="rounded-md p-1"
+                className="interactive-button rounded-md p-1"
                 style={{ border: `1px solid ${palette.border}`, color: palette.subtext }}
                 onClick={() => onRemove(row.id)}
                 aria-label="Remove segment"

@@ -143,7 +143,7 @@ export function Card({
   const onDragEnd = () => ref.current?.classList.remove("opacity-60");
 
   const controlButtonClass =
-    "rounded-md p-1 transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30";
+    "interactive-button rounded-md p-1 transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30";
 
   return (
     <article
@@ -152,7 +152,7 @@ export function Card({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       data-card-id={card.id}
-      className={`group rounded-xl p-3 shadow-sm transition ${isOver ? "ring-1" : ""}`}
+      className={`interactive-card group rounded-xl p-3 shadow-sm ${isOver ? "ring-1" : ""}`}
       style={{ backgroundColor: palette.card, border: `1px solid ${palette.border}` }}
     >
       <div className="mb-2 flex items-start gap-2">

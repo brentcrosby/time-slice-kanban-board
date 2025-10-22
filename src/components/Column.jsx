@@ -92,7 +92,7 @@ export function Column({ column, cards, onDropCard, onAddCard, renderCard, palet
       <button
         type="button"
         onClick={onAddCard}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium transition"
+        className="interactive-surface flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium"
         style={{ backgroundColor: palette.card, borderColor: palette.border, color: palette.subtext }}
       >
         <span className="text-lg leading-none">+</span>

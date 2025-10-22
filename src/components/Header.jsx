@@ -20,7 +20,7 @@ export function Header({
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={onClear}
-            className="rounded-xl px-3 py-2 text-sm"
+            className="interactive-button rounded-xl px-3 py-2 text-sm"
             style={{ border: `1px solid ${palette.border}` }}
           >
             Clear
@@ -28,7 +28,7 @@ export function Header({
           <button
             onClick={onOpenSettings}
             title="Settings"
-            className="rounded-md p-2"
+            className="interactive-button rounded-md p-2"
             style={{ border: `1px solid ${palette.border}` }}
           >
             <SettingsIcon className="h-4 w-4" />
@@ -36,7 +36,7 @@ export function Header({
           <button
             onClick={onToggleTheme}
             title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            className="rounded-md p-2"
+            className="interactive-button rounded-md p-2"
             style={{ border: `1px solid ${palette.border}` }}
           >
             {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}

@@ -25,7 +25,7 @@ export function SettingsModal({
           <div className="mt-2 flex items-center gap-3">
             <button
               onClick={() => setTheme("dark")}
-              className={`rounded-lg px-3 py-2 text-sm ${theme === "dark" ? "font-semibold" : ""}`}
+              className={`interactive-button rounded-lg px-3 py-2 text-sm ${theme === "dark" ? "font-semibold" : ""}`}
               style={{ border: `1px solid ${palette.border}` }}
             >
               <span className="inline-flex items-center gap-2">
@@ -34,7 +34,7 @@ export function SettingsModal({
             </button>
             <button
               onClick={() => setTheme("light")}
-              className={`rounded-lg px-3 py-2 text-sm ${theme === "light" ? "font-semibold" : ""}`}
+              className={`interactive-button rounded-lg px-3 py-2 text-sm ${theme === "light" ? "font-semibold" : ""}`}
               style={{ border: `1px solid ${palette.border}` }}
             >
               <span className="inline-flex items-center gap-2">
@@ -75,7 +75,7 @@ export function SettingsModal({
               </select>
               <button
                 onClick={onTest}
-                className="rounded-md px-2 py-1 text-sm"
+                className="interactive-button rounded-md px-2 py-1 text-sm"
                 style={{ border: `1px solid ${palette.border}` }}
               >
                 Test
@@ -113,7 +113,7 @@ export function SettingsModal({
               <div className="flex items-center gap-2">
                 <button
                   onClick={onStopChime}
-                  className="rounded-md px-2 py-1 text-sm"
+                  className="interactive-button rounded-md px-2 py-1 text-sm"
                   style={{ border: `1px solid ${palette.border}` }}
                 >
                   <VolumeX className="inline h-4 w-4 mr-1" /> Stop chime
@@ -148,7 +148,7 @@ export function SettingsModal({
         <div className="flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="rounded-xl px-3 py-2 text-sm"
+            className="interactive-button rounded-xl px-3 py-2 text-sm"
             style={{ border: `1px solid ${palette.border}` }}
           >
             Close

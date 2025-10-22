@@ -78,7 +78,7 @@ export function SegmentLimitEditor({ card, onSetSegments, palette }) {
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        className="rounded px-2 py-0.5 text-xs tabular-nums"
+        className="interactive-button rounded px-2 py-0.5 text-xs tabular-nums"
         style={{ color: palette.subtext, backgroundColor: "transparent", border: `1px dashed ${palette.border}` }}
         onClick={() => setEditing((v) => !v)}
         title="Edit segment durations"
@@ -109,7 +109,7 @@ export function SegmentLimitEditor({ card, onSetSegments, palette }) {
           />
           <button
             type="button"
-            className="w-full rounded-md px-2 py-1 text-xs"
+            className="interactive-button w-full rounded-md px-2 py-1 text-xs"
             style={{ border: `1px dashed ${palette.border}`, color: palette.subtext }}
             onClick={handleAddRow}
           >
@@ -118,7 +118,7 @@ export function SegmentLimitEditor({ card, onSetSegments, palette }) {
           <div className="flex justify-end gap-2 text-xs">
             <button
               type="button"
-              className="rounded-md px-2 py-1"
+              className="interactive-button rounded-md px-2 py-1"
               style={{ border: `1px solid ${palette.border}`, color: palette.subtext }}
               onClick={() => setEditing(false)}
             >
@@ -126,7 +126,7 @@ export function SegmentLimitEditor({ card, onSetSegments, palette }) {
             </button>
             <button
               type="button"
-              className="rounded-md px-2 py-1 font-medium"
+              className="interactive-button rounded-md px-2 py-1 font-medium"
               style={{ backgroundColor: palette.text, color: palette.bg }}
               onClick={handleSave}
             >

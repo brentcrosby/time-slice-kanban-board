@@ -698,7 +698,11 @@ export default function KanbanTimerBoard() {
   }, [filter, materialized, columns]);
 
   return (
-    <div className="min-h-screen w-full" style={{ backgroundColor: palette.bg, color: palette.text }}>
+    <div
+      className="min-h-screen w-full"
+      data-theme={theme}
+      style={{ backgroundColor: palette.bg, color: palette.text }}
+    >
       <Header
         onClear={() => setConfirmClearOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -778,14 +782,14 @@ export default function KanbanTimerBoard() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setConfirmClearOpen(false)}
-                className="rounded-xl px-3 py-2 text-sm"
+                className="interactive-button rounded-xl px-3 py-2 text-sm"
                 style={{ border: `1px solid ${palette.border}` }}
               >
                 Cancel
               </button>
               <button
                 onClick={doClearAll}
-                className="rounded-xl px-3 py-2 text-sm font-medium"
+                className="interactive-button rounded-xl px-3 py-2 text-sm font-medium"
                 style={{ backgroundColor: palette.dangerBg, color: palette.dangerText }}
               >
                 Clear all

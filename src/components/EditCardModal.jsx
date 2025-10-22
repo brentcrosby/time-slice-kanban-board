@@ -200,7 +200,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
               />
               <button
                 type="button"
-                className="w-full rounded-md px-2 py-1 text-xs"
+                className="interactive-button w-full rounded-md px-2 py-1 text-xs"
                 style={{ border: `1px dashed ${palette.border}`, color: palette.subtext }}
                 onClick={handleAddSegment}
               >
@@ -212,14 +212,14 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={onClose}
-            className="rounded-xl px-3 py-2 text-sm"
+            className="interactive-button rounded-xl px-3 py-2 text-sm"
             style={{ border: `1px solid ${palette.border}` }}
           >
             Cancel
           </button>
           <button
             onClick={submit}
-            className="rounded-xl px-3 py-2 text-sm font-medium"
+            className="interactive-button rounded-xl px-3 py-2 text-sm font-medium"
             style={{ backgroundColor: palette.text, color: palette.bg }}
           >
             Save

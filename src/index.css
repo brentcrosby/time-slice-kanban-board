@@ -13,3 +13,81 @@ body {
   font-family: theme("fontFamily.sans");
   background-color: #0f172a;
 }
+
+@layer base {
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  button[aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
+@layer components {
+  .interactive-button {
+    @apply transition ease-out duration-150;
+    will-change: filter;
+  }
+
+  .interactive-button:hover {
+    filter: brightness(1.05);
+  }
+
+  .interactive-button:active {
+    filter: brightness(0.97);
+  }
+
+  [data-theme="dark"] .interactive-button:hover {
+    filter: brightness(1.08);
+  }
+
+  [data-theme="dark"] .interactive-button:active {
+    filter: brightness(0.94);
+  }
+
+  .interactive-surface {
+    @apply transition ease-out duration-200;
+    will-change: filter;
+  }
+
+  .interactive-surface:hover {
+    filter: brightness(1.05);
+  }
+
+  .interactive-surface:active {
+    filter: brightness(0.96);
+  }
+
+  [data-theme="dark"] .interactive-surface:hover {
+    filter: brightness(1.09);
+  }
+
+  [data-theme="dark"] .interactive-surface:active {
+    filter: brightness(0.95);
+  }
+
+  .interactive-card {
+    @apply transition ease-out duration-150;
+    will-change: filter;
+    cursor: grab;
+  }
+
+  .interactive-card:active {
+    cursor: grabbing;
+    filter: brightness(0.97);
+  }
+
+  .interactive-card:hover {
+    filter: brightness(1.04);
+  }
+
+  [data-theme="dark"] .interactive-card:hover {
+    filter: brightness(1.08);
+  }
+
+  [data-theme="dark"] .interactive-card:active {
+    filter: brightness(0.94);
+  }
+}
