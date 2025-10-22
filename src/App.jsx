@@ -966,7 +966,7 @@ export default function KanbanTimerBoard() {
         <Modal title="Clear all tasks?" onClose={() => setConfirmClearOpen(false)} palette={palette}>
           <div className="space-y-3">
             <p className="text-sm" style={{ color: palette.subtext }}>
-              This will remove every card in <em>To Do</em>, <em>In Progress</em>, and <em>Done</em>.
+              This will remove every card in <em>Do</em>, <em>Doing</em>, and <em>Done</em>.
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button

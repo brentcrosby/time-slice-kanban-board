@@ -2,8 +2,8 @@ export const MIN_SEGMENT_SEC = 5;
 export const MAX_SEGMENT_SEC = 24 * 3600;
 
 export const DEFAULT_COLUMNS = [
-  { id: "todo", name: "To Do" },
-  { id: "doing", name: "In Progress" },
+  { id: "todo", name: "Do" },
+  { id: "doing", name: "Doing" },
   { id: "done", name: "Done" },
 ];
 

@@ -1,7 +1,16 @@
 import React from "react";
 import { Trash2 } from "lucide-react";
 
-export function SegmentRowsEditor({ rows, errors, onChange, onRemove, palette, maxHeight = "", showIndex = true }) {
+export function SegmentRowsEditor({
+  rows,
+  errors,
+  onChange,
+  onRemove,
+  palette,
+  maxHeight = "",
+  showIndex = true,
+  onSubmit,
+}) {
   const containerCls = maxHeight ? `space-y-2 ${maxHeight} overflow-y-auto pr-1` : "space-y-2";
 
   return (
@@ -18,6 +27,20 @@ export function SegmentRowsEditor({ rows, errors, onChange, onRemove, palette, m
               value={row.value}
               onChange={(e) => onChange(row.id, e.target.value)}
               onFocus={(event) => event.target.select()}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  !event.shiftKey &&
+                  !event.metaKey &&
+                  !event.ctrlKey &&
+                  !event.altKey
+                ) {
+                  if (onSubmit) {
+                    event.preventDefault();
+                    onSubmit();
+                  }
+                }
+              }}
               placeholder="25m"
               className="flex-1 rounded-md px-2 py-1 text-xs outline-none"
               style={{ border: `1px solid ${palette.border}`, backgroundColor: "transparent", color: palette.text }}

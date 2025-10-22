@@ -32,11 +32,11 @@ body {
   }
 
   .interactive-button:hover {
-    filter: brightness(1.1);
+    filter: brightness(0.96);
   }
 
   .interactive-button:active {
-    filter: brightness(0.94);
+    filter: brightness(0.9);
   }
 
   [data-theme="dark"] .interactive-button:hover {
@@ -53,11 +53,11 @@ body {
   }
 
   .interactive-surface:hover {
-    filter: brightness(1.1);
+    filter: brightness(0.96);
   }
 
   .interactive-surface:active {
-    filter: brightness(0.93);
+    filter: brightness(0.88);
   }
 
   [data-theme="dark"] .interactive-surface:hover {
@@ -80,7 +80,7 @@ body {
   }
 
   .interactive-card:hover {
-    filter: brightness(1.1);
+    filter: brightness(0.97);
   }
 
   [data-theme="dark"] .interactive-card:hover {

@@ -10,6 +10,7 @@ export function SegmentLimitEditor({ card, onSetSegments, palette, onEditingChan
   const [editing, setEditing] = useState(false);
   const [rows, setRows] = useState(() => segmentDraftsFromSegments(card.segments));
   const [errors, setErrors] = useState({});
+  const popoverRef = useRef(null);
 
   useEffect(() => {
     if (!editing) {
@@ -32,6 +33,18 @@ export function SegmentLimitEditor({ card, onSetSegments, palette, onEditingChan
     onEditingChange?.(editing);
     return () => onEditingChange?.(false);
   }, [editing, onEditingChange]);
+
+  useEffect(() => {
+    if (!editing) return;
+    const id = requestAnimationFrame(() => {
+      const firstInput = popoverRef.current?.querySelector("input");
+      if (firstInput) {
+        firstInput.focus();
+        firstInput.select?.();
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [editing]);
 
   const segments = card.segments || [];
   const totalLimit =
@@ -95,7 +108,24 @@ export function SegmentLimitEditor({ card, onSetSegments, palette, onEditingChan
 
       {editing && (
         <div
+          ref={popoverRef}
           className="absolute mt-2 w-64 space-y-3 rounded-xl p-3"
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !event.metaKey &&
+              !event.ctrlKey &&
+              !event.altKey
+            ) {
+              event.preventDefault();
+              handleSave();
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setEditing(false);
+            }
+          }}
           style={{
             zIndex: 9999,
             backgroundColor: palette.surface,
@@ -116,6 +146,7 @@ export function SegmentLimitEditor({ card, onSetSegments, palette, onEditingChan
             onRemove={rows.length > 1 ? (id) => handleRemoveRow(id) : null}
             palette={palette}
             maxHeight="max-h-60"
+            onSubmit={handleSave}
           />
           <button
             type="button"

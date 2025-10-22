@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { secsToHMS } from "../utils/time";
+import { secsToHHMM } from "../utils/time";
 import { CARD_GROUP_ORDER, CARD_GROUPS } from "../constants/groups";
 
 export function Column({
@@ -101,7 +101,7 @@ export function Column({
             title="Total planned time"
             style={{ backgroundColor: palette.badge, color: palette.text }}
           >
-            {secsToHMS(totalSecs)}
+            {secsToHHMM(totalSecs)}
           </span>
           {orderedGroupTotals.map(({ id, total }) => {
             const group = CARD_GROUPS[id];
@@ -110,21 +110,21 @@ export function Column({
             const pillBg = colors.badgeBg ?? palette.badge;
             const pillText = colors.badgeText ?? palette.text;
             const pillBorder = colors.cardBorder ?? palette.border;
-            return (
-              <span
-                key={id}
-                className="ml-2 rounded-full px-2 py-0.5 text-xs tabular-nums"
-                title={`${group.label} total time`}
-                style={{
-                  backgroundColor: pillBg,
-                  color: pillText,
-                  border: `1px solid ${pillBorder}`,
-                }}
-              >
-                {secsToHMS(total)}
-              </span>
-            );
-          })}
+              return (
+                <span
+                  key={id}
+                  className="ml-2 rounded-full px-2 py-0.5 text-xs tabular-nums"
+                  title={`${group.label} total time`}
+                  style={{
+                    backgroundColor: pillBg,
+                    color: pillText,
+                    border: `1px solid ${pillBorder}`,
+                  }}
+                >
+                  {secsToHHMM(total)}
+                </span>
+              );
+            })}
         </h2>
         {typeof onClearColumn === "function" ? (
           <button

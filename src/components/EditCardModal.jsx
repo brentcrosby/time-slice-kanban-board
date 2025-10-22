@@ -221,6 +221,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
                 onRemove={segmentRows.length > 1 ? handleRemoveSegment : null}
                 palette={palette}
                 showIndex
+                onSubmit={submit}
               />
               <button
                 type="button"

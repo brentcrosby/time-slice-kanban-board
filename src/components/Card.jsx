@@ -7,6 +7,30 @@ import { findNextActiveSegment } from "../utils/segments";
 import { secsToHMS } from "../utils/time";
 import { CARD_GROUPS } from "../constants/groups";
 
+const adjustColorTone = (hex, factor) => {
+  if (typeof hex !== "string" || !hex.startsWith("#")) return hex;
+  const normalized = hex.replace("#", "");
+  const expand = normalized.length === 3
+    ? normalized
+        .split("")
+        .map((char) => char + char)
+        .join("")
+    : normalized;
+  if (expand.length !== 6) return hex;
+  const num = parseInt(expand, 16);
+  const r = (num >> 16) & 0xff;
+  const g = (num >> 8) & 0xff;
+  const b = num & 0xff;
+  const target = factor > 0 ? 255 : 0;
+  const pct = Math.min(Math.abs(factor), 1);
+  const blend = (value) => Math.round(value + (target - value) * pct);
+  const next = (value) => Math.max(0, Math.min(255, blend(value)));
+  const rr = next(r).toString(16).padStart(2, "0");
+  const gg = next(g).toString(16).padStart(2, "0");
+  const bb = next(b).toString(16).padStart(2, "0");
+  return `#${rr}${gg}${bb}`;
+};
+
 export function Card({
   card,
   colId,
@@ -157,6 +181,12 @@ export function Card({
   const cardBorderColor = groupColors?.cardBorder ?? palette.border;
   const cardTextColor = groupColors?.cardText ?? palette.text;
   const cardSubtextColor = groupColors?.cardSubtext ?? palette.subtext;
+  const barBgColor = groupColors
+    ? adjustColorTone(palette.barBg, isDark ? 0.4 : -0.35)
+    : palette.barBg;
+  const barFillColor = groupColors
+    ? adjustColorTone(palette.barFill, isDark ? 0.45 : -0.4)
+    : palette.barFill;
 
   return (
     <article
@@ -289,7 +319,7 @@ export function Card({
                 key={seg.id || `${card.id}-seg-${idx}`}
                 className="relative flex-1 overflow-hidden rounded-full"
                 style={{
-                  backgroundColor: palette.barBg,
+                  backgroundColor: barBgColor,
                   flexGrow: seg.durationSec || 1,
                 }}
               >
@@ -297,7 +327,7 @@ export function Card({
                   className="absolute inset-y-0 left-0"
                   style={{
                     width: `${progress * 100}%`,
-                    backgroundColor: isOver ? "#fda4af" : palette.barFill,
+                    backgroundColor: isOver ? "#fda4af" : barFillColor,
                     transition: "width 0.2s ease",
                   }}
                 />
