@@ -9,6 +9,8 @@ import {
   formatSegmentForInput,
   segmentDraftsFromSegments,
 } from "../utils/segments";
+import { TITLE_PLACEHOLDERS } from "../constants/titlePlaceholders";
+import { useRotatingPlaceholder } from "../hooks/useRotatingPlaceholder";
 
 export function EditCardModal({ card, onClose, onSave, palette }) {
   const [title, setTitle] = useState(card.title);
@@ -18,6 +20,11 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
   const [segmentRows, setSegmentRows] = useState(() => segmentDraftsFromSegments(card.segments));
   const [segmentErrors, setSegmentErrors] = useState({});
   const [limitError, setLimitError] = useState("");
+  const showTitlePlaceholder = title.length === 0;
+  const {
+    placeholder: titlePlaceholder,
+    visible: titlePlaceholderVisible,
+  } = useRotatingPlaceholder(TITLE_PLACEHOLDERS, showTitlePlaceholder);
 
   useEffect(() => {
     if (!useSegments) setSegmentErrors({});
@@ -104,19 +111,31 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
           <label className="block text-xs font-medium" style={{ color: palette.subtext }}>
             Title
           </label>
-          <input
-            autoFocus
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                submit();
-              }
-            }}
-            className="mt-1 w-full rounded-xl px-3 py-2 text-sm outline-none"
-            style={{ backgroundColor: "transparent", border: `1px solid ${palette.border}`, color: palette.text }}
-          />
+          <div className="relative mt-1">
+            <input
+              autoFocus
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  submit();
+                }
+              }}
+              className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+              placeholder=""
+              style={{ backgroundColor: "transparent", border: `1px solid ${palette.border}`, color: palette.text }}
+            />
+            {showTitlePlaceholder ? (
+              <span
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 transform text-sm transition-opacity duration-300 ease-in-out"
+                aria-hidden="true"
+                style={{ color: palette.subtext, opacity: titlePlaceholderVisible ? 0.6 : 0 }}
+              >
+                {titlePlaceholder}
+              </span>
+            ) : null}
+          </div>
         </div>
         <div>
           <label className="block text-xs font-medium" style={{ color: palette.subtext }}>
