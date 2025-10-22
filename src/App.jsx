@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "./components/Header";
 import { Column } from "./components/Column";
 import { Card } from "./components/Card";
@@ -18,6 +18,10 @@ import {
 import { ensureAudioContext, playChime } from "./utils/audio";
 import { loadSound, loadState, loadTheme, saveSound, saveState, saveTheme } from "./utils/storage";
 
+const HISTORY_LIMIT = 100;
+
+const cloneCardsState = (state) => JSON.parse(JSON.stringify(state));
+
 export default function KanbanTimerBoard() {
   const initialStoredStateRef = useRef(loadState());
   const initialStoredState = initialStoredStateRef.current;
@@ -31,6 +35,8 @@ export default function KanbanTimerBoard() {
     });
     return initial;
   });
+  const historyRef = useRef([]);
+  const futureRef = useRef([]);
 
   const [filter, setFilter] = useState("");
   const [showNewCard, setShowNewCard] = useState(false);
@@ -45,6 +51,85 @@ export default function KanbanTimerBoard() {
   const [autoMoveEnabled, setAutoMoveEnabled] = useState(() => initialStoredState?.autoMoveEnabled ?? true);
   useEffect(() => saveTheme(theme), [theme]);
   useEffect(() => saveSound(sound), [sound]);
+
+  const updateCardsState = useCallback(
+    (updater, { track = false } = {}) => {
+      setCardsByCol((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : updater;
+        if (next === prev) return prev;
+        if (track) {
+          historyRef.current.push(cloneCardsState(prev));
+          if (historyRef.current.length > HISTORY_LIMIT) {
+            historyRef.current.shift();
+          }
+          futureRef.current = [];
+        }
+        return next;
+      });
+    },
+    [setCardsByCol]
+  );
+
+  const undo = useCallback(() => {
+    setCardsByCol((prev) => {
+      if (!historyRef.current.length) return prev;
+      const snapshot = historyRef.current.pop();
+      futureRef.current.push(cloneCardsState(prev));
+      if (futureRef.current.length > HISTORY_LIMIT) {
+        futureRef.current.shift();
+      }
+      return snapshot;
+    });
+  }, [setCardsByCol]);
+
+  const redo = useCallback(() => {
+    setCardsByCol((prev) => {
+      if (!futureRef.current.length) return prev;
+      const snapshot = futureRef.current.pop();
+      historyRef.current.push(cloneCardsState(prev));
+      if (historyRef.current.length > HISTORY_LIMIT) {
+        historyRef.current.shift();
+      }
+      return snapshot;
+    });
+  }, [setCardsByCol]);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.defaultPrevented) return;
+      const target = event.target;
+      const tagName = target?.tagName?.toLowerCase();
+      const isEditable =
+        target?.isContentEditable ||
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select";
+      if (isEditable) return;
+
+      const key = event.key?.toLowerCase();
+      const isUndoCombo = key === "z" && !event.shiftKey && (event.metaKey || event.ctrlKey);
+      const isRedoCombo =
+        (event.ctrlKey && key === "y") ||
+        (event.metaKey && event.shiftKey && key === "z") ||
+        (event.ctrlKey && event.shiftKey && key === "z");
+
+      if (isUndoCombo) {
+        if (!historyRef.current.length) return;
+        event.preventDefault();
+        undo();
+        return;
+      }
+
+      if (isRedoCombo) {
+        if (!futureRef.current.length) return;
+        event.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [undo, redo]);
 
   const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
 
@@ -371,7 +456,10 @@ export default function KanbanTimerBoard() {
       remainingSecAtStart: segments[0]?.remainingSec ?? durations[0],
       activeSegmentIndex: 0,
     });
-    setCardsByCol((prev) => ({ ...prev, [colId]: [...(prev[colId] || []), card] }));
+    updateCardsState(
+      (prev) => ({ ...prev, [colId]: [...(prev[colId] || []), card] }),
+      { track: true }
+    );
   };
 
   const updateCard = (colId, cardId, patch) => {
@@ -390,20 +478,30 @@ export default function KanbanTimerBoard() {
   };
 
   const removeCard = (colId, cardId) => {
-    setCardsByCol((prev) => ({
-      ...prev,
-      [colId]: (prev[colId] || []).filter((c) => c.id !== cardId),
-    }));
+    updateCardsState(
+      (prev) => {
+        const list = prev[colId] || [];
+        if (!list.some((c) => c.id === cardId)) return prev;
+        return {
+          ...prev,
+          [colId]: list.filter((c) => c.id !== cardId),
+        };
+      },
+      { track: true }
+    );
   };
 
   const clearColumn = (colId) => {
     let removedIds = [];
-    setCardsByCol((prev) => {
-      const existing = prev[colId] || [];
-      if (!existing.length) return prev;
-      removedIds = existing.map((card) => card.id);
-      return { ...prev, [colId]: [] };
-    });
+    updateCardsState(
+      (prev) => {
+        const existing = prev[colId] || [];
+        if (!existing.length) return prev;
+        removedIds = existing.map((card) => card.id);
+        return { ...prev, [colId]: [] };
+      },
+      { track: true }
+    );
 
     if (!removedIds.length) return;
 
@@ -424,26 +522,29 @@ export default function KanbanTimerBoard() {
   };
 
   const moveCard = (fromCol, toCol, cardId, index = null) => {
-    setCardsByCol((prev) => {
-      const src = [...(prev[fromCol] || [])];
-      const idx = src.findIndex((c) => c.id === cardId);
-      if (idx === -1) return prev;
-      const [card] = src.splice(idx, 1);
-      if (fromCol === toCol) {
-        let targetIndex = typeof index === "number" ? index : src.length;
-        if (targetIndex < 0) targetIndex = 0;
-        if (idx < targetIndex) targetIndex -= 1;
-        if (targetIndex < 0) targetIndex = 0;
-        if (targetIndex > src.length) targetIndex = src.length;
-        src.splice(targetIndex, 0, card);
-        return { ...prev, [fromCol]: src };
-      }
-      const dest = [...(prev[toCol] || [])];
-      let targetIndex = typeof index === "number" ? index : dest.length;
-      if (targetIndex < 0 || targetIndex > dest.length) targetIndex = dest.length;
-      dest.splice(targetIndex, 0, card);
-      return { ...prev, [fromCol]: src, [toCol]: dest };
-    });
+    updateCardsState(
+      (prev) => {
+        const src = [...(prev[fromCol] || [])];
+        const idx = src.findIndex((c) => c.id === cardId);
+        if (idx === -1) return prev;
+        const [card] = src.splice(idx, 1);
+        if (fromCol === toCol) {
+          let targetIndex = typeof index === "number" ? index : src.length;
+          if (targetIndex < 0) targetIndex = 0;
+          if (idx < targetIndex) targetIndex -= 1;
+          if (targetIndex < 0) targetIndex = 0;
+          if (targetIndex > src.length) targetIndex = src.length;
+          src.splice(targetIndex, 0, card);
+          return { ...prev, [fromCol]: src };
+        }
+        const dest = [...(prev[toCol] || [])];
+        let targetIndex = typeof index === "number" ? index : dest.length;
+        if (targetIndex < 0 || targetIndex > dest.length) targetIndex = dest.length;
+        dest.splice(targetIndex, 0, card);
+        return { ...prev, [fromCol]: src, [toCol]: dest };
+      },
+      { track: true }
+    );
   };
 
   const startTimer = (colId, card) => {
@@ -635,7 +736,18 @@ export default function KanbanTimerBoard() {
   };
 
   const doClearAll = () => {
-    setCardsByCol({ todo: [], doing: [], done: [] });
+    updateCardsState(
+      (prev) => {
+        const hasCards = Object.values(prev).some((list) => (list?.length ?? 0) > 0);
+        if (!hasCards) return prev;
+        const cleared = {};
+        Object.keys(prev).forEach((key) => {
+          cleared[key] = [];
+        });
+        return cleared;
+      },
+      { track: true }
+    );
     setConfirmClearOpen(false);
   };
 
@@ -823,7 +935,7 @@ export default function KanbanTimerBoard() {
         >
           <div className="space-y-3">
             <p className="text-sm" style={{ color: palette.subtext }}>
-              This removes every task in <em>{confirmColumnClear.name}</em>. This cannot be undone.
+              This removes every task in <em>{confirmColumnClear.name}</em>.
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button
@@ -852,8 +964,7 @@ export default function KanbanTimerBoard() {
         <Modal title="Clear all tasks?" onClose={() => setConfirmClearOpen(false)} palette={palette}>
           <div className="space-y-3">
             <p className="text-sm" style={{ color: palette.subtext }}>
-              This will remove every card in <em>To Do</em>, <em>In Progress</em>, and <em>Done</em>. This action cannot
-              be undone.
+              This will remove every card in <em>To Do</em>, <em>In Progress</em>, and <em>Done</em>.
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button
