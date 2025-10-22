@@ -17,6 +17,7 @@ export function SegmentRowsEditor({ rows, errors, onChange, onRemove, palette, m
             <input
               value={row.value}
               onChange={(e) => onChange(row.id, e.target.value)}
+              onFocus={(event) => event.target.select()}
               placeholder="25m"
               className="flex-1 rounded-md px-2 py-1 text-xs outline-none"
               style={{ border: `1px solid ${palette.border}`, backgroundColor: "transparent", color: palette.text }}

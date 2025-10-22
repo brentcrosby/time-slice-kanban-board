@@ -172,6 +172,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
               <input
                 value={limitInput}
                 onChange={(event) => setLimitInput(event.target.value)}
+                onFocus={(event) => event.target.select()}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();

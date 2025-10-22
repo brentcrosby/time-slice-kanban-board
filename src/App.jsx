@@ -554,7 +554,16 @@ export default function KanbanTimerBoard() {
       const existing = current.segments || [];
       const segments = durations.map((sec, idx) => {
         const prevSeg = existing[idx];
-        const remaining = prevSeg ? clamp(Math.floor(prevSeg.remainingSec ?? sec), 0, sec) : sec;
+        let remaining = sec;
+        if (prevSeg) {
+          // Preserve the previous progress ratio relative to the start of the segment.
+          const prevDuration = prevSeg.durationSec && prevSeg.durationSec > 0 ? prevSeg.durationSec : sec;
+          const prevRemaining =
+            prevSeg.remainingSec != null ? prevSeg.remainingSec : prevSeg.durationSec ?? prevDuration;
+          const progressRatio = prevDuration > 0 ? prevRemaining / prevDuration : prevRemaining > 0 ? 1 : 0;
+          const normalizedRatio = clamp(progressRatio, 0, 1);
+          remaining = clamp(Math.floor(sec * normalizedRatio), 0, sec);
+        }
         return {
           id: prevSeg?.id || `${current.id || card.id}-seg-${idx}-${uid()}`,
           durationSec: sec,

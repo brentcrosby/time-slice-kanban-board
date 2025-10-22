@@ -133,6 +133,10 @@ export function Card({
   const isOver = dragState.active ? visualTotalRemaining <= 0 : baseIsOver;
 
   const onDragStart = (event) => {
+    if (limitEditorActive) {
+      event.preventDefault();
+      return;
+    }
     event.dataTransfer.setData(
       "application/x-card",
       JSON.stringify({ cardId: card.id, fromCol: colId, fromIndex: index })
@@ -149,11 +153,11 @@ export function Card({
   return (
     <article
       ref={ref}
-      draggable
+      draggable={!limitEditorActive}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       data-card-id={card.id}
-      className={`relative interactive-card group rounded-xl p-3 shadow-sm ${isOver ? "ring-1" : ""}`}
+      className="relative interactive-card group rounded-xl p-3 shadow-sm"
       style={{
         backgroundColor: palette.card,
         border: `1px solid ${palette.border}`,

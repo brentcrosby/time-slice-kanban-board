@@ -174,6 +174,7 @@ export function NewCardModal({ defaultCol, onClose, onCreate, columns, palette }
               <input
                 value={limitInput}
                 onChange={(event) => setLimitInput(event.target.value)}
+                onFocus={(event) => event.target.select()}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
