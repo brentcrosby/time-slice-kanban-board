@@ -5,6 +5,7 @@ import { MIN_SEGMENT_SEC } from "../constants";
 import { clamp } from "../utils/misc";
 import { findNextActiveSegment } from "../utils/segments";
 import { secsToHMS } from "../utils/time";
+import { CARD_GROUPS } from "../constants/groups";
 
 export function Card({
   card,
@@ -18,6 +19,7 @@ export function Card({
   onUpdateProgress,
   index,
   palette,
+  isDark = false,
   isChiming = false,
   onStopChime,
 }) {
@@ -150,6 +152,12 @@ export function Card({
   const controlButtonClass =
     "interactive-button rounded-md p-1 transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30";
 
+  const groupColors = card.group ? CARD_GROUPS[card.group]?.colors?.[isDark ? "dark" : "light"] : null;
+  const cardBackgroundColor = groupColors?.cardBg ?? palette.card;
+  const cardBorderColor = groupColors?.cardBorder ?? palette.border;
+  const cardTextColor = groupColors?.cardText ?? palette.text;
+  const cardSubtextColor = groupColors?.cardSubtext ?? palette.subtext;
+
   return (
     <article
       ref={ref}
@@ -159,18 +167,18 @@ export function Card({
       data-card-id={card.id}
       className="relative interactive-card group rounded-xl p-3 shadow-sm"
       style={{
-        backgroundColor: palette.card,
-        border: `1px solid ${palette.border}`,
+        backgroundColor: cardBackgroundColor,
+        border: `1px solid ${cardBorderColor}`,
         zIndex: limitEditorActive ? 200 : undefined,
       }}
     >
       <div className="mb-2 flex items-start gap-2">
         <div className="flex-1">
-          <h3 className="text-sm font-semibold" style={{ color: palette.text }}>
+          <h3 className="text-sm font-semibold" style={{ color: cardTextColor }}>
             {card.title}
           </h3>
           {card.notes ? (
-            <p className="mt-1 text-xs whitespace-pre-wrap" style={{ color: palette.subtext }}>
+            <p className="mt-1 text-xs whitespace-pre-wrap" style={{ color: cardSubtextColor }}>
               {card.notes}
             </p>
           ) : null}
@@ -182,7 +190,7 @@ export function Card({
               title="Mute chime"
               aria-label="Mute chime"
               className={controlButtonClass}
-              style={{ color: palette.subtext }}
+              style={{ color: cardSubtextColor }}
             >
               <VolumeX className="h-4 w-4" />
             </button>
@@ -192,7 +200,7 @@ export function Card({
               title="Pause"
               aria-label="Pause"
               className={controlButtonClass}
-              style={{ color: palette.subtext }}
+              style={{ color: cardSubtextColor }}
             >
               <Pause className="h-4 w-4" />
             </button>
@@ -202,7 +210,7 @@ export function Card({
               title="Start"
               aria-label="Start"
               className={controlButtonClass}
-              style={{ color: palette.subtext }}
+              style={{ color: cardSubtextColor }}
             >
               <Play className="h-4 w-4" />
             </button>
@@ -212,7 +220,7 @@ export function Card({
             title="Reset"
             aria-label="Reset"
             className={controlButtonClass}
-            style={{ color: palette.subtext }}
+            style={{ color: cardSubtextColor }}
           >
             <RotateCcw className="h-4 w-4" />
           </button>
@@ -221,7 +229,7 @@ export function Card({
             title="Edit"
             aria-label="Edit"
             className={controlButtonClass}
-            style={{ color: palette.subtext }}
+            style={{ color: cardSubtextColor }}
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -230,7 +238,7 @@ export function Card({
             title="Delete"
             aria-label="Delete"
             className={controlButtonClass}
-            style={{ color: palette.subtext }}
+            style={{ color: cardSubtextColor }}
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -297,8 +305,8 @@ export function Card({
             );
           })}
         </div>
-        <div className="mt-1 flex items-center justify-between text-xs" style={{ color: palette.subtext }}>
-          <span className={`${isOver ? "font-semibold" : ""}`} style={{ color: isOver ? "#b91c1c" : palette.subtext }}>
+        <div className="mt-1 flex items-center justify-between text-xs" style={{ color: cardSubtextColor }}>
+          <span className={`${isOver ? "font-semibold" : ""}`} style={{ color: isOver ? "#b91c1c" : cardSubtextColor }}>
             {visualActiveRemaining < 0
               ? `Over: ${secsToHMS(Math.abs(visualActiveRemaining))}`
               : secsToHMS(Math.max(visualActiveRemaining, 0))}

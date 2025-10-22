@@ -7,6 +7,9 @@ import { parseDurationToSeconds, parseTimeFromTitle } from "../utils/time";
 import { segmentDraftsFromSegments } from "../utils/segments";
 import { TITLE_PLACEHOLDERS } from "../constants/titlePlaceholders";
 import { useRotatingPlaceholder } from "../hooks/useRotatingPlaceholder";
+import { CARD_GROUP_OPTIONS } from "../constants/groups";
+
+const VALID_GROUP_IDS = CARD_GROUP_OPTIONS.filter((option) => option.value).map((option) => option.value);
 
 export function NewCardModal({ defaultCol, onClose, onCreate, columns, palette }) {
   const [colId, setColId] = useState(defaultCol);
@@ -16,6 +19,8 @@ export function NewCardModal({ defaultCol, onClose, onCreate, columns, palette }
   const [useSegments, setUseSegments] = useState(false);
   const [segmentRows, setSegmentRows] = useState(() => segmentDraftsFromSegments([]));
   const [segmentErrors, setSegmentErrors] = useState({});
+  const [groupId, setGroupId] = useState("");
+  const [groupTouched, setGroupTouched] = useState(false);
   const showTitlePlaceholder = title.length === 0;
   const {
     placeholder: titlePlaceholder,
@@ -25,6 +30,13 @@ export function NewCardModal({ defaultCol, onClose, onCreate, columns, palette }
   useEffect(() => {
     if (!useSegments) setSegmentErrors({});
   }, [useSegments]);
+
+  useEffect(() => {
+    if (groupTouched) return;
+    const match = title.match(/\b(g[1-3])\b/i);
+    const detected = match ? match[1].toLowerCase() : "";
+    setGroupId(VALID_GROUP_IDS.includes(detected) ? detected : "");
+  }, [title, groupTouched]);
 
   const handleSegmentChange = (id, value) => {
     setSegmentRows((prev) => prev.map((row) => (row.id === id ? { ...row, value } : row)));
@@ -86,7 +98,17 @@ export function NewCardModal({ defaultCol, onClose, onCreate, columns, palette }
     }
     setSegmentErrors({});
     const total = segments.reduce((acc, sec) => acc + sec, 0);
-    onCreate(colId, { title: parsed.cleanTitle, notes, durationSec: total, segments });
+    const resolvedGroup = groupTouched ? groupId : parsed.groupId ?? groupId;
+    const normalizedGroup = resolvedGroup && VALID_GROUP_IDS.includes(resolvedGroup.toLowerCase())
+      ? resolvedGroup.toLowerCase()
+      : "";
+    onCreate(colId, {
+      title: parsed.cleanTitle,
+      notes,
+      durationSec: total,
+      segments,
+      group: normalizedGroup || null,
+    });
   };
 
   return (
@@ -206,6 +228,26 @@ export function NewCardModal({ defaultCol, onClose, onCreate, columns, palette }
               </div>
             )}
           </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium" style={{ color: palette.subtext }}>
+            Group
+          </label>
+          <select
+            value={groupTouched ? groupId : groupId || ""}
+            onChange={(event) => {
+              setGroupTouched(true);
+              setGroupId(event.target.value);
+            }}
+            className="mt-1 w-full rounded-xl px-3 py-2 text-sm"
+            style={{ backgroundColor: "transparent", border: `1px solid ${palette.border}`, color: palette.text }}
+          >
+            {CARD_GROUP_OPTIONS.map((option) => (
+              <option key={option.value || "none"} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <button

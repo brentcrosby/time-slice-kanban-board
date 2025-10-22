@@ -32,19 +32,19 @@ body {
   }
 
   .interactive-button:hover {
-    filter: brightness(1.05);
+    filter: brightness(1.1);
   }
 
   .interactive-button:active {
-    filter: brightness(0.97);
+    filter: brightness(0.94);
   }
 
   [data-theme="dark"] .interactive-button:hover {
-    filter: brightness(1.14);
+    filter: brightness(1.2);
   }
 
   [data-theme="dark"] .interactive-button:active {
-    filter: brightness(0.9);
+    filter: brightness(0.88);
   }
 
   .interactive-surface {
@@ -53,19 +53,19 @@ body {
   }
 
   .interactive-surface:hover {
-    filter: brightness(1.05);
+    filter: brightness(1.1);
   }
 
   .interactive-surface:active {
-    filter: brightness(0.96);
+    filter: brightness(0.93);
   }
 
   [data-theme="dark"] .interactive-surface:hover {
-    filter: brightness(1.09);
+    filter: brightness(1.17);
   }
 
   [data-theme="dark"] .interactive-surface:active {
-    filter: brightness(0.95);
+    filter: brightness(0.9);
   }
 
   .interactive-card {
@@ -76,18 +76,18 @@ body {
 
   .interactive-card:active {
     cursor: grabbing;
-    filter: brightness(0.97);
+    filter: brightness(0.92);
   }
 
   .interactive-card:hover {
-    filter: brightness(1.04);
+    filter: brightness(1.1);
   }
 
   [data-theme="dark"] .interactive-card:hover {
-    filter: brightness(1.08);
+    filter: brightness(1.18);
   }
 
   [data-theme="dark"] .interactive-card:active {
-    filter: brightness(0.94);
+    filter: brightness(0.88);
   }
 }

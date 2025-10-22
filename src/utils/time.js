@@ -56,10 +56,18 @@ export function parseDurationToSeconds(input) {
 
 const DURATION_TOKEN_RE =
   /(?:\d+:\d{1,2}:\d{1,2})|(?:\d+:\d{1,2})|(?:\d+(?:\.\d+)?\s*h(?:ours?)?(?:\s*\d+(?:\.\d+)?\s*m(?:in(?:ute)?s?)?)?)|(?:\d+(?:\.\d+)?\s*(?:h|hr|hrs|hour|hours|m|min|mins|minute|minutes))|(?:\b\d+(?:\.\d+)?\b)/gi;
+const GROUP_TOKEN_RE = /\b(g[1-3])\b/gi;
 
 export function parseTimeFromTitle(rawTitle) {
   let title = rawTitle || "";
-  if (!rawTitle) return { cleanTitle: title, durationSec: null, segments: [] };
+  if (!rawTitle) return { cleanTitle: title, durationSec: null, segments: [], groupId: null };
+
+  let detectedGroup = null;
+  const titleWithoutGroups = title.replace(GROUP_TOKEN_RE, (match) => {
+    if (!detectedGroup) detectedGroup = match.toLowerCase();
+    return " ";
+  });
+  title = titleWithoutGroups;
 
   const matches = [];
   const numericOnly = /^\d+(?:\.\d+)?$/;
@@ -79,14 +87,24 @@ export function parseTimeFromTitle(rawTitle) {
     title = title.replace(/[()\[\]\-_,]+/g, " ").replace(/\s{2,}/g, " ").trim();
     const durations = matches.map((m) => m.sec);
     const total = durations.reduce((acc, sec) => acc + sec, 0);
-    return { cleanTitle: title || rawTitle, durationSec: total, segments: durations };
+    return {
+      cleanTitle: title.trim() || titleWithoutGroups.trim() || rawTitle.trim(),
+      durationSec: total,
+      segments: durations,
+      groupId: detectedGroup,
+    };
   }
 
   if (matches.length === 1) {
     const [{ token, sec }] = matches;
     title = title.replace(token, " ");
     title = title.replace(/[()\[\]\-_,]+/g, " ").replace(/\s{2,}/g, " ").trim();
-    return { cleanTitle: title || rawTitle, durationSec: sec, segments: [] };
+    return {
+      cleanTitle: title || titleWithoutGroups.trim() || rawTitle.trim(),
+      durationSec: sec,
+      segments: [],
+      groupId: detectedGroup,
+    };
   }
 
   const lower = rawTitle.toLowerCase();
@@ -134,5 +152,10 @@ export function parseTimeFromTitle(rawTitle) {
   }
 
   title = title.replace(/[()\[\]\-_,]+/g, " ").replace(/\s{2,}/g, " ").trim();
-  return { cleanTitle: title || rawTitle, durationSec, segments: [] };
+  return {
+    cleanTitle: title || titleWithoutGroups.trim() || rawTitle.trim(),
+    durationSec,
+    segments: [],
+    groupId: detectedGroup,
+  };
 }

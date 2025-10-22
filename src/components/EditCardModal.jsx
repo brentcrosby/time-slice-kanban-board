@@ -3,7 +3,7 @@ import { Modal } from "./Modal";
 import { SegmentRowsEditor } from "./SegmentRowsEditor";
 import { MIN_SEGMENT_SEC, MAX_SEGMENT_SEC } from "../constants";
 import { clamp, uid } from "../utils/misc";
-import { parseDurationToSeconds } from "../utils/time";
+import { parseDurationToSeconds, parseTimeFromTitle } from "../utils/time";
 import {
   findNextActiveSegment,
   formatSegmentForInput,
@@ -11,6 +11,9 @@ import {
 } from "../utils/segments";
 import { TITLE_PLACEHOLDERS } from "../constants/titlePlaceholders";
 import { useRotatingPlaceholder } from "../hooks/useRotatingPlaceholder";
+import { CARD_GROUP_OPTIONS } from "../constants/groups";
+
+const VALID_GROUP_IDS = CARD_GROUP_OPTIONS.filter((option) => option.value).map((option) => option.value);
 
 export function EditCardModal({ card, onClose, onSave, palette }) {
   const [title, setTitle] = useState(card.title);
@@ -20,6 +23,8 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
   const [segmentRows, setSegmentRows] = useState(() => segmentDraftsFromSegments(card.segments));
   const [segmentErrors, setSegmentErrors] = useState({});
   const [limitError, setLimitError] = useState("");
+  const [groupId, setGroupId] = useState(VALID_GROUP_IDS.includes(card.group) ? card.group : "");
+  const [groupTouched, setGroupTouched] = useState(false);
   const showTitlePlaceholder = title.length === 0;
   const {
     placeholder: titlePlaceholder,
@@ -29,6 +34,16 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
   useEffect(() => {
     if (!useSegments) setSegmentErrors({});
   }, [useSegments]);
+
+  useEffect(() => {
+    if (groupTouched) return;
+    const match = title.match(/\b(g[1-3])\b/i);
+    if (match) {
+      const detected = match[1].toLowerCase();
+      if (VALID_GROUP_IDS.includes(detected)) setGroupId(detected);
+      else setGroupId("");
+    }
+  }, [title, groupTouched]);
 
   const handleSegmentChange = (id, value) => {
     setSegmentRows((prev) => prev.map((row) => (row.id === id ? { ...row, value } : row)));
@@ -80,6 +95,13 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
 
     if (!durations.length) durations = [MIN_SEGMENT_SEC];
 
+    const parsedTitle = parseTimeFromTitle(title);
+    const cleanTitle = parsedTitle.cleanTitle;
+    const autoGroup = parsedTitle.groupId;
+    const resolvedGroup = groupTouched ? groupId : autoGroup ?? groupId;
+    const normalizedCandidate = resolvedGroup ? resolvedGroup.toLowerCase() : "";
+    const normalizedGroup = normalizedCandidate && VALID_GROUP_IDS.includes(normalizedCandidate) ? normalizedCandidate : "";
+
     const segmentsPayload = durations.map((sec, idx) => {
       const existing = card.segments?.[idx];
       const remaining = existing ? clamp(Math.floor(existing.remainingSec ?? sec), 0, sec) : sec;
@@ -93,9 +115,10 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
     const nextActiveIndex = findNextActiveSegment(segmentsPayload);
 
     onSave({
-      title,
+      title: cleanTitle,
       notes,
       segments: segmentsPayload,
+      group: normalizedGroup || null,
       running: false,
       lastStartTs: null,
       remainingSecAtStart: segmentsPayload[nextActiveIndex]?.remainingSec ?? 0,
@@ -209,6 +232,26 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
               </button>
             </div>
           )}
+        </div>
+        <div>
+          <label className="block text-xs font-medium" style={{ color: palette.subtext }}>
+            Group
+          </label>
+          <select
+            value={groupTouched ? groupId : groupId || ""}
+            onChange={(event) => {
+              setGroupTouched(true);
+              setGroupId(event.target.value);
+            }}
+            className="mt-1 w-full rounded-xl px-3 py-2 text-sm"
+            style={{ backgroundColor: "transparent", border: `1px solid ${palette.border}`, color: palette.text }}
+          >
+            {CARD_GROUP_OPTIONS.map((option) => (
+              <option key={option.value || "none"} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <button

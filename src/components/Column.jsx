@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { secsToHMS } from "../utils/time";
+import { CARD_GROUP_ORDER, CARD_GROUPS } from "../constants/groups";
 
 export function Column({
   column,
@@ -10,6 +11,7 @@ export function Column({
   onClearColumn,
   renderCard,
   palette,
+  isDark = false,
 }) {
   const [dropIndex, setDropIndex] = useState(null);
   const cardCount = totalCount != null ? totalCount : cards.length;
@@ -55,6 +57,18 @@ export function Column({
   };
 
   const totalSecs = (cards || []).reduce((acc, c) => acc + (c?.durationSec || 0), 0);
+  const groupTotals = {};
+  (cards || []).forEach((card) => {
+    const groupId = card?.group;
+    if (!groupId || !CARD_GROUPS[groupId]) return;
+    groupTotals[groupId] = (groupTotals[groupId] || 0) + (card.durationSec || 0);
+  });
+  const orderedGroupTotals = [
+    ...CARD_GROUP_ORDER.map((id) => ({ id, total: groupTotals[id] || 0 })),
+    ...Object.keys(groupTotals)
+      .filter((id) => !CARD_GROUP_ORDER.includes(id))
+      .map((id) => ({ id, total: groupTotals[id] })),
+  ].filter((entry) => entry.total > 0);
 
   const renderDropIndicator = (position) => (
     <div
@@ -89,6 +103,28 @@ export function Column({
           >
             {secsToHMS(totalSecs)}
           </span>
+          {orderedGroupTotals.map(({ id, total }) => {
+            const group = CARD_GROUPS[id];
+            if (!group) return null;
+            const colors = group.colors?.[isDark ? "dark" : "light"] || {};
+            const pillBg = colors.badgeBg ?? palette.badge;
+            const pillText = colors.badgeText ?? palette.text;
+            const pillBorder = colors.cardBorder ?? palette.border;
+            return (
+              <span
+                key={id}
+                className="ml-2 rounded-full px-2 py-0.5 text-xs tabular-nums"
+                title={`${group.label} total time`}
+                style={{
+                  backgroundColor: pillBg,
+                  color: pillText,
+                  border: `1px solid ${pillBorder}`,
+                }}
+              >
+                {secsToHMS(total)}
+              </span>
+            );
+          })}
         </h2>
         {typeof onClearColumn === "function" ? (
           <button

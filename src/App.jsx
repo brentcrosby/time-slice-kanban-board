@@ -447,6 +447,7 @@ export default function KanbanTimerBoard() {
       id,
       title: payload.title?.trim() || "Untitled",
       notes: payload.notes?.trim() || "",
+      group: payload.group ?? null,
       running: false,
       lastStartTs: null,
       overtime: false,
@@ -890,11 +891,13 @@ export default function KanbanTimerBoard() {
                     onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
                     index={index}
                     palette={palette}
+                    isDark={isDark}
                     isChiming={chimeActive && loopingChimeSources.includes(card.id)}
                     onStopChime={stopLoopingChime}
                   />
                 )}
                 palette={palette}
+                isDark={isDark}
               />
             );
           })}
