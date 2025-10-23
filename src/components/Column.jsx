@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { secsToHHMM } from "../utils/time";
 import { CARD_GROUP_ORDER, CARD_GROUPS } from "../constants/groups";
 
@@ -14,6 +14,8 @@ export function Column({
   isDark = false,
 }) {
   const [dropIndex, setDropIndex] = useState(null);
+  const chipsRef = useRef(null);
+  const [chipFadeState, setChipFadeState] = useState({ canScroll: false, atStart: true, atEnd: true });
   const cardCount = totalCount != null ? totalCount : cards.length;
   const hasCards = cardCount > 0;
 
@@ -69,6 +71,41 @@ export function Column({
       .filter((id) => !CARD_GROUP_ORDER.includes(id))
       .map((id) => ({ id, total: groupTotals[id] })),
   ].filter((entry) => entry.total > 0);
+  const groupTotalsSignature = orderedGroupTotals.map(({ id, total }) => `${id}:${total}`).join("|");
+
+  const updateChipFadeState = useCallback(() => {
+    const el = chipsRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const canScroll = scrollWidth > clientWidth + 1;
+    const atStart = scrollLeft <= 1;
+    const atEnd = scrollLeft + clientWidth >= scrollWidth - 1;
+    setChipFadeState((prev) => {
+      if (prev.canScroll === canScroll && prev.atStart === atStart && prev.atEnd === atEnd) {
+        return prev;
+      }
+      return { canScroll, atStart, atEnd };
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = chipsRef.current;
+    if (!el) return;
+    const handleScroll = () => updateChipFadeState();
+    const handleResize = () => updateChipFadeState();
+    updateChipFadeState();
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleResize);
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [updateChipFadeState]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(updateChipFadeState);
+    return () => window.cancelAnimationFrame(frame);
+  }, [updateChipFadeState, totalSecs, cardCount, groupTotalsSignature]);
 
   const renderDropIndicator = (position) => (
     <div
@@ -88,44 +125,75 @@ export function Column({
       onDrop={handleDrop}
     >
       <header className="flex items-center gap-2">
-        <h2 className="flex items-center text-base font-semibold tracking-tight md:text-sm" style={{ color: palette.text }}>
-          {column.name}
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <h2 className="flex-shrink-0 text-base font-semibold tracking-tight md:text-sm" style={{ color: palette.text }}>
+            {column.name}
+          </h2>
           <span
-            className="ml-2 rounded-full px-2 py-0.5 text-sm md:text-xs"
+            className="flex-shrink-0 rounded-full px-2 py-0.5 text-sm md:text-xs"
             style={{ backgroundColor: palette.badge, color: palette.subtext }}
           >
             {cards.length}
           </span>
-          <span
-            className="ml-2 rounded-full px-2 py-0.5 text-sm tabular-nums md:text-xs"
-            title="Total planned time"
-            style={{ backgroundColor: palette.badge, color: palette.text }}
-          >
-            {secsToHHMM(totalSecs)}
-          </span>
-          {orderedGroupTotals.map(({ id, total }) => {
-            const group = CARD_GROUPS[id];
-            if (!group) return null;
-            const colors = group.colors?.[isDark ? "dark" : "light"] || {};
-            const pillBg = colors.badgeBg ?? palette.badge;
-            const pillText = colors.badgeText ?? palette.text;
-            const pillBorder = colors.cardBorder ?? palette.border;
-              return (
-                <span
-                  key={id}
-                  className="ml-2 rounded-full px-2 py-0.5 text-sm tabular-nums md:text-xs"
-                  title={`${group.label} total time`}
-                  style={{
-                    backgroundColor: pillBg,
-                    color: pillText,
-                    border: `1px solid ${pillBorder}`,
-                  }}
-                >
-                  {secsToHHMM(total)}
-                </span>
-              );
-            })}
-        </h2>
+          <div className="relative min-w-0 flex-1">
+            <div
+              ref={chipsRef}
+              className="flex min-w-0 items-center gap-2 overflow-x-auto py-0.5"
+              style={{
+                backgroundColor: palette.surface,
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+                touchAction: "pan-x",
+              }}
+            >
+              <span
+                className="flex-shrink-0 rounded-full px-2 py-0.5 text-sm tabular-nums md:text-xs"
+                title="Total planned time"
+                style={{ backgroundColor: palette.badge, color: palette.text }}
+              >
+                {secsToHHMM(totalSecs)}
+              </span>
+              {orderedGroupTotals.map(({ id, total }) => {
+                const group = CARD_GROUPS[id];
+                if (!group) return null;
+                const colors = group.colors?.[isDark ? "dark" : "light"] || {};
+                const pillBg = colors.badgeBg ?? palette.badge;
+                const pillText = colors.badgeText ?? palette.text;
+                const pillBorder = colors.cardBorder ?? palette.border;
+                return (
+                  <span
+                    key={id}
+                    className="flex-shrink-0 rounded-full px-2 py-0.5 text-sm tabular-nums md:text-xs"
+                    title={`${group.label} total time`}
+                    style={{
+                      backgroundColor: pillBg,
+                      color: pillText,
+                      border: `1px solid ${pillBorder}`,
+                    }}
+                  >
+                    {secsToHHMM(total)}
+                  </span>
+                );
+              })}
+            </div>
+            {chipFadeState.canScroll && !chipFadeState.atStart ? (
+              <div
+                className="pointer-events-none absolute inset-y-0 left-0 w-6"
+                style={{
+                  backgroundImage: `linear-gradient(to right, ${palette.surface}, transparent)`,
+                }}
+              />
+            ) : null}
+            {chipFadeState.canScroll && !chipFadeState.atEnd ? (
+              <div
+                className="pointer-events-none absolute inset-y-0 right-0 w-6"
+                style={{
+                  backgroundImage: `linear-gradient(to left, ${palette.surface}, transparent)`,
+                }}
+              />
+            ) : null}
+          </div>
+        </div>
         {typeof onClearColumn === "function" ? (
           <button
             type="button"
