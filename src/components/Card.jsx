@@ -394,7 +394,8 @@ export function Card({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
-          className="relative flex h-2 w-full cursor-ew-resize items-stretch gap-[2px] select-none"
+          className="relative flex h-2 w-full items-stretch gap-[2px] select-none"
+          style={{ cursor: dragState.active ? "ew-resize" : undefined }}
         >
           {showHoverOverlay && (
             <div
