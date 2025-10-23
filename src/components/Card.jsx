@@ -241,7 +241,7 @@ export function Card({
   const cardTextColor = groupColors?.cardText ?? palette.text;
   const cardSubtextColor = groupColors?.cardSubtext ?? palette.subtext;
   const barBgColor = groupColors
-    ? adjustColorTone(palette.barBg, isDark ? 0.4 : -0.35)
+    ? adjustColorTone(palette.barBg, isDark ? 0.15 : -0.15)
     : palette.barBg;
   const barFillColor = groupColors
     ? adjustColorTone(palette.barFill, isDark ? 0.45 : -0.4)
@@ -445,7 +445,7 @@ export function Card({
             const isHovered = safeHoveredIdx === idx;
             const segmentBackground = isSegmented && isHovered ? hoveredBarBgColor : barBgColor;
             const segmentFill = isOver
-              ? "#fda4af"
+              ? palette.overFill
               : isSegmented && isHovered
               ? hoveredBarFillColor
               : barFillColor;
@@ -476,7 +476,7 @@ export function Card({
           })}
         </div>
         <div className="mt-1 flex items-center justify-between text-xs" style={{ color: cardSubtextColor }}>
-          <span className={`${isOver ? "font-semibold" : ""}`} style={{ color: isOver ? "#b91c1c" : cardSubtextColor }}>
+          <span className={`${isOver ? "font-semibold" : ""}`} style={{ color: isOver ? palette.overText : cardSubtextColor }}>
             {visualActiveRemaining < 0
               ? `Over: ${secsToHMS(Math.abs(visualActiveRemaining))}`
               : secsToHMS(Math.max(visualActiveRemaining, 0))}

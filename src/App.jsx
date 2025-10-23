@@ -7,6 +7,7 @@ import { NewCardModal } from "./components/NewCardModal";
 import { EditCardModal } from "./components/EditCardModal";
 import { SettingsModal } from "./components/SettingsModal";
 import { DEFAULT_COLUMNS, MIN_SEGMENT_SEC } from "./constants";
+import { BODY_FALLBACK_BG, THEME_COLORS } from "./constants/themeColors";
 import { useNowTicker } from "./hooks/useNowTicker";
 import { clamp, uid } from "./utils/misc";
 import {
@@ -135,23 +136,16 @@ export default function KanbanTimerBoard() {
 
   const isDark = theme === "dark";
   const palette = useMemo(
-    () => ({
-      bg: isDark ? "#191919" : "#fafafa",
-      headerBg: isDark ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.7)",
-      surface: isDark ? "#1f1f1f" : "#ffffff",
-      card: isDark ? "#202020" : "#ffffff",
-      border: isDark ? "#2b2b2b" : "#e5e7eb",
-      text: isDark ? "#e5e5e5" : "#111827",
-      subtext: isDark ? "#a3a3a3" : "#6b7280",
-      badge: isDark ? "#262626" : "#f3f4f6",
-      barBg: isDark ? "#343434" : "#e5e7eb",
-      barFill: isDark ? "#e5e5e5" : "#111827",
-      barOutline: isDark ? "#4b5563" : "#d1d5db",
-      dangerBg: isDark ? "#7f1d1d" : "#fee2e2",
-      dangerText: isDark ? "#fecaca" : "#b91c1c",
-    }),
+    () => ({ ...THEME_COLORS[isDark ? "dark" : "light"] }),
     [isDark]
   );
+
+  useEffect(() => {
+    document.body.style.backgroundColor = palette.bg;
+    return () => {
+      document.body.style.backgroundColor = BODY_FALLBACK_BG;
+    };
+  }, [palette.bg]);
 
   const audioRef = useRef(null);
   const [chimeActive, setChimeActive] = useState(false);

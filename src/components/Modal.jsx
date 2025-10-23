@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { X } from "lucide-react";
+import { MODAL_OVERLAY_COLOR } from "../constants/themeColors";
 
 export function Modal({ title, onClose, children, palette }) {
   useEffect(() => {
@@ -12,7 +13,7 @@ export function Modal({ title, onClose, children, palette }) {
 
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center p-4">
-      <div className="absolute inset-0" onClick={onClose} style={{ backgroundColor: "rgba(0,0,0,0.6)" }} />
+      <div className="absolute inset-0" onClick={onClose} style={{ backgroundColor: MODAL_OVERLAY_COLOR }} />
       <div
         className="relative z-10 w-full max-w-lg rounded-2xl p-4 shadow-xl border"
         style={{ backgroundColor: palette.surface, borderColor: palette.border }}
