@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Play, Pause, RotateCcw, Pencil, Trash2, VolumeX } from "lucide-react";
 import { SegmentLimitEditor } from "./SegmentLimitEditor";
 import { MIN_SEGMENT_SEC } from "../constants";
@@ -59,6 +59,7 @@ export function Card({
         },
       ]
   ).map((seg) => ({ ...seg }));
+  const isSegmented = (card.segments?.length || 0) > 1;
   const totalDuration = segments.reduce((sum, seg) => sum + (seg.durationSec ?? 0), 0) || 1;
   const totalRemaining = segments.reduce((sum, seg) => sum + (seg.remainingSec ?? 0), 0);
   const baseIsOver = totalRemaining <= 0;
@@ -68,6 +69,51 @@ export function Card({
   const barRef = useRef(null);
   const dragPointerIdRef = useRef(null);
   const [dragState, setDragState] = useState({ active: false, ratio: 0, displaySec: 0 });
+  const [hoveredIdx, setHoveredIdx] = useState(null);
+  const [overlayIdx, setOverlayIdx] = useState(null);
+  const [overlayVisible, setOverlayVisible] = useState(false);
+  const hoverDelayRef = useRef(null);
+  const overlayHideRef = useRef(new Map());
+  const HOVER_DELAY_MS = 120;
+  const OVERLAY_FADE_MS = 150;
+
+  useEffect(() => {
+    return () => {
+      if (hoverDelayRef.current) {
+        clearTimeout(hoverDelayRef.current);
+        hoverDelayRef.current = null;
+      }
+      const hideMap = overlayHideRef.current;
+      if (hideMap.size) {
+        hideMap.forEach((timeoutId) => clearTimeout(timeoutId));
+        hideMap.clear();
+      }
+    };
+  }, []);
+
+  const segmentFlexMeta = useMemo(() => {
+    if (!segments.length) return [];
+    const units = segments.map((seg) => {
+      const duration = seg.durationSec ?? 0;
+      return duration > 0 ? duration : 1;
+    });
+    const totalUnits = units.reduce((sum, val) => sum + val, 0) || 1;
+    let accumulator = 0;
+    return segments.map((_, idx) => {
+      const unit = units[idx] || 1;
+      const startRatio = accumulator / totalUnits;
+      const widthRatio = unit / totalUnits;
+      accumulator += unit;
+      return { startRatio, widthRatio };
+    });
+  }, [segments]);
+
+  const safeHoveredIdx = isSegmented && hoveredIdx != null && hoveredIdx >= 0 && hoveredIdx < segments.length
+    ? hoveredIdx
+    : null;
+  const overlayDisplayIdx = !dragState.active && overlayIdx != null && overlayIdx >= 0 && overlayIdx < segments.length
+    ? overlayIdx
+    : null;
 
   const computeRemainingFromRatio = (ratio) => {
     let spent = totalDuration * clamp(ratio, 0, 1);
@@ -98,6 +144,19 @@ export function Card({
     if (!onUpdateProgress) return;
     event.preventDefault();
     event.stopPropagation();
+    if (isSegmented) {
+      setHoveredIdx(null);
+      if (hoverDelayRef.current) {
+        clearTimeout(hoverDelayRef.current);
+        hoverDelayRef.current = null;
+      }
+      if (overlayHideRef.current.size) {
+        overlayHideRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+        overlayHideRef.current.clear();
+      }
+      setOverlayVisible(false);
+      setOverlayIdx(null);
+    }
     const ratio = getRatioFromEvent(event);
     dragPointerIdRef.current = event.pointerId;
     barRef.current?.setPointerCapture?.(event.pointerId);
@@ -187,6 +246,58 @@ export function Card({
   const barFillColor = groupColors
     ? adjustColorTone(palette.barFill, isDark ? 0.45 : -0.4)
     : palette.barFill;
+  const hoveredBarBgColor = adjustColorTone(barBgColor, isDark ? 0.45 : -0.35);
+  const hoveredBarFillColor = adjustColorTone(barFillColor, isDark ? 0.35 : -0.35);
+
+  const overlaySegment = overlayDisplayIdx != null ? segments[overlayDisplayIdx] : null;
+  const overlayMeta = overlayDisplayIdx != null ? segmentFlexMeta[overlayDisplayIdx] : null;
+  const showHoverOverlay = Boolean(overlaySegment && overlayMeta);
+
+  const handleSegmentEnter = (idx) => {
+    if (!isSegmented) return;
+    setHoveredIdx(idx);
+    if (hoverDelayRef.current) {
+      clearTimeout(hoverDelayRef.current);
+      hoverDelayRef.current = null;
+    }
+    const hideMap = overlayHideRef.current;
+    const pendingHide = hideMap.get(idx);
+    if (pendingHide) {
+      clearTimeout(pendingHide);
+      hideMap.delete(idx);
+    }
+    if (overlayIdx !== idx || !overlayVisible) {
+      setOverlayVisible(false);
+    }
+    hoverDelayRef.current = window.setTimeout(() => {
+      hoverDelayRef.current = null;
+      setOverlayIdx(idx);
+      setOverlayVisible(true);
+    }, HOVER_DELAY_MS);
+  };
+
+  const handleSegmentLeave = (idx) => {
+    if (!isSegmented) return;
+    setHoveredIdx((current) => (current === idx ? null : current));
+    if (hoverDelayRef.current) {
+      clearTimeout(hoverDelayRef.current);
+      hoverDelayRef.current = null;
+    }
+    setOverlayVisible(false);
+    if (overlayIdx === idx) {
+      const hideMap = overlayHideRef.current;
+      const pendingHide = hideMap.get(idx);
+      if (pendingHide) {
+        clearTimeout(pendingHide);
+        hideMap.delete(idx);
+      }
+      const timeoutId = window.setTimeout(() => {
+        setOverlayIdx((current) => (current === idx ? null : current));
+        hideMap.delete(idx);
+      }, OVERLAY_FADE_MS);
+      hideMap.set(idx, timeoutId);
+    }
+  };
 
   return (
     <article
@@ -285,6 +396,23 @@ export function Card({
           onPointerCancel={handlePointerCancel}
           className="relative flex h-2 w-full cursor-ew-resize items-stretch gap-[2px] select-none"
         >
+          {showHoverOverlay && (
+            <div
+              className="pointer-events-none absolute -top-7 whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-medium shadow-md"
+              style={{
+                left: `${(overlayMeta.startRatio + overlayMeta.widthRatio / 2) * 100}%`,
+                transform: "translateX(-50%)",
+                backgroundColor: palette.surface,
+                border: `1px solid ${palette.border}`,
+                color: palette.text,
+                zIndex: 50,
+                opacity: overlayVisible ? 1 : 0,
+                transition: `opacity ${OVERLAY_FADE_MS}ms ease`,
+              }}
+            >
+              {secsToHMS(Math.round(overlaySegment?.durationSec ?? 0))}
+            </div>
+          )}
           {dragState.active && (
             <>
               <div
@@ -314,21 +442,33 @@ export function Card({
           {segments.map((seg, idx) => {
             const progress = visualProgressList[idx] ?? 0;
             const isActive = idx === visualActiveIndex;
+            const isHovered = safeHoveredIdx === idx;
+            const segmentBackground = isSegmented && isHovered ? hoveredBarBgColor : barBgColor;
+            const segmentFill = isOver
+              ? "#fda4af"
+              : isSegmented && isHovered
+              ? hoveredBarFillColor
+              : barFillColor;
             return (
               <div
                 key={seg.id || `${card.id}-seg-${idx}`}
                 className="relative flex-1 overflow-hidden rounded-full"
                 style={{
-                  backgroundColor: barBgColor,
+                  backgroundColor: segmentBackground,
                   flexGrow: seg.durationSec || 1,
+                  transition: "background-color 0.15s ease, box-shadow 0.15s ease",
+                  boxShadow: isSegmented && isHovered ? `0 0 0 1px ${palette.text}25` : undefined,
+                  zIndex: isSegmented && isHovered ? 2 : 1,
                 }}
+                onPointerEnter={isSegmented ? () => handleSegmentEnter(idx) : undefined}
+                onPointerLeave={isSegmented ? () => handleSegmentLeave(idx) : undefined}
               >
                 <div
                   className="absolute inset-y-0 left-0"
                   style={{
                     width: `${progress * 100}%`,
-                    backgroundColor: isOver ? "#fda4af" : barFillColor,
-                    transition: "width 0.2s ease",
+                    backgroundColor: segmentFill,
+                    transition: "width 0.2s ease, background-color 0.15s ease",
                   }}
                 />
               </div>
