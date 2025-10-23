@@ -42,13 +42,13 @@ export function SegmentRowsEditor({
                 }
               }}
               placeholder="25m"
-              className="flex-1 rounded-md px-2 py-1 text-xs outline-none"
+              className="flex-1 rounded-md px-2 py-2 text-base outline-none sm:py-1 sm:text-sm md:text-xs"
               style={{ border: `1px solid ${palette.border}`, backgroundColor: "transparent", color: palette.text }}
             />
             {onRemove ? (
               <button
                 type="button"
-                className="interactive-button rounded-md p-1"
+                className="interactive-button rounded-md p-2 md:p-1"
                 style={{ border: `1px solid ${palette.border}`, color: palette.subtext }}
                 onClick={() => onRemove(row.id)}
                 aria-label="Remove segment"

@@ -12,17 +12,17 @@ export function Modal({ title, onClose, children, palette }) {
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-20 flex items-start justify-center p-4 md:items-center md:p-6">
       <div className="absolute inset-0" onClick={onClose} style={{ backgroundColor: MODAL_OVERLAY_COLOR }} />
       <div
-        className="relative z-10 w-full max-w-lg rounded-2xl p-4 shadow-xl border"
+        className="relative z-10 w-full max-w-lg overflow-y-auto rounded-2xl border p-4 shadow-xl sm:p-6 max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-4rem)]"
         style={{ backgroundColor: palette.surface, borderColor: palette.border }}
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-base font-semibold" style={{ color: palette.text }}>
             {title}
           </h3>
-          <button onClick={onClose} className="interactive-button rounded-md p-1" style={{ color: palette.subtext }}>
+          <button onClick={onClose} className="interactive-button rounded-md p-2 md:p-1" style={{ color: palette.subtext }}>
             <X className="h-4 w-4" />
           </button>
         </div>

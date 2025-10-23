@@ -66,7 +66,7 @@ export function SettingsModal({
               <select
                 value={sound.type}
                 onChange={(event) => setSound({ ...sound, type: event.target.value })}
-                className="rounded-md px-2 py-1 text-sm"
+                className="rounded-md px-2 py-1 text-base md:text-sm"
                 style={{ backgroundColor: "transparent", border: `1px solid ${palette.border}`, color: palette.text }}
               >
                 <option value="ping">Ping</option>

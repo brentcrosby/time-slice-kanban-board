@@ -88,16 +88,16 @@ export function Column({
       onDrop={handleDrop}
     >
       <header className="flex items-center gap-2">
-        <h2 className="text-sm font-semibold tracking-tight flex items-center" style={{ color: palette.text }}>
+        <h2 className="flex items-center text-base font-semibold tracking-tight md:text-sm" style={{ color: palette.text }}>
           {column.name}
           <span
-            className="ml-2 rounded-full px-2 py-0.5 text-xs"
+            className="ml-2 rounded-full px-2 py-0.5 text-sm md:text-xs"
             style={{ backgroundColor: palette.badge, color: palette.subtext }}
           >
             {cards.length}
           </span>
           <span
-            className="ml-2 rounded-full px-2 py-0.5 text-xs tabular-nums"
+            className="ml-2 rounded-full px-2 py-0.5 text-sm tabular-nums md:text-xs"
             title="Total planned time"
             style={{ backgroundColor: palette.badge, color: palette.text }}
           >
@@ -113,7 +113,7 @@ export function Column({
               return (
                 <span
                   key={id}
-                  className="ml-2 rounded-full px-2 py-0.5 text-xs tabular-nums"
+                  className="ml-2 rounded-full px-2 py-0.5 text-sm tabular-nums md:text-xs"
                   title={`${group.label} total time`}
                   style={{
                     backgroundColor: pillBg,
@@ -131,7 +131,7 @@ export function Column({
             type="button"
             onClick={onClearColumn}
             disabled={!hasCards}
-            className="interactive-button ml-auto rounded-lg border px-2 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+            className="interactive-button ml-auto rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 md:px-2 md:py-1 md:text-xs"
             style={{
               borderColor: palette.border,
               color: hasCards ? palette.dangerText : palette.subtext,

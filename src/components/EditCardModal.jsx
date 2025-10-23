@@ -131,7 +131,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
     <Modal onClose={onClose} title="Edit Task" palette={palette}>
       <div className="space-y-3">
         <div>
-          <label className="block text-xs font-medium" style={{ color: palette.subtext }}>
+          <label className="block text-sm font-medium md:text-xs" style={{ color: palette.subtext }}>
             Title
           </label>
           <div className="relative mt-1">
@@ -145,13 +145,13 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
                   submit();
                 }
               }}
-              className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+              className="w-full rounded-xl px-3 py-2 text-base md:text-sm outline-none"
               placeholder=""
               style={{ backgroundColor: "transparent", border: `1px solid ${palette.border}`, color: palette.text }}
             />
             {showTitlePlaceholder ? (
               <span
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 transform text-sm transition-opacity duration-300 ease-in-out"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 transform text-base md:text-sm transition-opacity duration-300 ease-in-out"
                 aria-hidden="true"
                 style={{ color: palette.subtext, opacity: titlePlaceholderVisible ? 0.6 : 0 }}
               >
@@ -161,7 +161,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium" style={{ color: palette.subtext }}>
+          <label className="block text-sm font-medium md:text-xs" style={{ color: palette.subtext }}>
             Notes
           </label>
           <textarea
@@ -174,15 +174,15 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
               }
             }}
             rows={3}
-            className="mt-1 w-full rounded-xl px-3 py-2 text-sm outline-none"
+            className="mt-1 w-full rounded-xl px-3 py-2 text-base md:text-sm outline-none"
             style={{ backgroundColor: "transparent", border: `1px solid ${palette.border}`, color: palette.text }}
           />
         </div>
         <div>
-          <label className="block text-xs font-medium" style={{ color: palette.subtext }}>
+          <label className="block text-sm font-medium md:text-xs" style={{ color: palette.subtext }}>
             Timing
           </label>
-          <div className="mt-1 flex items-center gap-3 text-xs" style={{ color: palette.subtext }}>
+          <div className="mt-1 flex items-center gap-3 text-sm md:text-xs" style={{ color: palette.subtext }}>
             <label className="inline-flex items-center gap-1">
               <input type="radio" checked={!useSegments} onChange={() => setUseSegments(false)} /> Single limit
             </label>
@@ -202,7 +202,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
                     submit();
                   }
                 }}
-                className="mt-2 w-full rounded-xl px-3 py-2 text-sm outline-none"
+                className="mt-2 w-full rounded-xl px-3 py-2 text-base md:text-sm outline-none"
                 placeholder="25 or 1:00"
                 style={{ backgroundColor: "transparent", border: `1px solid ${palette.border}`, color: palette.text }}
               />
@@ -225,7 +225,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
               />
               <button
                 type="button"
-                className="interactive-button w-full rounded-md px-2 py-1 text-xs"
+                className="interactive-button w-full rounded-md px-2 py-1 text-sm md:text-xs"
                 style={{ border: `1px dashed ${palette.border}`, color: palette.subtext }}
                 onClick={handleAddSegment}
               >
@@ -235,7 +235,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
           )}
         </div>
         <div>
-          <label className="block text-xs font-medium" style={{ color: palette.subtext }}>
+          <label className="block text-sm font-medium md:text-xs" style={{ color: palette.subtext }}>
             Group
           </label>
           <select
@@ -244,7 +244,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
               setGroupTouched(true);
               setGroupId(event.target.value);
             }}
-            className="mt-1 w-full rounded-xl px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-xl px-3 py-2 text-base md:text-sm"
             style={{ backgroundColor: "transparent", border: `1px solid ${palette.border}`, color: palette.text }}
           >
             {CARD_GROUP_OPTIONS.map((option) => (

@@ -251,7 +251,7 @@ export function Card({
   const onDragEnd = () => ref.current?.classList.remove("opacity-60");
 
   const controlButtonClass =
-    "interactive-button rounded-md p-1 transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30";
+    "interactive-button rounded-md p-2 transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:p-1";
 
   const groupColors = card.group ? CARD_GROUPS[card.group]?.colors?.[isDark ? "dark" : "light"] : null;
   const cardBackgroundColor = groupColors?.cardBg ?? palette.card;
@@ -333,11 +333,11 @@ export function Card({
     >
       <div className="mb-2 flex items-start gap-2">
         <div className="flex-1">
-          <h3 className="text-sm font-semibold" style={{ color: cardTextColor }}>
+          <h3 className="text-base font-semibold md:text-sm" style={{ color: cardTextColor }}>
             {card.title}
           </h3>
           {card.notes ? (
-            <p className="mt-1 text-xs whitespace-pre-wrap" style={{ color: cardSubtextColor }}>
+            <p className="mt-1 whitespace-pre-wrap text-sm md:text-xs" style={{ color: cardSubtextColor }}>
               {card.notes}
             </p>
           ) : null}
@@ -494,7 +494,7 @@ export function Card({
             );
           })}
         </div>
-        <div className="mt-1 flex items-center justify-between text-xs" style={{ color: cardSubtextColor }}>
+        <div className="mt-1 flex items-center justify-between text-sm md:text-xs" style={{ color: cardSubtextColor }}>
           <span className={`${isOver ? "font-semibold" : ""}`} style={{ color: isOver ? palette.overText : cardSubtextColor }}>
             {visualActiveRemaining < 0
               ? `Over: ${secsToHMS(Math.abs(visualActiveRemaining))}`
