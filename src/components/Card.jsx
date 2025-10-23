@@ -136,8 +136,26 @@ export function Card({
     return clamp(ratio, 0, 1);
   };
 
+  const computeDisplaySecFromRatio = (ratio) => {
+    if (!segments.length) return 0;
+    const normalized = clamp(ratio, 0, 1);
+    const elapsed = totalDuration * normalized;
+    if (!isSegmented) return elapsed;
+    let segmentStart = 0;
+    for (let idx = 0; idx < segments.length; idx += 1) {
+      const duration = Math.max(segments[idx]?.durationSec ?? 0, 0);
+      const segmentEnd = segmentStart + duration;
+      if (elapsed <= segmentEnd || idx === segments.length - 1) {
+        const within = elapsed - segmentStart;
+        return Math.max(Math.min(within, duration), 0);
+      }
+      segmentStart = segmentEnd;
+    }
+    return 0;
+  };
+
   const updateDrag = (ratio) => {
-    setDragState({ active: true, ratio, displaySec: Math.max(totalDuration - ratio * totalDuration, 0) });
+    setDragState({ active: true, ratio, displaySec: computeDisplaySecFromRatio(ratio) });
   };
 
   const handlePointerDown = (event) => {
