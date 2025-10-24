@@ -47,6 +47,8 @@ export function Card({
   isDark = false,
   isChiming = false,
   onStopChime,
+  autoFocusTitle = false,
+  onAutoFocusHandled = () => {},
 }) {
   const ref = useRef(null);
   const [isTitleEditing, setIsTitleEditing] = useState(false);
@@ -319,6 +321,12 @@ export function Card({
     setTitleDraft(card.title ?? "");
     setIsTitleEditing(true);
   }, [card.title]);
+
+  useEffect(() => {
+    if (!autoFocusTitle || isTitleEditing) return;
+    startTitleEditing();
+    onAutoFocusHandled(card.id);
+  }, [autoFocusTitle, isTitleEditing, startTitleEditing, onAutoFocusHandled, card.id]);
 
   const handleTitleKeyDown = (event) => {
     if (event.key === "Enter") {

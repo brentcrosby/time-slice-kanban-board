@@ -3,7 +3,6 @@ import { Header } from "./components/Header";
 import { Column } from "./components/Column";
 import { Card } from "./components/Card";
 import { Modal } from "./components/Modal";
-import { NewCardModal } from "./components/NewCardModal";
 import { EditCardModal } from "./components/EditCardModal";
 import { SettingsModal } from "./components/SettingsModal";
 import { DEFAULT_COLUMNS, MIN_SEGMENT_SEC } from "./constants";
@@ -42,8 +41,7 @@ export default function KanbanTimerBoard() {
   const futureRef = useRef([]);
 
   const [filter, setFilter] = useState("");
-  const [showNewCard, setShowNewCard] = useState(false);
-  const [newCardCol, setNewCardCol] = useState("todo");
+  const [pendingTitleEditId, setPendingTitleEditId] = useState(null);
   const [editCard, setEditCard] = useState(null); // { colId, card }
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [confirmColumnClear, setConfirmColumnClear] = useState(null); // { colId, name }
@@ -431,7 +429,7 @@ export default function KanbanTimerBoard() {
     saveState({ cardsByCol, autoMoveEnabled });
   }, [cardsByCol, autoMoveEnabled]);
 
-  const addCard = (colId, payload) => {
+  const addCard = (colId, payload = {}) => {
     const id = uid();
     const durations = coerceSegmentDurations(payload.segments, payload.durationSec || 1500);
     const segments = durations.map((sec, idx) => ({
@@ -439,11 +437,15 @@ export default function KanbanTimerBoard() {
       durationSec: sec,
       remainingSec: sec,
     }));
+    const rawTitle = typeof payload.title === "string" ? payload.title.trim() : "";
+    const rawNotes = typeof payload.notes === "string" ? payload.notes.trim() : "";
+    const rawGroup = payload.group;
+    const normalizedGroup = rawGroup === "" ? null : rawGroup ?? null;
     const baseCard = {
       id,
-      title: payload.title?.trim() || "Untitled",
-      notes: payload.notes?.trim() || "",
-      group: payload.group ?? null,
+      title: rawTitle || "Untitled",
+      notes: rawNotes,
+      group: normalizedGroup,
       running: false,
       lastStartTs: null,
       overtime: false,
@@ -457,6 +459,7 @@ export default function KanbanTimerBoard() {
       (prev) => ({ ...prev, [colId]: [...(prev[colId] || []), card] }),
       { track: true }
     );
+    return card.id;
   };
 
   const updateCard = (colId, cardId, patch) => {
@@ -914,8 +917,8 @@ export default function KanbanTimerBoard() {
                 totalCount={totalCount}
                 onDropCard={(cardId, fromCol, insertIndex) => moveCard(fromCol, col.id, cardId, insertIndex)}
                 onAddCard={() => {
-                  setNewCardCol(col.id);
-                  setShowNewCard(true);
+                  const newId = addCard(col.id, {});
+                  setPendingTitleEditId(newId);
                 }}
                 onClearColumn={() => setConfirmColumnClear({ colId: col.id, name: col.name })}
                 renderCard={(card, index) => (
@@ -936,6 +939,10 @@ export default function KanbanTimerBoard() {
                     isDark={isDark}
                     isChiming={chimeActive && loopingChimeSources.includes(card.id)}
                     onStopChime={stopLoopingChime}
+                    autoFocusTitle={pendingTitleEditId === card.id}
+                    onAutoFocusHandled={(handledId) =>
+                      setPendingTitleEditId((current) => (current === handledId ? null : current))
+                    }
                   />
                 )}
                 palette={palette}
@@ -945,19 +952,6 @@ export default function KanbanTimerBoard() {
           })}
         </div>
       </div>
-
-      {showNewCard && (
-        <NewCardModal
-          defaultCol={newCardCol}
-          onClose={() => setShowNewCard(false)}
-          onCreate={(colId, payload) => {
-            addCard(colId, payload);
-            setShowNewCard(false);
-          }}
-          columns={columns}
-          palette={palette}
-        />
-      )}
 
       {editCard && (
         <EditCardModal
