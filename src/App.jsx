@@ -14,10 +14,12 @@ import {
   coerceSegmentDurations,
   deriveCardFromSegments,
   findNextActiveSegment,
+  sanitizeSegmentDuration,
   upgradeLegacyCard,
 } from "./utils/segments";
 import { ensureAudioContext, playChime } from "./utils/audio";
 import { loadSound, loadState, loadTheme, saveSound, saveState, saveTheme } from "./utils/storage";
+import { parseTimeFromTitle } from "./utils/time";
 
 const HISTORY_LIMIT = 100;
 
@@ -472,6 +474,51 @@ export default function KanbanTimerBoard() {
     }));
   };
 
+  const applyTitleShortcuts = useCallback(
+    (colId, cardId, rawTitle) => {
+      const parsed = parseTimeFromTitle(rawTitle);
+      const cleanTitle = parsed.cleanTitle?.trim() || "Untitled";
+      const durations =
+        parsed.segments && parsed.segments.length > 1
+          ? parsed.segments
+          : parsed.durationSec != null
+          ? [parsed.durationSec]
+          : null;
+
+      updateCard(colId, cardId, (current) => {
+        let next = { ...current, title: cleanTitle };
+
+        if (parsed.groupId != null) {
+          const nextGroup = parsed.groupId === "" ? null : parsed.groupId;
+          if (nextGroup !== current.group) {
+            next = { ...next, group: nextGroup };
+          }
+        }
+
+        if (durations && durations.length) {
+          const sanitized = durations.map((sec) => sanitizeSegmentDuration(sec));
+          const segmentsPayload = sanitized.map((sec) => ({
+            durationSec: sec,
+            remainingSec: sec,
+          }));
+          const nextActiveIndex = findNextActiveSegment(segmentsPayload);
+          next = {
+            ...next,
+            segments: segmentsPayload,
+            running: false,
+            lastStartTs: null,
+            remainingSecAtStart: segmentsPayload[nextActiveIndex]?.remainingSec ?? 0,
+            activeSegmentIndex: nextActiveIndex,
+            overtime: false,
+          };
+        }
+
+        return next;
+      });
+    },
+    [updateCard]
+  );
+
   const removeCard = (colId, cardId) => {
     updateCardsState(
       (prev) => {
@@ -883,6 +930,7 @@ export default function KanbanTimerBoard() {
                     onEdit={() => setEditCard({ colId: col.id, card })}
                     onSetSegments={(segments) => setCardSegments(col.id, card, segments)}
                     onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
+                    onRename={(nextTitle) => applyTitleShortcuts(col.id, card.id, nextTitle)}
                     index={index}
                     palette={palette}
                     isDark={isDark}

@@ -37,7 +37,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
 
   useEffect(() => {
     if (groupTouched) return;
-    const match = title.match(/\b(g[1-3])\b/i);
+    const match = title.match(/\b(g[0-3])\b/i);
     if (match) {
       const detected = match[1].toLowerCase();
       if (VALID_GROUP_IDS.includes(detected)) setGroupId(detected);

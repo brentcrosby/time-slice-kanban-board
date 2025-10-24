@@ -64,7 +64,7 @@ export function parseDurationToSeconds(input) {
 
 const DURATION_TOKEN_RE =
   /(?:\d+:\d{1,2}:\d{1,2})|(?:\d+:\d{1,2})|(?:\d+(?:\.\d+)?\s*h(?:ours?)?(?:\s*\d+(?:\.\d+)?\s*m(?:in(?:ute)?s?)?)?)|(?:\d+(?:\.\d+)?\s*(?:h|hr|hrs|hour|hours|m|min|mins|minute|minutes))|(?:\b\d+(?:\.\d+)?\b)/gi;
-const GROUP_TOKEN_RE = /\b(g[1-3])\b/gi;
+const GROUP_TOKEN_RE = /\b(g[0-3])\b/gi;
 
 export function parseTimeFromTitle(rawTitle) {
   let title = rawTitle || "";
@@ -72,7 +72,10 @@ export function parseTimeFromTitle(rawTitle) {
 
   let detectedGroup = null;
   const titleWithoutGroups = title.replace(GROUP_TOKEN_RE, (match) => {
-    if (!detectedGroup) detectedGroup = match.toLowerCase();
+    if (!detectedGroup) {
+      const lower = match.toLowerCase();
+      detectedGroup = lower === "g0" ? "" : lower;
+    }
     return " ";
   });
   title = titleWithoutGroups;

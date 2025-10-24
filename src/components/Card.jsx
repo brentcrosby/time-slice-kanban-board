@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Play, Pause, RotateCcw, Pencil, Trash2, VolumeX } from "lucide-react";
 import { SegmentLimitEditor } from "./SegmentLimitEditor";
 import { MIN_SEGMENT_SEC } from "../constants";
@@ -41,6 +41,7 @@ export function Card({
   onEdit,
   onSetSegments,
   onUpdateProgress,
+  onRename = () => {},
   index,
   palette,
   isDark = false,
@@ -48,6 +49,10 @@ export function Card({
   onStopChime,
 }) {
   const ref = useRef(null);
+  const [isTitleEditing, setIsTitleEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(card.title ?? "");
+  const titleInputRef = useRef(null);
+  const skipTitleCommitRef = useRef(false);
   const [limitEditorActive, setLimitEditorActive] = useState(false);
   const segments = (card.segments && card.segments.length
     ? card.segments
@@ -90,6 +95,24 @@ export function Card({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isTitleEditing) {
+      setTitleDraft(card.title ?? "");
+    }
+  }, [card.title, isTitleEditing]);
+
+  useEffect(() => {
+    if (!isTitleEditing) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      const node = titleInputRef.current;
+      if (node) {
+        node.focus();
+        node.select();
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isTitleEditing]);
 
   const segmentFlexMeta = useMemo(() => {
     if (!segments.length) return [];
@@ -253,6 +276,9 @@ export function Card({
   const controlButtonClass =
     "interactive-button rounded-md p-2 transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:p-1";
 
+  const titleButtonClass =
+    "inline-block max-w-full cursor-text rounded-md border-0 bg-transparent p-0 text-left text-base font-semibold leading-tight md:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30";
+
   const groupColors = card.group ? CARD_GROUPS[card.group]?.colors?.[isDark ? "dark" : "light"] : null;
   const cardBackgroundColor = groupColors?.cardBg ?? palette.card;
   const cardBorderColor = groupColors?.cardBorder ?? palette.border;
@@ -270,6 +296,52 @@ export function Card({
   const overlaySegment = overlayDisplayIdx != null ? segments[overlayDisplayIdx] : null;
   const overlayMeta = overlayDisplayIdx != null ? segmentFlexMeta[overlayDisplayIdx] : null;
   const showHoverOverlay = Boolean(overlaySegment && overlayMeta);
+
+  const handleTitleCommit = useCallback(() => {
+    skipTitleCommitRef.current = false;
+    const trimmed = (titleDraft || "").trim();
+    const nextTitle = trimmed || "Untitled";
+    setIsTitleEditing(false);
+    setTitleDraft(nextTitle);
+    if (nextTitle !== card.title) {
+      onRename(nextTitle);
+    }
+  }, [card.title, onRename, titleDraft]);
+
+  const handleTitleCancel = useCallback(() => {
+    skipTitleCommitRef.current = false;
+    setIsTitleEditing(false);
+    setTitleDraft(card.title ?? "");
+  }, [card.title]);
+
+  const startTitleEditing = useCallback(() => {
+    skipTitleCommitRef.current = false;
+    setTitleDraft(card.title ?? "");
+    setIsTitleEditing(true);
+  }, [card.title]);
+
+  const handleTitleKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleTitleCommit();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      skipTitleCommitRef.current = true;
+      handleTitleCancel();
+    }
+  };
+
+  const handleTitleBlur = () => {
+    if (skipTitleCommitRef.current) {
+      skipTitleCommitRef.current = false;
+      return;
+    }
+    handleTitleCommit();
+  };
+
+  const handleTitleInputPointerDown = (event) => {
+    event.stopPropagation();
+  };
 
   const handleSegmentEnter = (idx) => {
     if (!isSegmented) return;
@@ -320,7 +392,7 @@ export function Card({
   return (
     <article
       ref={ref}
-      draggable={!limitEditorActive}
+      draggable={!limitEditorActive && !isTitleEditing}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       data-card-id={card.id}
@@ -332,10 +404,35 @@ export function Card({
       }}
     >
       <div className="mb-2 flex items-start gap-2">
-        <div className="flex-1">
-          <h3 className="text-base font-semibold md:text-sm" style={{ color: cardTextColor }}>
-            {card.title}
-          </h3>
+        <div className="flex-1 min-w-0">
+          {isTitleEditing ? (
+            <input
+              ref={titleInputRef}
+              value={titleDraft}
+              onChange={(event) => setTitleDraft(event.target.value)}
+              onKeyDown={handleTitleKeyDown}
+              onBlur={handleTitleBlur}
+              onPointerDown={handleTitleInputPointerDown}
+              className="w-full rounded-md border px-2 py-1 text-base font-semibold md:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30"
+              style={{
+                color: cardTextColor,
+                backgroundColor: palette.surface,
+                borderColor: cardBorderColor,
+              }}
+              spellCheck="false"
+              autoComplete="off"
+              aria-label="Edit card title"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={startTitleEditing}
+              className={titleButtonClass}
+              style={{ color: cardTextColor }}
+            >
+              {card.title}
+            </button>
+          )}
           {card.notes ? (
             <p className="mt-1 whitespace-pre-wrap text-sm md:text-xs" style={{ color: cardSubtextColor }}>
               {card.notes}

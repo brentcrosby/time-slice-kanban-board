@@ -33,7 +33,7 @@ export function NewCardModal({ defaultCol, onClose, onCreate, columns, palette }
 
   useEffect(() => {
     if (groupTouched) return;
-    const match = title.match(/\b(g[1-3])\b/i);
+    const match = title.match(/\b(g[0-3])\b/i);
     const detected = match ? match[1].toLowerCase() : "";
     setGroupId(VALID_GROUP_IDS.includes(detected) ? detected : "");
   }, [title, groupTouched]);
