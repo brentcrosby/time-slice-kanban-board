@@ -82,13 +82,72 @@ export function parseTimeFromTitle(rawTitle) {
 
   const matches = [];
   const numericOnly = /^\d+(?:\.\d+)?$/;
+  let searchIndex = 0;
   for (const match of rawTitle.matchAll(DURATION_TOKEN_RE)) {
     const token = match[0];
     if (numericOnly.test(token.trim())) continue;
     const sec = parseDurationToSeconds(token);
     if (sec && sec >= MIN_SEGMENT_SEC && sec <= MAX_SEGMENT_SEC) {
-      matches.push({ token, sec: clamp(sec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC) });
+      const rawIndex = match.index ?? rawTitle.indexOf(token, searchIndex);
+      const index = rawIndex >= 0 ? rawIndex : searchIndex;
+      matches.push({ token, sec: clamp(sec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC), index });
+      searchIndex = index + token.length;
     }
+  }
+
+  let slashSegments = null;
+  if (matches.length && rawTitle.includes("/")) {
+    const slashIndices = [];
+    for (let i = 0; i < rawTitle.length; i += 1) {
+      if (rawTitle[i] === "/") {
+        slashIndices.push(i);
+      }
+    }
+    if (slashIndices.length) {
+      const orderedMatches = matches.slice().sort((a, b) => a.index - b.index);
+      const groups = [];
+      let currentGroup = [];
+      let slashPointer = 0;
+      let boundary = slashIndices[slashPointer];
+      for (const info of orderedMatches) {
+        while (boundary != null && info.index >= boundary) {
+          groups.push(currentGroup);
+          currentGroup = [];
+          slashPointer += 1;
+          boundary = slashIndices[slashPointer];
+        }
+        currentGroup.push(info);
+      }
+      groups.push(currentGroup);
+      const populated = groups.filter((group) => group.length);
+      if (populated.length >= 2) {
+        slashSegments = populated.map((group) => {
+          const total = group.reduce((sum, item) => sum + item.sec, 0);
+          return {
+            tokens: group.map((item) => item.token),
+            sec: clamp(total, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC),
+          };
+        });
+      }
+    }
+  }
+
+  if (slashSegments) {
+    slashSegments.forEach(({ tokens }) => {
+      tokens.forEach((token) => {
+        title = title.replace(token, " ");
+      });
+    });
+    title = title.replace(/\//g, " ");
+    title = title.replace(/[()\[\]\-_,]+/g, " ").replace(/\s{2,}/g, " ").trim();
+    const durations = slashSegments.map((segment) => segment.sec);
+    const total = durations.reduce((acc, sec) => acc + sec, 0);
+    return {
+      cleanTitle: title.trim() || titleWithoutGroups.trim() || rawTitle.trim(),
+      durationSec: total,
+      segments: durations,
+      groupId: detectedGroup,
+    };
   }
 
   if (matches.length > 1) {

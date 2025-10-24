@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Header } from "./components/Header";
 import { Column } from "./components/Column";
 import { Card } from "./components/Card";
+import { HelpModal } from "./components/HelpModal";
 import { Modal } from "./components/Modal";
 import { EditCardModal } from "./components/EditCardModal";
 import { SettingsModal } from "./components/SettingsModal";
@@ -46,6 +47,7 @@ export default function KanbanTimerBoard() {
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [confirmColumnClear, setConfirmColumnClear] = useState(null); // { colId, name }
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const [theme, setTheme] = useState(loadTheme());
   const [sound, setSound] = useState(loadSound());
@@ -898,6 +900,7 @@ export default function KanbanTimerBoard() {
       style={{ backgroundColor: palette.bg, color: palette.text }}
     >
       <Header
+        onOpenHelp={() => setHelpOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onToggleTheme={toggleTheme}
         palette={palette}
@@ -1041,6 +1044,13 @@ export default function KanbanTimerBoard() {
             setSettingsOpen(false);
             setConfirmClearOpen(true);
           }}
+        />
+      )}
+
+      {helpOpen && (
+        <HelpModal
+          onClose={() => setHelpOpen(false)}
+          palette={palette}
         />
       )}
     </div>

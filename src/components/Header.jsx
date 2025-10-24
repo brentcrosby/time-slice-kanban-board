@@ -1,7 +1,7 @@
 import React from "react";
-import { Moon, Settings as SettingsIcon, Sun } from "lucide-react";
+import { HelpCircle, Moon, Settings as SettingsIcon, Sun } from "lucide-react";
 
-export function Header({ onOpenSettings, onToggleTheme, palette, theme }) {
+export function Header({ onOpenHelp, onOpenSettings, onToggleTheme, palette, theme }) {
   return (
     <div
       className="sticky top-0 z-10 w-full border-b backdrop-blur"
@@ -12,6 +12,14 @@ export function Header({ onOpenSettings, onToggleTheme, palette, theme }) {
           Kanban Timers
         </h1>
         <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={onOpenHelp}
+            title="Shorthand reference"
+            className="interactive-button rounded-md p-2"
+            style={{ border: `1px solid ${palette.border}` }}
+          >
+            <HelpCircle className="h-4 w-4" />
+          </button>
           <button
             onClick={onOpenSettings}
             title="Settings"
