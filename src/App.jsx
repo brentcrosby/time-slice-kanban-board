@@ -22,6 +22,7 @@ import { loadSound, loadState, loadTheme, saveSound, saveState, saveTheme } from
 import { parseTimeFromTitle } from "./utils/time";
 
 const HISTORY_LIMIT = 100;
+const BREAK_DURATION_SEC = 600;
 
 const cloneCardsState = (state) => JSON.parse(JSON.stringify(state));
 
@@ -153,6 +154,21 @@ export default function KanbanTimerBoard() {
   const [chimeActive, setChimeActive] = useState(false);
   const [loopingChimeSources, setLoopingChimeSources] = useState([]);
   const loopRef = useRef({ id: null });
+  const chimeTimeoutRef = useRef(null);
+
+  const stopLoopingChime = () => {
+    console.log("[Audio] stopLoopingChime", { loopId: loopRef.current.id });
+    if (loopRef.current.id) {
+      clearInterval(loopRef.current.id);
+      loopRef.current.id = null;
+    }
+    if (chimeTimeoutRef.current) {
+      clearTimeout(chimeTimeoutRef.current);
+      chimeTimeoutRef.current = null;
+    }
+    setChimeActive(false);
+    setLoopingChimeSources([]);
+  };
 
   const startLoopingChime = (sourceIds = []) => {
     if (sourceIds.length) {
@@ -162,6 +178,13 @@ export default function KanbanTimerBoard() {
         return Array.from(merged);
       });
     }
+    if (chimeTimeoutRef.current) {
+      clearTimeout(chimeTimeoutRef.current);
+    }
+    chimeTimeoutRef.current = setTimeout(() => {
+      console.log("[Audio] auto-stopping chime after max duration");
+      stopLoopingChime();
+    }, 30000);
     console.log("[Audio] startLoopingChime", {
       existingLoopId: loopRef.current.id,
       sound,
@@ -181,15 +204,24 @@ export default function KanbanTimerBoard() {
     );
   };
 
-  const stopLoopingChime = () => {
-    console.log("[Audio] stopLoopingChime", { loopId: loopRef.current.id });
-    if (loopRef.current.id) {
-      clearInterval(loopRef.current.id);
-      loopRef.current.id = null;
-    }
-    setChimeActive(false);
-    setLoopingChimeSources([]);
-  };
+  const removeChimeSources = useCallback(
+    (sourceIds = []) => {
+      if (!sourceIds.length) return;
+      let shouldStop = false;
+      setLoopingChimeSources((prev) => {
+        const next = prev.filter((id) => !sourceIds.includes(id));
+        if (prev.length && !next.length) {
+          shouldStop = true;
+        }
+        return next;
+      });
+
+      if (shouldStop) {
+        stopLoopingChime();
+      }
+    },
+    [stopLoopingChime]
+  );
 
   useEffect(() => {
     const arm = () => {
@@ -375,17 +407,23 @@ export default function KanbanTimerBoard() {
         const source = list[idx];
         mutated = true;
 
-        const finalizedSegments = segments.length
-          ? segments.map((seg) => ({ ...seg }))
-          : [
-              {
-                id: `${source.id || "card"}-seg-0`,
-                durationSec: source.durationSec ?? source.remainingSec ?? MIN_SEGMENT_SEC,
-                remainingSec: 0,
-              },
-            ];
+          const finalizedSegments = segments.length
+            ? segments.map((seg) => ({ ...seg }))
+            : [
+                {
+                  id: `${source.id || "card"}-seg-0`,
+                  durationSec: source.durationSec ?? source.remainingSec ?? MIN_SEGMENT_SEC,
+                  remainingSec: 0,
+                },
+              ];
 
         if (totalRemaining <= 0.05) {
+          if (source.isBreak) {
+            list.splice(idx, 1);
+            next[colId] = list;
+            mutated = true;
+            return;
+          }
           const completed = deriveCardFromSegments(
             { ...source, running: false, lastStartTs: null },
             finalizedSegments.map((seg) => ({ ...seg, remainingSec: 0 })),
@@ -464,6 +502,42 @@ export default function KanbanTimerBoard() {
     return card.id;
   };
 
+  const startBreak = () => {
+    const id = uid();
+    const now = Date.now();
+    const durationSec = BREAK_DURATION_SEC;
+    const segments = [
+      { id: `${id}-seg-0`, durationSec, remainingSec: durationSec },
+    ];
+
+    const runningCard = deriveCardFromSegments(
+      {
+        id,
+        title: "Break",
+        notes: "",
+        group: null,
+        running: true,
+        lastStartTs: now,
+        overtime: false,
+        createdAt: now,
+        isBreak: true,
+      },
+      segments,
+      {
+        running: true,
+        lastStartTs: now,
+        remainingSecAtStart: segments[0]?.remainingSec ?? durationSec,
+        activeSegmentIndex: 0,
+        overtime: false,
+      }
+    );
+
+    updateCardsState(
+      (prev) => ({ ...prev, doing: [runningCard, ...(prev.doing || [])] }),
+      { track: true }
+    );
+  };
+
   const updateCard = (colId, cardId, patch) => {
     const updater = typeof patch === "function" ? patch : (card) => ({ ...card, ...patch });
     setCardsByCol((prev) => ({
@@ -536,6 +610,8 @@ export default function KanbanTimerBoard() {
       },
       { track: true }
     );
+
+    removeChimeSources([cardId]);
   };
 
   const clearColumn = (colId) => {
@@ -552,20 +628,7 @@ export default function KanbanTimerBoard() {
 
     if (!removedIds.length) return;
 
-    const removedSet = new Set(removedIds);
-    setLoopingChimeSources((prevSources) => {
-      if (!prevSources.length) return prevSources;
-      const nextSources = prevSources.filter((id) => !removedSet.has(id));
-      if (!nextSources.length && prevSources.length) {
-        if (loopRef.current.id) {
-          clearInterval(loopRef.current.id);
-          loopRef.current.id = null;
-        }
-        setChimeActive(false);
-        return [];
-      }
-      return nextSources;
-    });
+    removeChimeSources(removedIds);
   };
 
   const moveCard = (fromCol, toCol, cardId, index = null) => {
@@ -903,8 +966,11 @@ export default function KanbanTimerBoard() {
         onOpenHelp={() => setHelpOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onToggleTheme={toggleTheme}
+        onStartBreak={startBreak}
+        onStopChime={stopLoopingChime}
         palette={palette}
         theme={theme}
+        chimeActive={chimeActive}
       />
 
       <div className="mx-auto max-w-7xl p-4">
