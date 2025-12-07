@@ -1,7 +1,16 @@
 import React from "react";
-import { HelpCircle, Moon, Settings as SettingsIcon, Sun } from "lucide-react";
+import { Coffee, HelpCircle, Moon, Settings as SettingsIcon, Sun } from "lucide-react";
 
-export function Header({ onOpenHelp, onOpenSettings, onToggleTheme, palette, theme }) {
+export function Header({
+  onOpenHelp,
+  onOpenSettings,
+  onToggleTheme,
+  onStartBreak,
+  onStopChime,
+  palette,
+  theme,
+  chimeActive,
+}) {
   return (
     <div
       className="sticky top-0 z-10 w-full border-b backdrop-blur"
@@ -19,6 +28,18 @@ export function Header({ onOpenHelp, onOpenSettings, onToggleTheme, palette, the
             style={{ border: `1px solid ${palette.border}` }}
           >
             <HelpCircle className="h-4 w-4" />
+          </button>
+          <button
+            onClick={chimeActive ? onStopChime : onStartBreak}
+            title={chimeActive ? "Mute chime" : "Start a 10 minute break"}
+            className="interactive-button rounded-md p-2"
+            style={{
+              border: `1px solid ${palette.border}`,
+              backgroundColor: chimeActive ? palette.dangerBg : undefined,
+              color: chimeActive ? palette.dangerText : undefined,
+            }}
+          >
+            <Coffee className="h-4 w-4" />
           </button>
           <button
             onClick={onOpenSettings}
