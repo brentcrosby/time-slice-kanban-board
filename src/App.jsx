@@ -790,23 +790,34 @@ export default function KanbanTimerBoard() {
   const setCardSegments = (colId, card, segmentDurations) => {
     const durations = coerceSegmentDurations(segmentDurations, card.durationSec || segmentDurations?.[0] || 1500);
     updateCard(colId, card.id, (current) => {
+      const now = Date.now();
       const existing = current.segments || [];
+      const activeIndex = current.activeSegmentIndex ?? findNextActiveSegment(existing);
+      const elapsed = current.running && current.lastStartTs ? Math.floor((now - current.lastStartTs) / 1000) : 0;
+
       const segments = durations.map((sec, idx) => {
         const prevSeg = existing[idx];
-        let remaining = sec;
-        if (prevSeg) {
-          // Preserve the previous progress ratio relative to the start of the segment.
-          const prevDuration = prevSeg.durationSec && prevSeg.durationSec > 0 ? prevSeg.durationSec : sec;
-          const prevRemaining =
-            prevSeg.remainingSec != null ? prevSeg.remainingSec : prevSeg.durationSec ?? prevDuration;
-          const progressRatio = prevDuration > 0 ? prevRemaining / prevDuration : prevRemaining > 0 ? 1 : 0;
-          const normalizedRatio = clamp(progressRatio, 0, 1);
-          remaining = clamp(Math.floor(sec * normalizedRatio), 0, sec);
+        if (!prevSeg) {
+          return {
+            id: `${current.id || card.id}-seg-${idx}-${uid()}`,
+            durationSec: sec,
+            remainingSec: sec,
+          };
         }
+
+        const prevDuration = prevSeg.durationSec && prevSeg.durationSec > 0 ? prevSeg.durationSec : sec;
+        const remainingAtStart =
+          idx === activeIndex && current.running && current.lastStartTs
+            ? current.remainingSecAtStart ?? prevSeg.remainingSec ?? prevDuration
+            : prevSeg.remainingSec ?? prevDuration;
+        const updatedRemaining = idx === activeIndex ? clamp(remainingAtStart - elapsed, 0, prevDuration) : remainingAtStart;
+        const elapsedWithinPrev = prevDuration - updatedRemaining;
+        const nextRemaining = clamp(Math.floor(sec - elapsedWithinPrev), 0, sec);
+
         return {
           id: prevSeg?.id || `${current.id || card.id}-seg-${idx}-${uid()}`,
           durationSec: sec,
-          remainingSec: remaining,
+          remainingSec: nextRemaining,
         };
       });
       const nextActiveIndex = findNextActiveSegment(segments);
