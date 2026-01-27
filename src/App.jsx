@@ -481,15 +481,17 @@ export default function KanbanTimerBoard() {
     const rawNotes = typeof payload.notes === "string" ? payload.notes.trim() : "";
     const rawGroup = payload.group;
     const normalizedGroup = rawGroup === "" ? null : rawGroup ?? null;
+    const isDraft = Boolean(payload.isDraft);
     const baseCard = {
       id,
-      title: rawTitle || "Untitled",
+      title: isDraft ? rawTitle : rawTitle || "Untitled",
       notes: rawNotes,
       group: normalizedGroup,
       running: false,
       lastStartTs: null,
       overtime: false,
       createdAt: Date.now(),
+      isDraft,
     };
     const card = deriveCardFromSegments(baseCard, segments, {
       remainingSecAtStart: segments[0]?.remainingSec ?? durations[0],
@@ -500,6 +502,12 @@ export default function KanbanTimerBoard() {
       { track: true }
     );
     return card.id;
+  };
+
+  const startDraftCard = (colId) => {
+    const newId = addCard(colId, { title: "", isDraft: true });
+    setPendingTitleEditId(newId);
+    return newId;
   };
 
   const startBreak = () => {
@@ -996,10 +1004,7 @@ export default function KanbanTimerBoard() {
                 cards={visibleCards}
                 totalCount={totalCount}
                 onDropCard={(cardId, fromCol, insertIndex) => moveCard(fromCol, col.id, cardId, insertIndex)}
-                onAddCard={() => {
-                  const newId = addCard(col.id, {});
-                  setPendingTitleEditId(newId);
-                }}
+                onAddCard={() => startDraftCard(col.id)}
                 onClearColumn={() => setConfirmColumnClear({ colId: col.id, name: col.name })}
                 renderCard={(card, index) => (
                   <Card
@@ -1014,6 +1019,11 @@ export default function KanbanTimerBoard() {
                     onSetSegments={(segments) => setCardSegments(col.id, card, segments)}
                     onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
                     onRename={(nextTitle) => applyTitleShortcuts(col.id, card.id, nextTitle)}
+                    onDraftCommit={() => {
+                      updateCard(col.id, card.id, { isDraft: false });
+                      startDraftCard(col.id);
+                    }}
+                    onDraftCancel={() => removeCard(col.id, card.id)}
                     index={index}
                     palette={palette}
                     isDark={isDark}
