@@ -49,6 +49,8 @@ export function Card({
   onStopChime,
   autoFocusTitle = false,
   onAutoFocusHandled = () => {},
+  onDraftCommit = () => {},
+  onDraftCancel = () => {},
 }) {
   const ref = useRef(null);
   const [isTitleEditing, setIsTitleEditing] = useState(false);
@@ -332,16 +334,27 @@ export function Card({
     if (event.key === "Enter") {
       event.preventDefault();
       handleTitleCommit();
+      if (card.isDraft) {
+        onDraftCommit();
+      }
     } else if (event.key === "Escape") {
       event.preventDefault();
       skipTitleCommitRef.current = true;
-      handleTitleCancel();
+      if (card.isDraft) {
+        onDraftCancel();
+      } else {
+        handleTitleCancel();
+      }
     }
   };
 
   const handleTitleBlur = () => {
     if (skipTitleCommitRef.current) {
       skipTitleCommitRef.current = false;
+      return;
+    }
+    if (card.isDraft) {
+      onDraftCancel();
       return;
     }
     handleTitleCommit();
