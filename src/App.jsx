@@ -993,7 +993,7 @@ export default function KanbanTimerBoard() {
       />
 
       <div className="mx-auto max-w-7xl p-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 items-start">
+        <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-3">
           {columns.map((col) => {
             const visibleCards = filtered[col.id] || [];
             const totalCount = (materialized[col.id] || []).length;
