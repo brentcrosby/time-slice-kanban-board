@@ -424,7 +424,9 @@ export function Card({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       data-card-id={card.id}
-      className="relative interactive-card group rounded-xl p-3 shadow-sm"
+      className={`relative interactive-card group rounded-xl p-3 shadow-sm ${
+        hasTimer ? "" : "flex min-h-[7rem] flex-col justify-center"
+      }`}
       style={{
         backgroundColor: cardBackgroundColor,
         border: `1px solid ${cardBorderColor}`,
