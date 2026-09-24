@@ -425,7 +425,7 @@ export function Card({
       onDragEnd={onDragEnd}
       data-card-id={card.id}
       className={`relative interactive-card group rounded-xl p-3 shadow-sm ${
-        hasTimer ? "" : "flex min-h-[7rem] flex-col justify-center"
+        hasTimer ? "" : "flex flex-col justify-center"
       }`}
       style={{
         backgroundColor: cardBackgroundColor,
@@ -433,7 +433,7 @@ export function Card({
         zIndex: limitEditorActive ? 200 : undefined,
       }}
     >
-      <div className="mb-2 flex items-start gap-2">
+      <div className={hasTimer ? "mb-2 flex items-start gap-2" : "flex items-center gap-2"}>
         <div className="flex-1 min-w-0">
           {isTitleEditing ? (
             <input
