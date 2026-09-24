@@ -13,6 +13,17 @@ export function HelpModal({ onClose, palette }) {
       <div className="space-y-4 text-sm" style={{ color: palette.text }}>
         <section className="space-y-2">
           <h4 className="text-sm font-semibold" style={{ color: palette.text }}>
+            Optional timers
+          </h4>
+          <p className="text-sm" style={{ color: palette.subtext }}>
+            Tasks start without a timer to keep the board compact. Select the timer icon on a card to add a
+            time limit; its timer controls and progress bar appear after you set one. You can also add a timer
+            with a time shorthand in the task title.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h4 className="text-sm font-semibold" style={{ color: palette.text }}>
             Time shorthands
           </h4>
           <p className="text-sm" style={{ color: palette.subtext }}>

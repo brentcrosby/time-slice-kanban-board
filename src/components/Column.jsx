@@ -148,13 +148,15 @@ export function Column({
                 touchAction: "pan-x",
               }}
             >
-              <span
-                className="flex-shrink-0 rounded-full px-2 py-0.5 text-sm tabular-nums md:text-xs"
-                title="Total planned time"
-                style={{ backgroundColor: palette.badge, color: palette.text }}
-              >
-                {secsToHHMM(totalSecs)}
-              </span>
+              {totalSecs > 0 ? (
+                <span
+                  className="flex-shrink-0 rounded-full px-2 py-0.5 text-sm tabular-nums md:text-xs"
+                  title="Total planned time"
+                  style={{ backgroundColor: palette.badge, color: palette.text }}
+                >
+                  {secsToHHMM(totalSecs)}
+                </span>
+              ) : null}
               {orderedGroupTotals.map(({ id, total }) => {
                 const group = CARD_GROUPS[id];
                 if (!group) return null;

@@ -1,20 +1,25 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Timer } from "lucide-react";
 import { SegmentRowsEditor } from "./SegmentRowsEditor";
 import { MIN_SEGMENT_SEC, MAX_SEGMENT_SEC } from "../constants";
 import { findNextActiveSegment, segmentDraftsFromSegments } from "../utils/segments";
 import { uid } from "../utils/misc";
 import { parseDurationToSeconds, secsToHMS } from "../utils/time";
 
-export function SegmentLimitEditor({ card, onSetSegments, palette, onEditingChange }) {
+const draftRowsForCard = (card) => card.segments?.length
+  ? segmentDraftsFromSegments(card.segments)
+  : [{ id: `draft-${uid()}`, value: "" }];
+
+export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette, onEditingChange }) {
   const containerRef = useRef(null);
   const [editing, setEditing] = useState(false);
-  const [rows, setRows] = useState(() => segmentDraftsFromSegments(card.segments));
+  const [rows, setRows] = useState(() => draftRowsForCard(card));
   const [errors, setErrors] = useState({});
   const popoverRef = useRef(null);
 
   useEffect(() => {
     if (!editing) {
-      setRows(segmentDraftsFromSegments(card.segments));
+      setRows(draftRowsForCard(card));
       setErrors({});
     }
   }, [card, editing]);
@@ -47,6 +52,7 @@ export function SegmentLimitEditor({ card, onSetSegments, palette, onEditingChan
   }, [editing]);
 
   const segments = card.segments || [];
+  const hasTimer = segments.length > 0;
   const totalLimit =
     card.durationSec ?? segments.reduce((sum, seg) => sum + (seg.durationSec ?? 0), 0);
   const totalLimitSec = Math.max(totalLimit ?? 0, 0);
@@ -96,20 +102,27 @@ export function SegmentLimitEditor({ card, onSetSegments, palette, onEditingChan
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        className="interactive-button rounded px-3 py-1 text-sm tabular-nums md:px-2 md:py-0.5 md:text-xs"
-        style={{ color: palette.subtext, backgroundColor: "transparent", border: `1px dashed ${palette.border}` }}
+        className={hasTimer
+          ? "interactive-button rounded px-3 py-1 text-sm tabular-nums md:px-2 md:py-0.5 md:text-xs"
+          : "interactive-button rounded-md p-2 md:p-1"}
+        style={hasTimer
+          ? { color: palette.subtext, backgroundColor: "transparent", border: `1px dashed ${palette.border}` }
+          : { color: palette.subtext }}
         onClick={() => setEditing((v) => !v)}
-        title="Edit segment durations"
+        title={hasTimer ? "Edit segment durations" : "Add timer"}
+        aria-label={hasTimer ? "Edit timer" : "Add timer"}
       >
-        {segments.length <= 1
-          ? secsToHMS(totalLimitSec)
-          : `${secsToHMS(currentSegmentTotalSec)}/${secsToHMS(totalLimitSec)}`}
+        {hasTimer
+          ? segments.length <= 1
+            ? secsToHMS(totalLimitSec)
+            : `${secsToHMS(currentSegmentTotalSec)}/${secsToHMS(totalLimitSec)}`
+          : <Timer className="h-4 w-4" />}
       </button>
 
       {editing && (
         <div
           ref={popoverRef}
-          className="absolute mt-2 w-64 space-y-3 rounded-xl p-3"
+          className="absolute right-0 mt-2 w-64 space-y-3 rounded-xl p-3"
           onKeyDown={(event) => {
             if (
               event.key === "Enter" &&
@@ -134,7 +147,7 @@ export function SegmentLimitEditor({ card, onSetSegments, palette, onEditingChan
           }}
         >
           <h4 className="text-xs font-semibold" style={{ color: palette.text }}>
-            Segments
+            {hasTimer ? "Segments" : "Set timer"}
           </h4>
           <SegmentRowsEditor
             rows={rows}
@@ -156,7 +169,21 @@ export function SegmentLimitEditor({ card, onSetSegments, palette, onEditingChan
           >
             Add segment
           </button>
-          <div className="flex justify-end gap-2 text-sm md:text-xs">
+          <div className="flex items-center justify-between gap-2 text-sm md:text-xs">
+            {hasTimer ? (
+              <button
+                type="button"
+                className="interactive-button rounded-md px-2 py-1"
+                style={{ color: palette.dangerText }}
+                onClick={() => {
+                  onRemoveTimer?.();
+                  setEditing(false);
+                }}
+              >
+                Remove timer
+              </button>
+            ) : <span />}
+            <div className="flex justify-end gap-2">
             <button
               type="button"
               className="interactive-button rounded-md px-2 py-1"
@@ -173,6 +200,7 @@ export function SegmentLimitEditor({ card, onSetSegments, palette, onEditingChan
             >
               Save
             </button>
+            </div>
           </div>
         </div>
       )}

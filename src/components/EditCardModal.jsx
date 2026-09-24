@@ -18,9 +18,14 @@ const VALID_GROUP_IDS = CARD_GROUP_OPTIONS.filter((option) => option.value).map(
 export function EditCardModal({ card, onClose, onSave, palette }) {
   const [title, setTitle] = useState(card.title);
   const [notes, setNotes] = useState(card.notes || "");
-  const [limitInput, setLimitInput] = useState(formatSegmentForInput(card.durationSec || MIN_SEGMENT_SEC));
-  const [useSegments, setUseSegments] = useState((card.segments?.length || 0) > 1);
-  const [segmentRows, setSegmentRows] = useState(() => segmentDraftsFromSegments(card.segments));
+  const [limitInput, setLimitInput] = useState(card.segments?.length ? formatSegmentForInput(card.durationSec) : "");
+  const [timingMode, setTimingMode] = useState(
+    (card.segments?.length || 0) > 1 ? "segments" : card.segments?.length ? "single" : "none"
+  );
+  const [segmentRows, setSegmentRows] = useState(() => card.segments?.length
+    ? segmentDraftsFromSegments(card.segments)
+    : [{ id: `draft-${uid()}`, value: "" }]
+  );
   const [segmentErrors, setSegmentErrors] = useState({});
   const [limitError, setLimitError] = useState("");
   const [groupId, setGroupId] = useState(VALID_GROUP_IDS.includes(card.group) ? card.group : "");
@@ -32,8 +37,8 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
   } = useRotatingPlaceholder(TITLE_PLACEHOLDERS, showTitlePlaceholder);
 
   useEffect(() => {
-    if (!useSegments) setSegmentErrors({});
-  }, [useSegments]);
+    if (timingMode !== "segments") setSegmentErrors({});
+  }, [timingMode]);
 
   useEffect(() => {
     if (groupTouched) return;
@@ -69,7 +74,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
   const submit = () => {
     let durations = [];
 
-    if (useSegments) {
+    if (timingMode === "segments") {
       const nextErrors = {};
       segmentRows.forEach((row) => {
         const sec = parseDurationToSeconds(row.value);
@@ -83,7 +88,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
         setSegmentErrors(nextErrors);
         return;
       }
-    } else {
+    } else if (timingMode === "single") {
       const sec = parseDurationToSeconds(limitInput);
       if (!sec || sec < MIN_SEGMENT_SEC || sec > MAX_SEGMENT_SEC) {
         setLimitError("Enter 5s–24h");
@@ -93,9 +98,12 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
       durations = [clamp(sec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC)];
     }
 
-    if (!durations.length) durations = [MIN_SEGMENT_SEC];
-
     const parsedTitle = parseTimeFromTitle(title);
+    if (timingMode === "none" && parsedTitle.segments?.length > 1) {
+      durations = parsedTitle.segments.map((sec) => clamp(sec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC));
+    } else if (timingMode === "none" && parsedTitle.durationSec != null) {
+      durations = [clamp(parsedTitle.durationSec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC)];
+    }
     const cleanTitle = parsedTitle.cleanTitle;
     const autoGroup = parsedTitle.groupId;
     const resolvedGroup = groupTouched ? groupId : autoGroup ?? groupId;
@@ -112,7 +120,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
       };
     });
 
-    const nextActiveIndex = findNextActiveSegment(segmentsPayload);
+    const nextActiveIndex = segmentsPayload.length ? findNextActiveSegment(segmentsPayload) : 0;
 
     onSave({
       title: cleanTitle,
@@ -182,15 +190,18 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
           <label className="block text-sm font-medium md:text-xs" style={{ color: palette.subtext }}>
             Timing
           </label>
-          <div className="mt-1 flex items-center gap-3 text-sm md:text-xs" style={{ color: palette.subtext }}>
+          <div className="mt-1 flex flex-wrap items-center gap-3 text-sm md:text-xs" style={{ color: palette.subtext }}>
             <label className="inline-flex items-center gap-1">
-              <input type="radio" checked={!useSegments} onChange={() => setUseSegments(false)} /> Single limit
+              <input type="radio" checked={timingMode === "none"} onChange={() => setTimingMode("none")} /> No timer
             </label>
             <label className="inline-flex items-center gap-1">
-              <input type="radio" checked={useSegments} onChange={() => setUseSegments(true)} /> Segments
+              <input type="radio" checked={timingMode === "single"} onChange={() => setTimingMode("single")} /> Single limit
+            </label>
+            <label className="inline-flex items-center gap-1">
+              <input type="radio" checked={timingMode === "segments"} onChange={() => setTimingMode("segments")} /> Segments
             </label>
           </div>
-          {!useSegments ? (
+          {timingMode === "single" ? (
             <>
               <input
                 value={limitInput}
@@ -212,7 +223,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
                 </p>
               ) : null}
             </>
-          ) : (
+          ) : timingMode === "segments" ? (
             <div className="mt-2 space-y-2">
               <SegmentRowsEditor
                 rows={segmentRows}
@@ -232,7 +243,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
                 Add segment
               </button>
             </div>
-          )}
+          ) : null}
         </div>
         <div>
           <label className="block text-sm font-medium md:text-xs" style={{ color: palette.subtext }}>

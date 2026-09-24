@@ -41,6 +41,7 @@ export function Card({
   onRemove,
   onEdit,
   onSetSegments,
+  onClearTimer,
   onUpdateProgress,
   onChangeSubtasks,
   onRename = () => {},
@@ -61,22 +62,25 @@ export function Card({
   const skipTitleCommitRef = useRef(false);
   const [limitEditorActive, setLimitEditorActive] = useState(false);
   const [subtaskComposerOpen, setSubtaskComposerOpen] = useState(false);
-  const segments = (card.segments && card.segments.length
-    ? card.segments
-    : [
+  const hasTimer = Boolean((card.segments?.length || 0) > 0 || card.durationSec > 0 || card.remainingSec > 0);
+  const segments = hasTimer
+    ? (card.segments && card.segments.length
+      ? card.segments
+      : [
         {
           id: `${card.id}-seg-0`,
           durationSec: card.durationSec ?? card.remainingSec ?? MIN_SEGMENT_SEC,
           remainingSec: card.remainingSec ?? card.durationSec ?? MIN_SEGMENT_SEC,
         },
       ]
-  ).map((seg) => ({ ...seg }));
+    ).map((seg) => ({ ...seg }))
+    : [];
   const isSegmented = (card.segments?.length || 0) > 1;
   const totalDuration = segments.reduce((sum, seg) => sum + (seg.durationSec ?? 0), 0) || 1;
   const totalRemaining = segments.reduce((sum, seg) => sum + (seg.remainingSec ?? 0), 0);
-  const baseIsOver = totalRemaining <= 0;
-  const activeIdx = card.activeSegmentIndex ?? findNextActiveSegment(segments);
-  const activeRemainingRaw = card.computedActiveRemaining ?? segments[activeIdx]?.remainingSec ?? 0;
+  const baseIsOver = hasTimer && totalRemaining <= 0;
+  const activeIdx = hasTimer ? card.activeSegmentIndex ?? findNextActiveSegment(segments) : 0;
+  const activeRemainingRaw = hasTimer ? card.computedActiveRemaining ?? segments[activeIdx]?.remainingSec ?? 0 : 0;
   const activeRemaining = Math.max(activeRemainingRaw, 0);
   const barRef = useRef(null);
   const dragPointerIdRef = useRef(null);
@@ -474,7 +478,7 @@ export function Card({
             >
               <VolumeX className="h-4 w-4" />
             </button>
-          ) : card.running ? (
+          ) : hasTimer && card.running ? (
             <button
               onClick={onPause}
               title="Pause"
@@ -484,7 +488,7 @@ export function Card({
             >
               <Pause className="h-4 w-4" />
             </button>
-          ) : (
+          ) : hasTimer ? (
             <button
               onClick={onStart}
               title="Start"
@@ -494,16 +498,27 @@ export function Card({
             >
               <Play className="h-4 w-4" />
             </button>
-          )}
-          <button
-            onClick={onReset}
-            title="Reset"
-            aria-label="Reset"
-            className={controlButtonClass}
-            style={{ color: cardSubtextColor }}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </button>
+          ) : null}
+          {!hasTimer ? (
+            <SegmentLimitEditor
+              card={card}
+              onSetSegments={onSetSegments}
+              onRemoveTimer={onClearTimer}
+              palette={palette}
+              onEditingChange={setLimitEditorActive}
+            />
+          ) : null}
+          {hasTimer ? (
+            <button
+              onClick={onReset}
+              title="Reset"
+              aria-label="Reset"
+              className={controlButtonClass}
+              style={{ color: cardSubtextColor }}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => setSubtaskComposerOpen(true)}
@@ -535,7 +550,7 @@ export function Card({
         </div>
       </div>
 
-      <div className="mb-2">
+      {hasTimer ? <div className="mb-2">
         <div
           ref={barRef}
           draggable={false}
@@ -638,7 +653,7 @@ export function Card({
             onEditingChange={setLimitEditorActive}
           />
         </div>
-      </div>
+      </div> : null}
 
       <Subtasks
         cardId={card.id}

@@ -88,6 +88,21 @@ export const upgradeLegacyCard = (card) => {
     });
   }
 
+  const legacyDuration = card.durationSec ?? card.remainingSec ?? 0;
+  if (!(legacyDuration > 0)) {
+    return deriveCardFromSegments(
+      { ...card, running: false, lastStartTs: null },
+      [],
+      {
+        running: false,
+        lastStartTs: null,
+        remainingSecAtStart: 0,
+        activeSegmentIndex: 0,
+        overtime: false,
+      }
+    );
+  }
+
   const baseDuration = sanitizeSegmentDuration(card.durationSec ?? card.remainingSec ?? 1500);
   const baseRemaining = clamp(Math.floor(card.remainingSec ?? baseDuration), 0, baseDuration);
   return deriveCardFromSegments(

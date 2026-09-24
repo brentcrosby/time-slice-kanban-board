@@ -256,6 +256,7 @@ export default function KanbanTimerBoard() {
   }, [runningCount]);
 
   const recompute = (card) => {
+    if (!card.segments?.length) return card;
     const baseSegments = card.segments?.length
       ? card.segments
       : [
@@ -471,7 +472,8 @@ export default function KanbanTimerBoard() {
 
   const addCard = (colId, payload = {}) => {
     const id = uid();
-    const durations = coerceSegmentDurations(payload.segments, payload.durationSec || 1500);
+    const hasTimer = (payload.segments?.length || 0) > 0 || (payload.durationSec || 0) > 0;
+    const durations = hasTimer ? coerceSegmentDurations(payload.segments, payload.durationSec) : [];
     const segments = durations.map((sec, idx) => ({
       id: `${id}-seg-${idx}`,
       durationSec: sec,
@@ -495,8 +497,10 @@ export default function KanbanTimerBoard() {
       isDraft,
     };
     const card = deriveCardFromSegments(baseCard, segments, {
-      remainingSecAtStart: segments[0]?.remainingSec ?? durations[0],
+      running: false,
+      remainingSecAtStart: segments[0]?.remainingSec ?? 0,
       activeSegmentIndex: 0,
+      overtime: false,
     });
     updateCardsState(
       (prev) => ({ ...prev, [colId]: [...(prev[colId] || []), card] }),
@@ -560,6 +564,20 @@ export default function KanbanTimerBoard() {
         return candidate;
       }),
     }));
+  };
+
+  const clearCardTimer = (colId, cardId) => {
+    updateCard(colId, cardId, {
+      segments: [],
+      durationSec: 0,
+      remainingSec: 0,
+      running: false,
+      lastStartTs: null,
+      remainingSecAtStart: 0,
+      activeSegmentIndex: 0,
+      overtime: false,
+    });
+    removeChimeSources([cardId]);
   };
 
   const updateSubtasks = (colId, cardId, updater) => {
@@ -685,6 +703,7 @@ export default function KanbanTimerBoard() {
   };
 
   const startTimer = (colId, card) => {
+    if (!card.segments?.length) return;
     console.log("[Timer] startTimer", { colId, cardId: card.id });
     const now = Date.now();
     updateCard(colId, card.id, (current) => {
@@ -1036,6 +1055,7 @@ export default function KanbanTimerBoard() {
                     onRemove={() => removeCard(col.id, card.id)}
                     onEdit={() => setEditCard({ colId: col.id, card })}
                     onSetSegments={(segments) => setCardSegments(col.id, card, segments)}
+                    onClearTimer={() => clearCardTimer(col.id, card.id)}
                     onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
                     onChangeSubtasks={(updater) => updateSubtasks(col.id, card.id, updater)}
                     onRename={(nextTitle) => applyTitleShortcuts(col.id, card.id, nextTitle)}
