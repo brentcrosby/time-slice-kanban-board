@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Timer, Trash2 } from "lucide-react";
+import { Clock, Trash2 } from "lucide-react";
 import { SegmentRowsEditor } from "./SegmentRowsEditor";
 import { MIN_SEGMENT_SEC, MAX_SEGMENT_SEC } from "../constants";
 import { findNextActiveSegment, segmentDraftsFromSegments } from "../utils/segments";
@@ -105,7 +105,7 @@ export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette
           type="button"
           className={hasTimer
             ? "interactive-button rounded px-3 py-1 text-sm tabular-nums md:px-2 md:py-0.5 md:text-xs"
-            : "interactive-button rounded-md p-2 md:p-1"}
+            : "interactive-button rounded-md p-2 transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:p-1"}
           style={hasTimer
             ? { color: palette.subtext, backgroundColor: "transparent", border: `1px dashed ${palette.border}` }
             : { color: palette.subtext }}
@@ -117,7 +117,7 @@ export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette
             ? segments.length <= 1
               ? secsToHMS(totalLimitSec)
               : `${secsToHMS(currentSegmentTotalSec)}/${secsToHMS(totalLimitSec)}`
-            : <Timer className="h-4 w-4" />}
+            : <Clock className="h-4 w-4" />}
         </button>
         {hasTimer ? (
           <button

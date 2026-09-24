@@ -24,6 +24,17 @@ export function HelpModal({ onClose, palette }) {
 
         <section className="space-y-2">
           <h4 className="text-sm font-semibold" style={{ color: palette.text }}>
+            Stopwatch
+          </h4>
+          <p className="text-sm" style={{ color: palette.subtext }}>
+            Start a stopwatch with its icon on a timerless task. The elapsed time and pause/reset controls
+            appear only after it starts. A stopwatch counts up independently and does not show a progress bar
+            or add to planned-time totals.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h4 className="text-sm font-semibold" style={{ color: palette.text }}>
             Time shorthands
           </h4>
           <p className="text-sm" style={{ color: palette.subtext }}>

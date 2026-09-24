@@ -119,7 +119,7 @@ export function Subtasks({
     <div key={key} className="pointer-events-none h-0 border-t-2 border-dashed" style={{ borderColor: textColor }} />
   );
 
-  const iconButtonClass = "interactive-button rounded-md p-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 md:p-1";
+  const iconButtonClass = "interactive-button rounded-md p-1.5 transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:p-1";
   const inputStyle = { color: textColor, backgroundColor: palette.surface, borderColor };
 
   if (!subtasks.length && !adding) return null;
@@ -130,7 +130,7 @@ export function Subtasks({
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
-          className="interactive-button flex min-w-0 items-center gap-1.5 rounded-md px-1 py-1 text-left text-sm font-medium focus-visible:outline focus-visible:outline-2 md:text-xs"
+          className="interactive-button flex min-w-0 items-center gap-1.5 rounded-md px-1 py-1 text-left text-sm font-medium transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:text-xs"
           style={{ color: subtextColor }}
           aria-expanded={expanded}
           aria-label={`Subtasks: ${completedCount} of ${subtasks.length} complete`}
@@ -143,7 +143,7 @@ export function Subtasks({
         <button
           type="button"
           onClick={startAdding}
-          className="interactive-button flex items-center gap-1 rounded-md px-1.5 py-1 text-sm focus-visible:outline focus-visible:outline-2 md:text-xs"
+          className="interactive-button flex items-center gap-1 rounded-md px-1.5 py-1 text-sm transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:text-xs"
           style={{ color: subtextColor }}
           aria-label="Add subtask"
         >
@@ -224,7 +224,7 @@ export function Subtasks({
                       setEditingId(subtask.id);
                       setEditDraft(subtask.title);
                     }}
-                    className="min-w-0 flex-1 break-words rounded-md px-1 py-1 text-left text-sm focus-visible:outline focus-visible:outline-2 md:text-xs"
+                    className="interactive-button min-w-0 flex-1 break-words rounded-md px-1 py-1 text-left text-sm transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:text-xs"
                     style={{ color: subtask.completed ? subtextColor : textColor, textDecoration: subtask.completed ? "line-through" : "none" }}
                     title="Click to rename"
                   >

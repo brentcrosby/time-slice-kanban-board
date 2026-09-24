@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ListPlus, Play, Pause, RotateCcw, Pencil, Trash2, VolumeX } from "lucide-react";
+import { ListPlus, Play, Pause, RotateCcw, Pencil, Trash2, VolumeX, Timer } from "lucide-react";
 import { SegmentLimitEditor } from "./SegmentLimitEditor";
 import { Subtasks } from "./Subtasks";
 import { MIN_SEGMENT_SEC } from "../constants";
@@ -42,6 +42,10 @@ export function Card({
   onEdit,
   onSetSegments,
   onClearTimer,
+  onStartStopwatch,
+  onPauseStopwatch,
+  onResetStopwatch,
+  onClearStopwatch,
   onUpdateProgress,
   onChangeSubtasks,
   onRename = () => {},
@@ -63,6 +67,9 @@ export function Card({
   const [limitEditorActive, setLimitEditorActive] = useState(false);
   const [subtaskComposerOpen, setSubtaskComposerOpen] = useState(false);
   const hasTimer = Boolean((card.segments?.length || 0) > 0 || card.durationSec > 0 || card.remainingSec > 0);
+  const hasStopwatch = Boolean(card.stopwatch);
+  const stopwatchRunning = Boolean(card.stopwatch?.running);
+  const stopwatchElapsed = card.computedStopwatchElapsed ?? card.stopwatch?.elapsedSec ?? 0;
   const segments = hasTimer
     ? (card.segments && card.segments.length
       ? card.segments
@@ -470,7 +477,49 @@ export function Card({
           ) : null}
         </div>
         <div className="flex items-center gap-1">
-          {isChiming ? (
+          {hasStopwatch ? (
+            <>
+              <span
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium tabular-nums md:text-xs"
+                style={{ backgroundColor: palette.badge, color: palette.text }}
+                title="Elapsed stopwatch time"
+                aria-label={`Stopwatch elapsed ${secsToHMS(Math.floor(stopwatchElapsed))}`}
+              >
+                <Timer className="h-4 w-4" />
+                {secsToHMS(Math.floor(stopwatchElapsed))}
+              </span>
+              <button
+                type="button"
+                onClick={stopwatchRunning ? onPauseStopwatch : onStartStopwatch}
+                title={stopwatchRunning ? "Pause stopwatch" : "Resume stopwatch"}
+                aria-label={stopwatchRunning ? "Pause stopwatch" : "Resume stopwatch"}
+                className={controlButtonClass}
+                style={{ color: cardSubtextColor }}
+              >
+                {stopwatchRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              </button>
+              <button
+                type="button"
+                onClick={onResetStopwatch}
+                title="Reset stopwatch"
+                aria-label="Reset stopwatch"
+                className={controlButtonClass}
+                style={{ color: cardSubtextColor }}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={onClearStopwatch}
+                title="Cancel stopwatch"
+                aria-label="Cancel stopwatch"
+                className={`${controlButtonClass} bg-black/10`}
+                style={{ color: cardSubtextColor }}
+              >
+                <Timer className="h-4 w-4" />
+              </button>
+            </>
+          ) : isChiming ? (
             <button
               onClick={onStopChime}
               title="Mute chime"
@@ -501,7 +550,7 @@ export function Card({
               <Play className="h-4 w-4" />
             </button>
           ) : null}
-          {!hasTimer ? (
+          {!hasTimer && !hasStopwatch ? (
             <SegmentLimitEditor
               card={card}
               onSetSegments={onSetSegments}
@@ -509,6 +558,18 @@ export function Card({
               palette={palette}
               onEditingChange={setLimitEditorActive}
             />
+          ) : null}
+          {!hasTimer && !hasStopwatch ? (
+            <button
+              type="button"
+              onClick={onStartStopwatch}
+              title="Start stopwatch"
+              aria-label="Start stopwatch"
+              className={controlButtonClass}
+              style={{ color: cardSubtextColor }}
+            >
+              <Timer className="h-4 w-4" />
+            </button>
           ) : null}
           {hasTimer ? (
             <button

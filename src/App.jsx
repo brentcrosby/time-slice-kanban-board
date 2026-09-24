@@ -246,7 +246,7 @@ export default function KanbanTimerBoard() {
   }, [sound.enabled]);
 
   const runningCount = useMemo(
-    () => Object.values(cardsByCol).flat().filter((card) => card.running).length,
+    () => Object.values(cardsByCol).flat().filter((card) => card.running || card.stopwatch?.running).length,
     [cardsByCol]
   );
   const tick = useNowTicker(runningCount);
@@ -256,7 +256,15 @@ export default function KanbanTimerBoard() {
   }, [runningCount]);
 
   const recompute = (card) => {
-    if (!card.segments?.length) return card;
+    if (!card.segments?.length) {
+      const stopwatch = card.stopwatch;
+      const elapsedSec = stopwatch?.running && stopwatch.lastStartTs
+        ? (stopwatch.elapsedSec || 0) + (Date.now() - stopwatch.lastStartTs) / 1000
+        : stopwatch?.elapsedSec || 0;
+      return stopwatch
+        ? { ...card, computedStopwatchElapsed: Math.max(0, elapsedSec) }
+        : card;
+    }
     const baseSegments = card.segments?.length
       ? card.segments
       : [
@@ -559,7 +567,8 @@ export default function KanbanTimerBoard() {
         if (c.id !== cardId) return c;
         const candidate = updater(c);
         if (candidate.segments) {
-          return deriveCardFromSegments({ ...candidate }, candidate.segments, candidate);
+          const next = candidate.segments.length ? { ...candidate, stopwatch: null } : candidate;
+          return deriveCardFromSegments({ ...next }, next.segments, next);
         }
         return candidate;
       }),
@@ -578,6 +587,51 @@ export default function KanbanTimerBoard() {
       overtime: false,
     });
     removeChimeSources([cardId]);
+  };
+
+  const startStopwatch = (colId, card) => {
+    if (card.segments?.length) return;
+    const now = Date.now();
+    updateCard(colId, card.id, (current) => {
+      const stopwatch = current.stopwatch;
+      if (stopwatch?.running) return current;
+      return {
+        ...current,
+        stopwatch: {
+          elapsedSec: stopwatch?.elapsedSec || 0,
+          running: true,
+          lastStartTs: now,
+        },
+      };
+    });
+  };
+
+  const pauseStopwatch = (colId, card) => {
+    if (!card.stopwatch?.running || !card.stopwatch.lastStartTs) return;
+    const now = Date.now();
+    updateCard(colId, card.id, (current) => {
+      const stopwatch = current.stopwatch;
+      if (!stopwatch?.running || !stopwatch.lastStartTs) return current;
+      return {
+        ...current,
+        stopwatch: {
+          elapsedSec: (stopwatch.elapsedSec || 0) + (now - stopwatch.lastStartTs) / 1000,
+          running: false,
+          lastStartTs: null,
+        },
+      };
+    });
+  };
+
+  const resetStopwatch = (colId, cardId) => {
+    updateCard(colId, cardId, (current) => ({
+      ...current,
+      stopwatch: { elapsedSec: 0, running: false, lastStartTs: null },
+    }));
+  };
+
+  const clearStopwatch = (colId, cardId) => {
+    updateCard(colId, cardId, { stopwatch: null });
   };
 
   const updateSubtasks = (colId, cardId, updater) => {
@@ -1056,6 +1110,10 @@ export default function KanbanTimerBoard() {
                     onEdit={() => setEditCard({ colId: col.id, card })}
                     onSetSegments={(segments) => setCardSegments(col.id, card, segments)}
                     onClearTimer={() => clearCardTimer(col.id, card.id)}
+                    onStartStopwatch={() => startStopwatch(col.id, card)}
+                    onPauseStopwatch={() => pauseStopwatch(col.id, card)}
+                    onResetStopwatch={() => resetStopwatch(col.id, card.id)}
+                    onClearStopwatch={() => clearStopwatch(col.id, card.id)}
                     onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
                     onChangeSubtasks={(updater) => updateSubtasks(col.id, card.id, updater)}
                     onRename={(nextTitle) => applyTitleShortcuts(col.id, card.id, nextTitle)}
