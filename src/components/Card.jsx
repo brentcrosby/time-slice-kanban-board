@@ -440,7 +440,7 @@ export function Card({
         zIndex: limitEditorActive ? 200 : undefined,
       }}
     >
-      <div className={hasTimer ? "mb-2 flex items-start gap-2" : "flex items-center gap-2"}>
+      <div className={hasTimer ? "mb-2 flex items-center gap-2" : "flex items-center gap-2"}>
         <div className="flex-1 min-w-0">
           {isTitleEditing ? (
             <input
@@ -476,38 +476,10 @@ export function Card({
             </p>
           ) : null}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 flex-col items-stretch">
+          <div className="flex items-center gap-1">
           {hasStopwatch ? (
             <>
-              <span
-                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium tabular-nums md:text-xs"
-                style={{ backgroundColor: palette.badge, color: palette.text }}
-                title="Elapsed stopwatch time"
-                aria-label={`Stopwatch elapsed ${secsToHMS(Math.floor(stopwatchElapsed))}`}
-              >
-                <Timer className="h-4 w-4" />
-                {secsToHMS(Math.floor(stopwatchElapsed))}
-              </span>
-              <button
-                type="button"
-                onClick={stopwatchRunning ? onPauseStopwatch : onStartStopwatch}
-                title={stopwatchRunning ? "Pause stopwatch" : "Resume stopwatch"}
-                aria-label={stopwatchRunning ? "Pause stopwatch" : "Resume stopwatch"}
-                className={controlButtonClass}
-                style={{ color: cardSubtextColor }}
-              >
-                {stopwatchRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              </button>
-              <button
-                type="button"
-                onClick={onResetStopwatch}
-                title="Reset stopwatch"
-                aria-label="Reset stopwatch"
-                className={controlButtonClass}
-                style={{ color: cardSubtextColor }}
-              >
-                <RotateCcw className="h-4 w-4" />
-              </button>
               <button
                 type="button"
                 onClick={onClearStopwatch}
@@ -610,6 +582,39 @@ export function Card({
           >
             <Trash2 className="h-4 w-4" />
           </button>
+          </div>
+          {hasStopwatch && (
+            <div className="mt-1 flex w-full items-center justify-between">
+              <span
+                className="inline-flex items-center rounded-md px-2 py-1 text-sm font-medium tabular-nums md:text-xs"
+                style={{ backgroundColor: palette.badge, color: palette.text }}
+                title="Elapsed stopwatch time"
+                aria-label={`Stopwatch elapsed ${secsToHMS(Math.floor(stopwatchElapsed))}`}
+              >
+                {secsToHMS(Math.floor(stopwatchElapsed))}
+              </span>
+              <button
+                type="button"
+                onClick={stopwatchRunning ? onPauseStopwatch : onStartStopwatch}
+                title={stopwatchRunning ? "Pause stopwatch" : "Resume stopwatch"}
+                aria-label={stopwatchRunning ? "Pause stopwatch" : "Resume stopwatch"}
+                className={controlButtonClass}
+                style={{ color: cardSubtextColor }}
+              >
+                {stopwatchRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              </button>
+              <button
+                type="button"
+                onClick={onResetStopwatch}
+                title="Reset stopwatch"
+                aria-label="Reset stopwatch"
+                className={controlButtonClass}
+                style={{ color: cardSubtextColor }}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

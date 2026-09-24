@@ -20,6 +20,7 @@ import {
 import { ensureAudioContext, playChime } from "./utils/audio";
 import { loadSound, loadState, loadTheme, saveSound, saveState, saveTheme } from "./utils/storage";
 import { parseTimeFromTitle } from "./utils/time";
+import { useTaskSync } from "./hooks/useTaskSync";
 
 const HISTORY_LIMIT = 100;
 const BREAK_DURATION_SEC = 600;
@@ -53,8 +54,26 @@ export default function KanbanTimerBoard() {
   const [theme, setTheme] = useState(loadTheme());
   const [sound, setSound] = useState(loadSound());
   const [autoMoveEnabled, setAutoMoveEnabled] = useState(() => initialStoredState?.autoMoveEnabled ?? true);
+  const [syncSetupOpen, setSyncSetupOpen] = useState(false);
   useEffect(() => saveTheme(theme), [theme]);
   useEffect(() => saveSound(sound), [sound]);
+
+  const localSyncState = useMemo(() => ({ cardsByCol, autoMoveEnabled }), [cardsByCol, autoMoveEnabled]);
+  const applySyncedState = useCallback((state) => {
+    if (!state || typeof state !== "object") return;
+    setCardsByCol((current) => {
+      const next = {};
+      DEFAULT_COLUMNS.forEach((column) => {
+        const cards = state.cardsByCol?.[column.id];
+        next[column.id] = Array.isArray(cards) ? cards.map(upgradeLegacyCard) : current[column.id] || [];
+      });
+      return next;
+    });
+    if (typeof state.autoMoveEnabled === "boolean") setAutoMoveEnabled(state.autoMoveEnabled);
+    historyRef.current = [];
+    futureRef.current = [];
+  }, []);
+  const taskSync = useTaskSync(localSyncState, applySyncedState);
 
   const updateCardsState = useCallback(
     (updater, { track = false } = {}) => {
@@ -1082,7 +1101,19 @@ export default function KanbanTimerBoard() {
         palette={palette}
         theme={theme}
         chimeActive={chimeActive}
+        syncUser={taskSync.user}
+        syncStatus={taskSync.status}
+        syncConfigured={taskSync.configured}
+        onSignIn={taskSync.signIn}
+        onSignOut={taskSync.signOut}
+        onOpenSyncSetup={() => setSyncSetupOpen(true)}
       />
+
+      {taskSync.error && (
+        <div role="alert" className="mx-auto mt-2 max-w-7xl px-4 text-sm" style={{ color: palette.dangerText }}>
+          Task sync: {taskSync.error}
+        </div>
+      )}
 
       <div className="mx-auto max-w-7xl p-4">
         <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-3">
@@ -1237,6 +1268,29 @@ export default function KanbanTimerBoard() {
           onClose={() => setHelpOpen(false)}
           palette={palette}
         />
+      )}
+
+      {syncSetupOpen && (
+        <Modal title="Set up task sync" onClose={() => setSyncSetupOpen(false)} palette={palette}>
+          <div className="space-y-3 text-sm" style={{ color: palette.subtext }}>
+            <p>Google sign-in and cross-device sync need a Firebase project configured for Tasky. This is intentionally separate from Daymark.</p>
+            <p>Create a Firebase web app, enable Google sign-in and Cloud Firestore, then add its web config to your local environment and GitHub repository variables.</p>
+            <p>Until configured, Tasky continues saving your board in this browser as usual.</p>
+            <a className="font-medium underline" style={{ color: palette.text }} href="https://github.com/brentcrosby/time-slice-kanban-board/blob/main/FIREBASE_SETUP.md" target="_blank" rel="noreferrer">Open the setup guide</a>
+          </div>
+        </Modal>
+      )}
+
+      {taskSync.conflict && (
+        <Modal title="Choose which tasks to sync" onClose={() => taskSync.resolveConflict("merge")} palette={palette}>
+          <div className="space-y-4 text-sm" style={{ color: palette.subtext }}>
+            <p>This Google account already has a Tasky board, and this browser also has tasks saved locally. Merge them to keep both sets, or use the account board on this device.</p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button className="interactive-button rounded-md border px-3 py-2" style={{ borderColor: palette.border, color: palette.text }} onClick={() => taskSync.resolveConflict("remote")}>Use account board</button>
+              <button className="interactive-button rounded-md px-3 py-2 font-medium" style={{ backgroundColor: palette.text, color: palette.bg }} onClick={() => taskSync.resolveConflict("merge")}>Merge device tasks</button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

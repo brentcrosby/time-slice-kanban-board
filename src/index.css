@@ -39,6 +39,31 @@ body {
     filter: brightness(0.9);
   }
 
+  .header-action-button {
+    @apply transition-colors duration-150 ease-out;
+  }
+
+  .header-action-button:hover {
+    background-color: rgba(17, 24, 39, 0.08);
+  }
+
+  [data-theme="dark"] .header-action-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .header-action-button:active {
+    background-color: rgba(17, 24, 39, 0.14);
+  }
+
+  [data-theme="dark"] .header-action-button:active {
+    background-color: rgba(255, 255, 255, 0.17);
+  }
+
+  .header-action-button:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+
   [data-theme="dark"] .interactive-button:hover {
     filter: brightness(1.2);
   }
