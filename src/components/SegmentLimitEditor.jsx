@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Timer } from "lucide-react";
+import { Timer, Trash2 } from "lucide-react";
 import { SegmentRowsEditor } from "./SegmentRowsEditor";
 import { MIN_SEGMENT_SEC, MAX_SEGMENT_SEC } from "../constants";
 import { findNextActiveSegment, segmentDraftsFromSegments } from "../utils/segments";
@@ -100,24 +100,41 @@ export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette
 
   return (
     <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        className={hasTimer
-          ? "interactive-button rounded px-3 py-1 text-sm tabular-nums md:px-2 md:py-0.5 md:text-xs"
-          : "interactive-button rounded-md p-2 md:p-1"}
-        style={hasTimer
-          ? { color: palette.subtext, backgroundColor: "transparent", border: `1px dashed ${palette.border}` }
-          : { color: palette.subtext }}
-        onClick={() => setEditing((v) => !v)}
-        title={hasTimer ? "Edit segment durations" : "Add timer"}
-        aria-label={hasTimer ? "Edit timer" : "Add timer"}
-      >
-        {hasTimer
-          ? segments.length <= 1
-            ? secsToHMS(totalLimitSec)
-            : `${secsToHMS(currentSegmentTotalSec)}/${secsToHMS(totalLimitSec)}`
-          : <Timer className="h-4 w-4" />}
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          className={hasTimer
+            ? "interactive-button rounded px-3 py-1 text-sm tabular-nums md:px-2 md:py-0.5 md:text-xs"
+            : "interactive-button rounded-md p-2 md:p-1"}
+          style={hasTimer
+            ? { color: palette.subtext, backgroundColor: "transparent", border: `1px dashed ${palette.border}` }
+            : { color: palette.subtext }}
+          onClick={() => setEditing((v) => !v)}
+          title={hasTimer ? "Edit segment durations" : "Add timer"}
+          aria-label={hasTimer ? "Edit timer" : "Add timer"}
+        >
+          {hasTimer
+            ? segments.length <= 1
+              ? secsToHMS(totalLimitSec)
+              : `${secsToHMS(currentSegmentTotalSec)}/${secsToHMS(totalLimitSec)}`
+            : <Timer className="h-4 w-4" />}
+        </button>
+        {hasTimer ? (
+          <button
+            type="button"
+            className="interactive-button rounded-md p-1.5 md:p-1"
+            style={{ color: palette.subtext }}
+            onClick={() => {
+              setEditing(false);
+              onRemoveTimer?.();
+            }}
+            title="Remove timer"
+            aria-label="Remove timer"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
 
       {editing && (
         <div
@@ -169,21 +186,7 @@ export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette
           >
             Add segment
           </button>
-          <div className="flex items-center justify-between gap-2 text-sm md:text-xs">
-            {hasTimer ? (
-              <button
-                type="button"
-                className="interactive-button rounded-md px-2 py-1"
-                style={{ color: palette.dangerText }}
-                onClick={() => {
-                  onRemoveTimer?.();
-                  setEditing(false);
-                }}
-              >
-                Remove timer
-              </button>
-            ) : <span />}
-            <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 text-sm md:text-xs">
             <button
               type="button"
               className="interactive-button rounded-md px-2 py-1"
@@ -200,7 +203,6 @@ export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette
             >
               Save
             </button>
-            </div>
           </div>
         </div>
       )}

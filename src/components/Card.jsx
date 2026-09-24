@@ -649,6 +649,7 @@ export function Card({
           <SegmentLimitEditor
             card={card}
             onSetSegments={onSetSegments}
+            onRemoveTimer={onClearTimer}
             palette={palette}
             onEditingChange={setLimitEditorActive}
           />
