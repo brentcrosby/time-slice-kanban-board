@@ -486,6 +486,7 @@ export default function KanbanTimerBoard() {
       id,
       title: isDraft ? rawTitle : rawTitle || "Untitled",
       notes: rawNotes,
+      subtasks: [],
       group: normalizedGroup,
       running: false,
       lastStartTs: null,
@@ -559,6 +560,24 @@ export default function KanbanTimerBoard() {
         return candidate;
       }),
     }));
+  };
+
+  const updateSubtasks = (colId, cardId, updater) => {
+    updateCardsState(
+      (prev) => {
+        const list = prev[colId] || [];
+        const index = list.findIndex((card) => card.id === cardId);
+        if (index === -1) return prev;
+        const card = list[index];
+        const currentSubtasks = card.subtasks || [];
+        const subtasks = updater(currentSubtasks);
+        if (subtasks === currentSubtasks) return prev;
+        const nextList = [...list];
+        nextList[index] = { ...card, subtasks };
+        return { ...prev, [colId]: nextList };
+      },
+      { track: true }
+    );
   };
 
   const applyTitleShortcuts = useCallback(
@@ -1018,6 +1037,7 @@ export default function KanbanTimerBoard() {
                     onEdit={() => setEditCard({ colId: col.id, card })}
                     onSetSegments={(segments) => setCardSegments(col.id, card, segments)}
                     onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
+                    onChangeSubtasks={(updater) => updateSubtasks(col.id, card.id, updater)}
                     onRename={(nextTitle) => applyTitleShortcuts(col.id, card.id, nextTitle)}
                     onDraftCommit={() => {
                       updateCard(col.id, card.id, { isDraft: false });

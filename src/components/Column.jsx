@@ -36,6 +36,7 @@ export function Column({
   };
 
   const handleDragOver = (event) => {
+    if (!Array.from(event.dataTransfer.types).includes("application/x-card")) return;
     event.preventDefault();
     event.currentTarget.classList.add("ring", "ring-neutral-700");
     const insertIndex = findInsertIndex(event);
@@ -50,6 +51,7 @@ export function Column({
   };
 
   const handleDrop = (event) => {
+    if (!Array.from(event.dataTransfer.types).includes("application/x-card")) return;
     event.preventDefault();
     event.currentTarget.classList.remove("ring", "ring-neutral-700");
     const insertIndex = findInsertIndex(event);

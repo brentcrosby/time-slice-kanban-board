@@ -44,6 +44,18 @@ export function HelpModal({ onClose, palette }) {
 
         <section className="space-y-2">
           <h4 className="text-sm font-semibold" style={{ color: palette.text }}>
+            Subtasks
+          </h4>
+          <p className="text-sm" style={{ color: palette.subtext }}>
+            Use the list-plus icon on a card to add its first subtask. Press Enter to save each checklist item
+            and start the next; click away to finish. Once a card has subtasks, its checklist stays visible.
+            Use the grip to drag items into a new order, or focus it and press Alt+Up/Down. Click an item
+            to rename it, and check it off when complete.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h4 className="text-sm font-semibold" style={{ color: palette.text }}>
             Group shorthands
           </h4>
           <p className="text-sm" style={{ color: palette.subtext }}>

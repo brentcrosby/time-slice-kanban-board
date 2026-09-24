@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Play, Pause, RotateCcw, Pencil, Trash2, VolumeX } from "lucide-react";
+import { ListPlus, Play, Pause, RotateCcw, Pencil, Trash2, VolumeX } from "lucide-react";
 import { SegmentLimitEditor } from "./SegmentLimitEditor";
+import { Subtasks } from "./Subtasks";
 import { MIN_SEGMENT_SEC } from "../constants";
 import { clamp } from "../utils/misc";
 import { findNextActiveSegment } from "../utils/segments";
@@ -41,6 +42,7 @@ export function Card({
   onEdit,
   onSetSegments,
   onUpdateProgress,
+  onChangeSubtasks,
   onRename = () => {},
   index,
   palette,
@@ -58,6 +60,7 @@ export function Card({
   const titleInputRef = useRef(null);
   const skipTitleCommitRef = useRef(false);
   const [limitEditorActive, setLimitEditorActive] = useState(false);
+  const [subtaskComposerOpen, setSubtaskComposerOpen] = useState(false);
   const segments = (card.segments && card.segments.length
     ? card.segments
     : [
@@ -263,7 +266,7 @@ export function Card({
   const isOver = dragState.active ? visualTotalRemaining <= 0 : baseIsOver;
 
   const onDragStart = (event) => {
-    if (limitEditorActive) {
+    if (limitEditorActive || event.target.closest?.("[data-subtasks]")) {
       event.preventDefault();
       return;
     }
@@ -502,6 +505,16 @@ export function Card({
             <RotateCcw className="h-4 w-4" />
           </button>
           <button
+            type="button"
+            onClick={() => setSubtaskComposerOpen(true)}
+            title="Add subtask"
+            aria-label="Add subtask"
+            className={controlButtonClass}
+            style={{ color: cardSubtextColor }}
+          >
+            <ListPlus className="h-4 w-4" />
+          </button>
+          <button
             onClick={onEdit}
             title="Edit"
             aria-label="Edit"
@@ -626,6 +639,18 @@ export function Card({
           />
         </div>
       </div>
+
+      <Subtasks
+        cardId={card.id}
+        subtasks={card.subtasks || []}
+        adding={subtaskComposerOpen}
+        onAddingChange={setSubtaskComposerOpen}
+        onChange={onChangeSubtasks}
+        palette={palette}
+        textColor={cardTextColor}
+        subtextColor={cardSubtextColor}
+        borderColor={cardBorderColor}
+      />
 
     </article>
   );
