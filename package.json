@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "icons": "node scripts/generate-icons.mjs",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx",
     "test:rules": "firebase emulators:exec --project demo-tasky --only firestore \"node --test tests/firestore.rules.test.js\""
@@ -18,6 +19,7 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
+    "@resvg/resvg-js": "^2.6.2",
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.4.19",
     "eslint": "^8.57.0",

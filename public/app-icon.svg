@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Tasky">
+  <rect width="512" height="512" fill="#1b1e25"/>
+  <path d="M119 132h274c22 0 39 17 39 39v18c0 22-17 39-39 39H119c-22 0-39-17-39-39v-18c0-22 17-39 39-39Z" fill="#faf9f6"/>
+  <path d="M217 219h78v168c0 22-17 39-39 39s-39-17-39-39V219Z" fill="#faf9f6"/>
+  <path d="M217 338h78v49c0 22-17 39-39 39s-39-17-39-39v-49Z" fill="#fb826b"/>
+</svg>
