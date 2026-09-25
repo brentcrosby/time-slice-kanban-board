@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Tasky">
+  <rect width="64" height="64" rx="15" fill="#e5e7eb"/>
+  <g fill="#fff" stroke="#9ca3af" stroke-width="1.5">
+    <rect x="6" y="12" width="15" height="40" rx="3"/>
+    <rect x="24.5" y="12" width="15" height="40" rx="3"/>
+    <rect x="43" y="12" width="15" height="40" rx="3"/>
+  </g>
+  <g fill="#9ca3af">
+    <rect x="9" y="19" width="9" height="5" rx="1.5"/>
+    <rect x="9" y="27" width="9" height="5" rx="1.5"/>
+    <rect x="27.5" y="19" width="9" height="5" rx="1.5"/>
+    <rect x="27.5" y="27" width="9" height="5" rx="1.5"/>
+    <rect x="27.5" y="35" width="9" height="5" rx="1.5"/>
+    <rect x="46" y="19" width="9" height="5" rx="1.5"/>
+    <rect x="46" y="27" width="9" height="5" rx="1.5"/>
+  </g>
+</svg>
