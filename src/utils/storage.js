@@ -1,5 +1,24 @@
 import { DEFAULT_SOUND, SOUND_KEY, STORAGE_KEY, THEME_KEY } from "../constants";
 
+const SYNC_BASELINE_KEY = "kanban-timer-board:sync-baseline:v1";
+
+export function loadSyncBaseline(uid) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SYNC_BASELINE_KEY));
+    return saved?.uid === uid && typeof saved.fingerprint === "string" ? saved.fingerprint : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSyncBaseline(uid, fingerprint) {
+  try {
+    localStorage.setItem(SYNC_BASELINE_KEY, JSON.stringify({ uid, fingerprint }));
+  } catch {
+    // Sync still works in memory when browser storage is unavailable.
+  }
+}
+
 export function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -21,6 +40,7 @@ export function saveState(state) {
 export function clearState() {
   try {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(SYNC_BASELINE_KEY);
   } catch {
     // Ignore storage errors; the in-memory board is still cleared.
   }

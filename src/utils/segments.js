@@ -19,7 +19,7 @@ export const coerceSegmentDurations = (rawSegments, fallbackSec = 1500) => {
 
 export const withSegmentIds = (segments, cardId = "card") =>
   segments.map((seg, idx) => ({
-    id: seg.id || `${cardId}-seg-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+    id: seg.id || `${cardId}-seg-${idx}`,
     durationSec: sanitizeSegmentDuration(
       seg.durationSec ?? seg.duration ?? seg.seconds ?? seg.remainingSec ?? MIN_SEGMENT_SEC
     ),
