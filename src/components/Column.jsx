@@ -214,7 +214,7 @@ export function Column({
           </button>
         ) : null}
       </header>
-      <div data-list className="flex flex-col gap-3">
+      <div data-list className="flex flex-col gap-3 empty:hidden">
         {cards.map((card, index) => (
           <React.Fragment key={card.id}>
             {dropIndex === index ? renderDropIndicator(index) : null}
