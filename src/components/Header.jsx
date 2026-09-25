@@ -1,5 +1,5 @@
 import React from "react";
-import { Cloud, CloudOff, Coffee, HelpCircle, LogIn, LogOut, Moon, Settings as SettingsIcon, Sun } from "lucide-react";
+import { Archive, Cloud, CloudOff, Coffee, HelpCircle, LogIn, LogOut, Moon, Settings as SettingsIcon, Sun } from "lucide-react";
 
 export function Header({
   onOpenHelp,
@@ -16,6 +16,7 @@ export function Header({
   onSignIn,
   onSignOut,
   onOpenSyncSetup,
+  onOpenArchive,
 }) {
   return (
     <div
@@ -27,6 +28,15 @@ export function Header({
           Tasky
         </h1>
         <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={onOpenArchive}
+            title="View archive"
+            aria-label="View archive"
+            className="header-action-button relative rounded-md p-2"
+            style={{ border: `1px solid ${palette.border}` }}
+          >
+            <Archive className="h-4 w-4" />
+          </button>
           {syncConfigured ? (
             syncUser ? (
               <>

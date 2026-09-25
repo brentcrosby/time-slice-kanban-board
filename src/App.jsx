@@ -1180,6 +1180,7 @@ export default function KanbanTimerBoard() {
         onSignIn={taskSync.signIn}
         onSignOut={() => setSignOutOpen(true)}
         onOpenSyncSetup={() => setSyncSetupOpen(true)}
+        onOpenArchive={() => setArchiveOpen(true)}
       />
 
       {taskSync.error && (
@@ -1203,8 +1204,6 @@ export default function KanbanTimerBoard() {
                 onAddCard={() => startDraftCard(col.id)}
                 onClearColumn={() => setConfirmColumnClear({ colId: col.id, name: col.name })}
                 onArchiveCompleted={archiveCompletedTasks}
-                onViewArchive={() => setArchiveOpen(true)}
-                archiveCount={archivedCards.length}
                 renderCard={(card, index) => (
                   <Card
                     key={card.id}

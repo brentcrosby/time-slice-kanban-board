@@ -12,17 +12,25 @@ export function Column({
   onAddCard,
   onClearColumn,
   onArchiveCompleted,
-  onViewArchive,
-  archiveCount = 0,
   renderCard,
   palette,
   isDark = false,
 }) {
   const [dropIndex, setDropIndex] = useState(null);
   const chipsRef = useRef(null);
+  const archiveMenuRef = useRef(null);
   const [chipFadeState, setChipFadeState] = useState({ canScroll: false, atStart: true, atEnd: true });
   const cardCount = totalCount != null ? totalCount : cards.length;
   const hasCards = cardCount > 0;
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      const menu = archiveMenuRef.current;
+      if (menu?.open && !menu.contains(event.target)) menu.open = false;
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
 
   const findInsertIndex = (event) => {
     const list = event.currentTarget.querySelector("[data-list]");
@@ -122,7 +130,7 @@ export function Column({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <header className="flex items-center gap-2">
+      <header className="flex h-8 shrink-0 items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <h2 className="flex-shrink-0 text-base font-semibold tracking-tight md:text-sm" style={{ color: palette.text }}>
             {column.name}
@@ -202,9 +210,9 @@ export function Column({
         {typeof onClearColumn === "function" ? (
           <div className="ml-auto flex shrink-0 items-center gap-1">
             {column.id === "done" ? (
-              <details className="relative">
+              <details ref={archiveMenuRef} className="relative">
                 <summary
-                  className="interactive-button flex cursor-pointer list-none items-center justify-center rounded-lg border p-2"
+                  className="interactive-button flex cursor-pointer list-none items-center justify-center rounded-lg border px-3 py-1.5 text-sm md:px-2 md:py-1 md:text-xs"
                   style={{ borderColor: palette.border, color: palette.subtext, backgroundColor: palette.surface }}
                   title="Archive options"
                   aria-label="Archive options"
@@ -227,26 +235,6 @@ export function Column({
                   >
                     <Archive className="h-4 w-4 shrink-0" />
                     <span>Archive completed tasks</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.currentTarget.closest("details").open = false;
-                      onViewArchive?.();
-                    }}
-                    className="interactive-button flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm"
-                    style={{ color: palette.text }}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Archive className="h-4 w-4 shrink-0" />
-                      <span>View archive</span>
-                    </span>
-                    <span
-                      className="rounded-full px-1.5 py-0.5 text-xs tabular-nums"
-                      style={{ backgroundColor: palette.badge, color: palette.subtext }}
-                    >
-                      {archiveCount}
-                    </span>
                   </button>
                 </div>
               </details>
