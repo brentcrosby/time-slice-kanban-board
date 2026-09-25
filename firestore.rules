@@ -13,7 +13,7 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['state', 'updatedAt'])
           && board is map
           && board.keys().hasAll(['cardsByCol', 'autoMoveEnabled'])
-          && board.keys().hasOnly(['cardsByCol', 'autoMoveEnabled'])
+          && board.keys().hasOnly(['cardsByCol', 'autoMoveEnabled', 'archivedCards'])
           && columns is map
           && columns.keys().hasAll(['todo', 'doing', 'done'])
           && columns.keys().hasOnly(['todo', 'doing', 'done'])
@@ -21,6 +21,7 @@ service cloud.firestore {
           && columns.doing is list
           && columns.done is list
           && board.autoMoveEnabled is bool
+          && (!board.keys().hasAny(['archivedCards']) || board.archivedCards is list)
           && request.resource.data.updatedAt == request.time;
       }
 

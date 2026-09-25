@@ -18,11 +18,20 @@ test("Tasky board rules isolate owners and reject malformed writes", async () =>
     const validState = {
       cardsByCol: { todo: [], doing: [], done: [] },
       autoMoveEnabled: true,
+      archivedCards: [],
     };
     const validDocument = () => ({ state: validState, updatedAt: serverTimestamp() });
 
     await assertSucceeds(setDoc(ownerRef, validDocument()));
     await assertSucceeds(getDoc(ownerRef));
+    await assertSucceeds(setDoc(ownerRef, {
+      state: { ...validState, archivedCards: [{ id: "archived", title: "Finished" }] },
+      updatedAt: serverTimestamp(),
+    }));
+    await assertSucceeds(setDoc(ownerRef, {
+      state: { cardsByCol: validState.cardsByCol, autoMoveEnabled: true },
+      updatedAt: serverTimestamp(),
+    }));
     await assertFails(getDoc(doc(other.firestore(), ...path)));
     await assertFails(getDoc(doc(guest.firestore(), ...path)));
     await assertFails(setDoc(doc(other.firestore(), ...path), validDocument()));
@@ -31,6 +40,7 @@ test("Tasky board rules isolate owners and reject malformed writes", async () =>
 
     await assertFails(setDoc(ownerRef, { updatedAt: serverTimestamp() }));
     await assertFails(setDoc(ownerRef, { state: { ...validState, autoMoveEnabled: "yes" }, updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(ownerRef, { state: { ...validState, archivedCards: {} }, updatedAt: serverTimestamp() }));
     await assertFails(setDoc(ownerRef, { state: { ...validState, cardsByCol: { todo: [], doing: [] } }, updatedAt: serverTimestamp() }));
     await assertFails(setDoc(ownerRef, { ...validDocument(), admin: true }));
     await assertFails(setDoc(ownerRef, { state: validState, updatedAt: new Date() }));
