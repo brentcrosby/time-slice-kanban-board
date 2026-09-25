@@ -35,6 +35,8 @@ In the repository's Settings → Secrets and variables → Actions → Variables
 
 The Pages workflow injects these public Firebase web configuration values into the build. Re-run the workflow (or push a commit) after adding them. Firebase web config is not a server secret; the security boundary is Google Authentication plus the Firestore rules.
 
+On GitHub Pages, mobile Google sign-in uses a popup because the app and Firebase auth helper are on different domains; redirect sign-in can fail when mobile browsers block third-party storage. On Firebase Hosting, the auth helper shares the app's domain, so mobile sign-in can use a redirect.
+
 ## Data behavior
 
 Signing in on the first device seeds the account with that device's local board. A device with an existing local board signing into an account that already has a board is asked to merge its cards or use the account board. Subsequent board changes sync between signed-in devices. On sign-out, choose whether to keep a local copy or remove tasks from that device. Removing tasks does not delete the synced account board.

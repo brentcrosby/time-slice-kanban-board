@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
+import { GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, firebaseConfigured, firestore } from "../utils/firebase";
 
@@ -41,9 +41,17 @@ export function useTaskSync(localState, onApplyState) {
       readyRef.current = false;
       pendingRemoteRef.current = null;
       setConflict(false);
-      setError("");
+      if (nextUser) setError("");
       setUser(nextUser);
       setStatus(nextUser ? "connecting" : "signed-out");
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!auth) return;
+    getRedirectResult(auth).catch((redirectError) => {
+      setError(redirectError.message || "Google sign-in could not be completed.");
+      setStatus("error");
     });
   }, []);
 
@@ -125,7 +133,9 @@ export function useTaskSync(localState, onApplyState) {
     setError("");
     try {
       const provider = new GoogleAuthProvider();
-      if (window.matchMedia("(max-width: 767px), (pointer: coarse)").matches) {
+      const mobileDevice = window.matchMedia("(max-width: 767px), (pointer: coarse)").matches;
+      const authHelperIsSameOrigin = window.location.hostname === import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
+      if (mobileDevice && authHelperIsSameOrigin) {
         await signInWithRedirect(auth, provider);
       } else {
         await signInWithPopup(auth, provider);
@@ -142,6 +152,7 @@ export function useTaskSync(localState, onApplyState) {
     readyRef.current = false;
     try {
       await signOut(auth);
+      setError("");
       return true;
     } catch (signOutError) {
       readyRef.current = wasReady;
