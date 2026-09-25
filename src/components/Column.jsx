@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { secsToHHMM } from "../utils/time";
 import { CARD_GROUP_ORDER, CARD_GROUPS } from "../constants/groups";
+import { summarizeGroupTasks } from "../utils/groupChips";
 
 export function Column({
   column,
@@ -61,19 +62,10 @@ export function Column({
   };
 
   const totalSecs = (cards || []).reduce((acc, c) => acc + (c?.durationSec || 0), 0);
-  const groupTotals = {};
-  (cards || []).forEach((card) => {
-    const groupId = card?.group;
-    if (!groupId || !CARD_GROUPS[groupId]) return;
-    groupTotals[groupId] = (groupTotals[groupId] || 0) + (card.durationSec || 0);
-  });
-  const orderedGroupTotals = [
-    ...CARD_GROUP_ORDER.map((id) => ({ id, total: groupTotals[id] || 0 })),
-    ...Object.keys(groupTotals)
-      .filter((id) => !CARD_GROUP_ORDER.includes(id))
-      .map((id) => ({ id, total: groupTotals[id] })),
-  ].filter((entry) => entry.total > 0);
-  const groupTotalsSignature = orderedGroupTotals.map(({ id, total }) => `${id}:${total}`).join("|");
+  const groupSummaries = summarizeGroupTasks(cards, CARD_GROUP_ORDER);
+  const groupTotalsSignature = groupSummaries
+    .map(({ id, totalSeconds, untimedCount }) => `${id}:${totalSeconds}:${untimedCount}`)
+    .join("|");
 
   const updateChipFadeState = useCallback(() => {
     const el = chipsRef.current;
@@ -157,25 +149,32 @@ export function Column({
                   {secsToHHMM(totalSecs)}
                 </span>
               ) : null}
-              {orderedGroupTotals.map(({ id, total }) => {
+              {groupSummaries.map(({ id, totalSeconds, untimedCount }) => {
                 const group = CARD_GROUPS[id];
                 if (!group) return null;
                 const colors = group.colors?.[isDark ? "dark" : "light"] || {};
                 const pillBg = colors.badgeBg ?? palette.badge;
                 const pillText = colors.badgeText ?? palette.text;
                 const pillBorder = colors.cardBorder ?? palette.border;
+                const untimedLabel = `${untimedCount} untimed ${untimedCount === 1 ? "task" : "tasks"}`;
                 return (
                   <span
                     key={id}
                     className="flex-shrink-0 rounded-full px-2 py-0.5 text-sm tabular-nums md:text-xs"
-                    title={`${group.label} total time`}
+                    title={`${group.label}: ${totalSeconds > 0 ? `${secsToHHMM(totalSeconds)} planned time` : "no planned time"}${untimedCount > 0 ? `, ${untimedLabel}` : ""}`}
                     style={{
                       backgroundColor: pillBg,
                       color: pillText,
                       border: `1px solid ${pillBorder}`,
                     }}
                   >
-                    {secsToHHMM(total)}
+                    {totalSeconds > 0 ? secsToHHMM(totalSeconds) : null}
+                    {totalSeconds > 0 && untimedCount > 0 ? " · " : null}
+                    {untimedCount > 0
+                      ? totalSeconds > 0
+                        ? `${untimedCount} untimed`
+                        : `${untimedCount} ${untimedCount === 1 ? "task" : "tasks"}`
+                      : null}
                   </span>
                 );
               })}
