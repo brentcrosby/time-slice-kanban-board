@@ -1,17 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Tasky">
-  <rect width="512" height="512" fill="#e5e7eb"/>
-  <g fill="#fff" stroke="#9ca3af" stroke-width="8">
-    <rect x="48" y="96" width="126" height="320" rx="22"/>
-    <rect x="193" y="96" width="126" height="320" rx="22"/>
-    <rect x="338" y="96" width="126" height="320" rx="22"/>
-  </g>
-  <g fill="#9ca3af">
-    <rect x="72" y="152" width="78" height="42" rx="12"/>
-    <rect x="72" y="216" width="78" height="42" rx="12"/>
-    <rect x="217" y="152" width="78" height="42" rx="12"/>
-    <rect x="217" y="216" width="78" height="42" rx="12"/>
-    <rect x="217" y="280" width="78" height="42" rx="12"/>
-    <rect x="362" y="152" width="78" height="42" rx="12"/>
-    <rect x="362" y="216" width="78" height="42" rx="12"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 515 515" role="img" aria-label="Tasky">
+  <rect width="515" height="515" fill="#000" />
+  <g fill="#fff">
+    <rect x="48" y="66" width="132" height="140" rx="24" />
+    <rect x="192" y="66" width="132" height="392" rx="24" />
+    <rect x="336" y="66" width="132" height="140" rx="24" />
   </g>
 </svg>
