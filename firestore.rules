@@ -1,14 +1,31 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/tasky/{documentId} {
+    match /users/{userId}/tasky/state {
       function isOwner() {
-        return request.auth != null && request.auth.uid == userId && documentId == 'state';
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function validBoard() {
+        let board = request.resource.data.state;
+        let columns = board.cardsByCol;
+        return request.resource.data.keys().hasAll(['state', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['state', 'updatedAt'])
+          && board is map
+          && board.keys().hasAll(['cardsByCol', 'autoMoveEnabled'])
+          && board.keys().hasOnly(['cardsByCol', 'autoMoveEnabled'])
+          && columns is map
+          && columns.keys().hasAll(['todo', 'doing', 'done'])
+          && columns.keys().hasOnly(['todo', 'doing', 'done'])
+          && columns.todo is list
+          && columns.doing is list
+          && columns.done is list
+          && board.autoMoveEnabled is bool
+          && request.resource.data.updatedAt == request.time;
       }
 
       allow read: if isOwner();
-      allow create, update: if isOwner()
-        && request.resource.data.keys().hasOnly(['state', 'updatedAt']);
+      allow create, update: if isOwner() && validBoard();
       allow delete: if false;
     }
   }

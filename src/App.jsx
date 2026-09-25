@@ -18,7 +18,7 @@ import {
   upgradeLegacyCard,
 } from "./utils/segments";
 import { ensureAudioContext, playChime } from "./utils/audio";
-import { loadSound, loadState, loadTheme, saveSound, saveState, saveTheme } from "./utils/storage";
+import { clearState, loadSound, loadState, loadTheme, saveSound, saveState, saveTheme } from "./utils/storage";
 import { parseTimeFromTitle } from "./utils/time";
 import { useTaskSync } from "./hooks/useTaskSync";
 
@@ -55,6 +55,8 @@ export default function KanbanTimerBoard() {
   const [sound, setSound] = useState(loadSound());
   const [autoMoveEnabled, setAutoMoveEnabled] = useState(() => initialStoredState?.autoMoveEnabled ?? true);
   const [syncSetupOpen, setSyncSetupOpen] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   useEffect(() => saveTheme(theme), [theme]);
   useEffect(() => saveSound(sound), [sound]);
 
@@ -74,6 +76,22 @@ export default function KanbanTimerBoard() {
     futureRef.current = [];
   }, []);
   const taskSync = useTaskSync(localSyncState, applySyncedState);
+
+  const handleSignOut = async (removeLocalTasks) => {
+    setSigningOut(true);
+    const signedOut = await taskSync.signOut();
+    if (signedOut && removeLocalTasks) {
+      clearState();
+      setCardsByCol(Object.fromEntries(DEFAULT_COLUMNS.map((column) => [column.id, []])));
+      setAutoMoveEnabled(true);
+      historyRef.current = [];
+      futureRef.current = [];
+      setFilter("");
+      setEditCard(null);
+    }
+    if (signedOut) setSignOutOpen(false);
+    setSigningOut(false);
+  };
 
   const updateCardsState = useCallback(
     (updater, { track = false } = {}) => {
@@ -1105,7 +1123,7 @@ export default function KanbanTimerBoard() {
         syncStatus={taskSync.status}
         syncConfigured={taskSync.configured}
         onSignIn={taskSync.signIn}
-        onSignOut={taskSync.signOut}
+        onSignOut={() => setSignOutOpen(true)}
         onOpenSyncSetup={() => setSyncSetupOpen(true)}
       />
 
@@ -1277,6 +1295,19 @@ export default function KanbanTimerBoard() {
             <p>Create a Firebase web app, enable Google sign-in and Cloud Firestore, then add its web config to your local environment and GitHub repository variables.</p>
             <p>Until configured, Tasky continues saving your board in this browser as usual.</p>
             <a className="font-medium underline" style={{ color: palette.text }} href="https://github.com/brentcrosby/time-slice-kanban-board/blob/main/FIREBASE_SETUP.md" target="_blank" rel="noreferrer">Open the setup guide</a>
+          </div>
+        </Modal>
+      )}
+
+      {signOutOpen && (
+        <Modal title="Sign out of Tasky" onClose={() => { if (!signingOut) setSignOutOpen(false); }} palette={palette}>
+          <div className="space-y-4 text-sm" style={{ color: palette.subtext }}>
+            <p>Remove tasks from this browser when you sign out to keep them private on a shared device. Tasks that have synced to your account will be available when you sign in again.</p>
+            {taskSync.status !== "synced" && <p role="alert">Sync is not complete. Keep a local copy if you have changes that might not be in your account yet.</p>}
+            <div className="flex flex-wrap justify-end gap-2">
+              <button disabled={signingOut} className="interactive-button rounded-md border px-3 py-2" style={{ borderColor: palette.border, color: palette.text }} onClick={() => handleSignOut(false)}>Keep tasks on this device</button>
+              <button disabled={signingOut} className="interactive-button rounded-md px-3 py-2 font-medium" style={{ backgroundColor: palette.text, color: palette.bg }} onClick={() => handleSignOut(true)}>Remove tasks from this device</button>
+            </div>
           </div>
         </Modal>
       )}

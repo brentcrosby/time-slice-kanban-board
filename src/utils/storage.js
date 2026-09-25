@@ -18,6 +18,14 @@ export function saveState(state) {
   }
 }
 
+export function clearState() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore storage errors; the in-memory board is still cleared.
+  }
+}
+
 export const loadTheme = () => {
   try {
     return localStorage.getItem(THEME_KEY) || "dark";

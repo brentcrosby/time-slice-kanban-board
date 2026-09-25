@@ -137,11 +137,16 @@ export function useTaskSync(localState, onApplyState) {
   }, []);
 
   const logOut = useCallback(async () => {
-    if (!auth) return;
+    if (!auth) return false;
+    const wasReady = readyRef.current;
+    readyRef.current = false;
     try {
       await signOut(auth);
+      return true;
     } catch (signOutError) {
+      readyRef.current = wasReady;
       setError(signOutError.message || "Could not sign out.");
+      return false;
     }
   }, []);
 
