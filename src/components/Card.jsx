@@ -5,7 +5,7 @@ import { Subtasks } from "./Subtasks";
 import { MIN_SEGMENT_SEC } from "../constants";
 import { clamp } from "../utils/misc";
 import { findNextActiveSegment } from "../utils/segments";
-import { secsToHMS } from "../utils/time";
+import { parseDurationToSeconds, secsToHMS } from "../utils/time";
 import { CARD_GROUPS } from "../constants/groups";
 
 const adjustColorTone = (hex, factor) => {
@@ -46,6 +46,7 @@ export function Card({
   onPauseStopwatch,
   onResetStopwatch,
   onClearStopwatch,
+  onEditStopwatchElapsed,
   onUpdateProgress,
   onChangeSubtasks,
   onRename = () => {},
@@ -66,6 +67,11 @@ export function Card({
   const skipTitleCommitRef = useRef(false);
   const [limitEditorActive, setLimitEditorActive] = useState(false);
   const [subtaskComposerOpen, setSubtaskComposerOpen] = useState(false);
+  const [editingStopwatch, setEditingStopwatch] = useState(false);
+  const [stopwatchDraft, setStopwatchDraft] = useState("");
+  const [stopwatchEditError, setStopwatchEditError] = useState("");
+  const stopwatchInputRef = useRef(null);
+  const stopwatchEditActiveRef = useRef(false);
   const hasTimer = Boolean((card.segments?.length || 0) > 0 || card.durationSec > 0 || card.remainingSec > 0);
   const hasStopwatch = Boolean(card.stopwatch);
   const stopwatchRunning = Boolean(card.stopwatch?.running);
@@ -378,6 +384,38 @@ export function Card({
     event.stopPropagation();
   };
 
+  const beginStopwatchEdit = () => {
+    stopwatchEditActiveRef.current = true;
+    setStopwatchDraft(secsToHMS(Math.floor(stopwatchElapsed)));
+    setStopwatchEditError("");
+    setEditingStopwatch(true);
+  };
+
+  const saveStopwatchEdit = () => {
+    if (!stopwatchEditActiveRef.current) return;
+    const elapsedSec = parseDurationToSeconds(stopwatchDraft);
+    if (elapsedSec == null || elapsedSec < 0) {
+      setStopwatchEditError("Enter time like 1:25 or 1:02:03");
+      return;
+    }
+    stopwatchEditActiveRef.current = false;
+    setEditingStopwatch(false);
+    setStopwatchEditError("");
+    onEditStopwatchElapsed?.(Math.floor(elapsedSec));
+  };
+
+  const cancelStopwatchEdit = () => {
+    stopwatchEditActiveRef.current = false;
+    setEditingStopwatch(false);
+    setStopwatchEditError("");
+  };
+
+  useEffect(() => {
+    if (!editingStopwatch) return;
+    stopwatchInputRef.current?.focus();
+    stopwatchInputRef.current?.select();
+  }, [editingStopwatch]);
+
   const handleSegmentEnter = (idx) => {
     if (!isSegmented) return;
     setHoveredIdx(idx);
@@ -586,15 +624,50 @@ export function Card({
           </button>
           </div>
           {hasStopwatch && (
-            <div className="mt-1 flex w-full items-center justify-between">
-              <span
-                className="inline-flex items-center rounded-md px-2 py-1 text-sm font-medium tabular-nums md:text-xs"
-                style={{ backgroundColor: palette.badge, color: palette.text }}
-                title="Elapsed stopwatch time"
-                aria-label={`Stopwatch elapsed ${secsToHMS(Math.floor(stopwatchElapsed))}`}
-              >
-                {secsToHMS(Math.floor(stopwatchElapsed))}
-              </span>
+            <div className="mt-1 flex w-full flex-wrap items-center justify-between gap-x-2">
+              {editingStopwatch ? (
+                <input
+                  ref={stopwatchInputRef}
+                  type="text"
+                  inputMode="text"
+                  value={stopwatchDraft}
+                  onChange={(event) => {
+                    setStopwatchDraft(event.target.value);
+                    setStopwatchEditError("");
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      saveStopwatchEdit();
+                    } else if (event.key === "Escape") {
+                      event.preventDefault();
+                      cancelStopwatchEdit();
+                    }
+                  }}
+                  onBlur={saveStopwatchEdit}
+                  onPointerDown={handleTitleInputPointerDown}
+                  aria-label="Edit stopwatch elapsed time"
+                  aria-invalid={Boolean(stopwatchEditError)}
+                  className="w-24 rounded-md px-2 py-1 text-center text-sm font-medium tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:text-xs"
+                  style={{
+                    backgroundColor: palette.badge,
+                    color: palette.text,
+                    border: stopwatchEditError ? `1px solid ${palette.dangerText}` : `1px solid ${palette.border}`,
+                  }}
+                  title="Enter elapsed time as minutes:seconds or hours:minutes:seconds"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={beginStopwatchEdit}
+                  className="interactive-button inline-flex items-center rounded-md px-2 py-1 text-sm font-medium tabular-nums"
+                  style={{ backgroundColor: palette.badge, color: palette.text }}
+                  title="Click to edit elapsed stopwatch time"
+                  aria-label={`Edit stopwatch elapsed time, currently ${secsToHMS(Math.floor(stopwatchElapsed))}`}
+                >
+                  {secsToHMS(Math.floor(stopwatchElapsed))}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={stopwatchRunning ? onPauseStopwatch : onStartStopwatch}
@@ -615,6 +688,11 @@ export function Card({
               >
                 <RotateCcw className="h-4 w-4" />
               </button>
+              {stopwatchEditError ? (
+                <span className="w-full text-right text-xs" role="alert" style={{ color: palette.dangerText }}>
+                  {stopwatchEditError}
+                </span>
+              ) : null}
             </div>
           )}
         </div>

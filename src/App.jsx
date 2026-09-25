@@ -675,6 +675,21 @@ export default function KanbanTimerBoard() {
     });
   };
 
+  const editStopwatchElapsed = (colId, cardId, elapsedSec) => {
+    const now = Date.now();
+    updateCard(colId, cardId, (current) => {
+      if (!current.stopwatch) return current;
+      return {
+        ...current,
+        stopwatch: {
+          ...current.stopwatch,
+          elapsedSec: Math.max(0, Math.floor(elapsedSec)),
+          lastStartTs: current.stopwatch.running ? now : null,
+        },
+      };
+    });
+  };
+
   const resetStopwatch = (colId, cardId) => {
     updateCard(colId, cardId, (current) => ({
       ...current,
@@ -1206,6 +1221,7 @@ export default function KanbanTimerBoard() {
                     onPauseStopwatch={() => pauseStopwatch(col.id, card)}
                     onResetStopwatch={() => resetStopwatch(col.id, card.id)}
                     onClearStopwatch={() => clearStopwatch(col.id, card.id)}
+                    onEditStopwatchElapsed={(elapsedSec) => editStopwatchElapsed(col.id, card.id, elapsedSec)}
                     onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
                     onChangeSubtasks={(updater) => updateSubtasks(col.id, card.id, updater)}
                     onRename={(nextTitle) => applyTitleShortcuts(col.id, card.id, nextTitle)}
