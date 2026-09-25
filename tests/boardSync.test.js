@@ -46,3 +46,27 @@ test("merge does not duplicate an unchanged shared task", () => {
   const local = board([task("same", "Write")]);
   assert.equal(mergeBoards(local, board([task("same", "Write")])).cardsByCol.todo.length, 1);
 });
+
+test("archive data is part of the sync fingerprint and legacy boards default to an empty archive", () => {
+  const local = board([task("todo", "Write")]);
+  const legacyRemote = { ...board([task("todo", "Write")]), archivedCards: undefined };
+  assert.equal(boardFingerprint(local), boardFingerprint(legacyRemote));
+
+  const archived = { ...local, archivedCards: [task("done", "Finished")] };
+  assert.notEqual(boardFingerprint(local), boardFingerprint(archived));
+});
+
+test("archived-only boards count as populated during initial sync", () => {
+  const local = { ...board(), archivedCards: [task("done", "Finished")] };
+  assert.equal(initialSyncAction(local, board(), null), "conflict");
+});
+
+test("merge keeps archived tasks from both devices without duplicating shared archives", () => {
+  const local = { ...board([task("local", "Local")]), archivedCards: [task("shared", "Finished")] };
+  const remote = { ...board([task("remote", "Remote")]), archivedCards: [task("shared", "Finished")] };
+  const merged = mergeBoards(local, remote);
+
+  assert.deepEqual(merged.archivedCards, remote.archivedCards);
+  assert.ok(merged.cardsByCol.todo.some((card) => card.id === "local"));
+  assert.ok(merged.cardsByCol.todo.some((card) => card.id === "remote"));
+});

@@ -6,6 +6,7 @@ import { HelpModal } from "./components/HelpModal";
 import { Modal } from "./components/Modal";
 import { EditCardModal } from "./components/EditCardModal";
 import { SettingsModal } from "./components/SettingsModal";
+import { ArchiveModal } from "./components/ArchiveModal";
 import { DEFAULT_COLUMNS, MIN_SEGMENT_SEC } from "./constants";
 import { BODY_FALLBACK_BG, THEME_COLORS } from "./constants/themeColors";
 import { useNowTicker } from "./hooks/useNowTicker";
@@ -25,7 +26,7 @@ import { useTaskSync } from "./hooks/useTaskSync";
 const HISTORY_LIMIT = 100;
 const BREAK_DURATION_SEC = 600;
 
-const cloneCardsState = (state) => JSON.parse(JSON.stringify(state));
+const cloneBoardState = (state) => JSON.parse(JSON.stringify(state));
 
 export default function KanbanTimerBoard() {
   const initialStoredStateRef = useRef(loadState());
@@ -40,6 +41,9 @@ export default function KanbanTimerBoard() {
     });
     return initial;
   });
+  const [archivedCards, setArchivedCards] = useState(() =>
+    (Array.isArray(initialStoredState?.archivedCards) ? initialStoredState.archivedCards : []).map(upgradeLegacyCard)
+  );
   const historyRef = useRef([]);
   const futureRef = useRef([]);
 
@@ -48,6 +52,7 @@ export default function KanbanTimerBoard() {
   const [editCard, setEditCard] = useState(null); // { colId, card }
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [confirmColumnClear, setConfirmColumnClear] = useState(null); // { colId, name }
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -60,7 +65,7 @@ export default function KanbanTimerBoard() {
   useEffect(() => saveTheme(theme), [theme]);
   useEffect(() => saveSound(sound), [sound]);
 
-  const localSyncState = useMemo(() => ({ cardsByCol, autoMoveEnabled }), [cardsByCol, autoMoveEnabled]);
+  const localSyncState = useMemo(() => ({ cardsByCol, archivedCards, autoMoveEnabled }), [cardsByCol, archivedCards, autoMoveEnabled]);
   const applySyncedState = useCallback((state) => {
     if (!state || typeof state !== "object") return;
     setCardsByCol((current) => {
@@ -71,6 +76,7 @@ export default function KanbanTimerBoard() {
       });
       return next;
     });
+    setArchivedCards(Array.isArray(state.archivedCards) ? state.archivedCards.map(upgradeLegacyCard) : []);
     if (typeof state.autoMoveEnabled === "boolean") setAutoMoveEnabled(state.autoMoveEnabled);
     historyRef.current = [];
     futureRef.current = [];
@@ -83,6 +89,7 @@ export default function KanbanTimerBoard() {
     if (signedOut && removeLocalTasks) {
       clearState();
       setCardsByCol(Object.fromEntries(DEFAULT_COLUMNS.map((column) => [column.id, []])));
+      setArchivedCards([]);
       setAutoMoveEnabled(true);
       historyRef.current = [];
       futureRef.current = [];
@@ -99,7 +106,7 @@ export default function KanbanTimerBoard() {
         const next = typeof updater === "function" ? updater(prev) : updater;
         if (next === prev) return prev;
         if (track) {
-          historyRef.current.push(cloneCardsState(prev));
+          historyRef.current.push(cloneBoardState({ cardsByCol: prev, archivedCards }));
           if (historyRef.current.length > HISTORY_LIMIT) {
             historyRef.current.shift();
           }
@@ -108,32 +115,26 @@ export default function KanbanTimerBoard() {
         return next;
       });
     },
-    [setCardsByCol]
+    [archivedCards, setCardsByCol]
   );
 
   const undo = useCallback(() => {
-    setCardsByCol((prev) => {
-      if (!historyRef.current.length) return prev;
-      const snapshot = historyRef.current.pop();
-      futureRef.current.push(cloneCardsState(prev));
-      if (futureRef.current.length > HISTORY_LIMIT) {
-        futureRef.current.shift();
-      }
-      return snapshot;
-    });
-  }, [setCardsByCol]);
+    if (!historyRef.current.length) return;
+    const snapshot = historyRef.current.pop();
+    futureRef.current.push(cloneBoardState({ cardsByCol, archivedCards }));
+    if (futureRef.current.length > HISTORY_LIMIT) futureRef.current.shift();
+    setCardsByCol(snapshot.cardsByCol);
+    setArchivedCards(snapshot.archivedCards || []);
+  }, [cardsByCol, archivedCards]);
 
   const redo = useCallback(() => {
-    setCardsByCol((prev) => {
-      if (!futureRef.current.length) return prev;
-      const snapshot = futureRef.current.pop();
-      historyRef.current.push(cloneCardsState(prev));
-      if (historyRef.current.length > HISTORY_LIMIT) {
-        historyRef.current.shift();
-      }
-      return snapshot;
-    });
-  }, [setCardsByCol]);
+    if (!futureRef.current.length) return;
+    const snapshot = futureRef.current.pop();
+    historyRef.current.push(cloneBoardState({ cardsByCol, archivedCards }));
+    if (historyRef.current.length > HISTORY_LIMIT) historyRef.current.shift();
+    setCardsByCol(snapshot.cardsByCol);
+    setArchivedCards(snapshot.archivedCards || []);
+  }, [cardsByCol, archivedCards]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -512,8 +513,8 @@ export default function KanbanTimerBoard() {
   }, [materialized, columns, sound, autoMoveEnabled]);
 
   useEffect(() => {
-    saveState({ cardsByCol, autoMoveEnabled });
-  }, [cardsByCol, autoMoveEnabled]);
+    saveState({ cardsByCol, archivedCards, autoMoveEnabled });
+  }, [cardsByCol, archivedCards, autoMoveEnabled]);
 
   const addCard = (colId, payload = {}) => {
     const id = uid();
@@ -629,18 +630,32 @@ export default function KanbanTimerBoard() {
   const startStopwatch = (colId, card) => {
     if (card.segments?.length) return;
     const now = Date.now();
-    updateCard(colId, card.id, (current) => {
-      const stopwatch = current.stopwatch;
-      if (stopwatch?.running) return current;
-      return {
+    const targetCol = colId === "todo" && autoMoveEnabled ? "doing" : colId;
+    updateCardsState((prev) => {
+      const source = [...(prev[colId] || [])];
+      const cardIndex = source.findIndex((item) => item.id === card.id);
+      if (cardIndex === -1) return prev;
+      const current = source[cardIndex];
+      if (current.segments?.length || current.stopwatch?.running) return prev;
+      const started = {
         ...current,
         stopwatch: {
-          elapsedSec: stopwatch?.elapsedSec || 0,
+          elapsedSec: current.stopwatch?.elapsedSec || 0,
           running: true,
           lastStartTs: now,
         },
       };
-    });
+
+      if (targetCol === colId) {
+        source[cardIndex] = started;
+        return { ...prev, [colId]: source };
+      }
+
+      source.splice(cardIndex, 1);
+      const destination = [...(prev[targetCol] || [])];
+      destination.push(started);
+      return { ...prev, [colId]: source, [targetCol]: destination };
+    }, { track: true });
   };
 
   const pauseStopwatch = (colId, card) => {
@@ -750,6 +765,26 @@ export default function KanbanTimerBoard() {
     removeChimeSources([cardId]);
   };
 
+  const archiveCompletedTasks = () => {
+    const completed = cardsByCol.done || [];
+    if (!completed.length) return;
+    historyRef.current.push(cloneBoardState({ cardsByCol, archivedCards }));
+    if (historyRef.current.length > HISTORY_LIMIT) historyRef.current.shift();
+    futureRef.current = [];
+    setCardsByCol((prev) => ({ ...prev, done: [] }));
+    setArchivedCards((prev) => [...completed, ...prev]);
+  };
+
+  const restoreArchivedTask = (cardId) => {
+    const card = archivedCards.find((item) => item.id === cardId);
+    if (!card) return;
+    historyRef.current.push(cloneBoardState({ cardsByCol, archivedCards }));
+    if (historyRef.current.length > HISTORY_LIMIT) historyRef.current.shift();
+    futureRef.current = [];
+    setCardsByCol((prev) => ({ ...prev, done: [...(prev.done || []), card] }));
+    setArchivedCards((prev) => prev.filter((item) => item.id !== cardId));
+  };
+
   const clearColumn = (colId) => {
     let removedIds = [];
     updateCardsState(
@@ -783,10 +818,22 @@ export default function KanbanTimerBoard() {
           src.splice(targetIndex, 0, card);
           return { ...prev, [fromCol]: src };
         }
+        const movedCard = toCol === "done" && card.stopwatch?.running
+          ? {
+              ...card,
+              stopwatch: {
+                ...card.stopwatch,
+                elapsedSec: (card.stopwatch.elapsedSec || 0)
+                  + (Date.now() - (card.stopwatch.lastStartTs || Date.now())) / 1000,
+                running: false,
+                lastStartTs: null,
+              },
+            }
+          : card;
         const dest = [...(prev[toCol] || [])];
         let targetIndex = typeof index === "number" ? index : dest.length;
         if (targetIndex < 0 || targetIndex > dest.length) targetIndex = dest.length;
-        dest.splice(targetIndex, 0, card);
+        dest.splice(targetIndex, 0, movedCard);
         return { ...prev, [fromCol]: src, [toCol]: dest };
       },
       { track: true }
@@ -994,18 +1041,11 @@ export default function KanbanTimerBoard() {
   };
 
   const doClearAll = () => {
-    updateCardsState(
-      (prev) => {
-        const hasCards = Object.values(prev).some((list) => (list?.length ?? 0) > 0);
-        if (!hasCards) return prev;
-        const cleared = {};
-        Object.keys(prev).forEach((key) => {
-          cleared[key] = [];
-        });
-        return cleared;
-      },
-      { track: true }
-    );
+    historyRef.current.push(cloneBoardState({ cardsByCol, archivedCards }));
+    if (historyRef.current.length > HISTORY_LIMIT) historyRef.current.shift();
+    futureRef.current = [];
+    setCardsByCol(Object.fromEntries(DEFAULT_COLUMNS.map((column) => [column.id, []])));
+    setArchivedCards([]);
     setConfirmClearOpen(false);
   };
 
@@ -1147,6 +1187,9 @@ export default function KanbanTimerBoard() {
                 onDropCard={(cardId, fromCol, insertIndex) => moveCard(fromCol, col.id, cardId, insertIndex)}
                 onAddCard={() => startDraftCard(col.id)}
                 onClearColumn={() => setConfirmColumnClear({ colId: col.id, name: col.name })}
+                onArchiveCompleted={archiveCompletedTasks}
+                onViewArchive={() => setArchiveOpen(true)}
+                archiveCount={archivedCards.length}
                 renderCard={(card, index) => (
                   <Card
                     key={card.id}
@@ -1202,6 +1245,16 @@ export default function KanbanTimerBoard() {
         />
       )}
 
+      {archiveOpen && (
+        <ArchiveModal
+          archivedCards={archivedCards}
+          onRestore={restoreArchivedTask}
+          onClose={() => setArchiveOpen(false)}
+          palette={palette}
+          isDark={isDark}
+        />
+      )}
+
       {confirmColumnClear && (
         <Modal
           title={`Clear ${confirmColumnClear.name}?`}
@@ -1239,7 +1292,7 @@ export default function KanbanTimerBoard() {
         <Modal title="Clear all tasks?" onClose={() => setConfirmClearOpen(false)} palette={palette}>
           <div className="space-y-3">
             <p className="text-sm" style={{ color: palette.subtext }}>
-              This will remove every card in <em>Do</em>, <em>Doing</em>, and <em>Done</em>.
+              This will remove every card in <em>Do</em>, <em>Doing</em>, <em>Done</em>, and the archive.
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { secsToHHMM } from "../utils/time";
 import { CARD_GROUP_ORDER, CARD_GROUPS } from "../constants/groups";
 import { summarizeGroupTasks } from "../utils/groupChips";
+import { Archive, MoreHorizontal } from "lucide-react";
 
 export function Column({
   column,
@@ -10,6 +11,9 @@ export function Column({
   onDropCard,
   onAddCard,
   onClearColumn,
+  onArchiveCompleted,
+  onViewArchive,
+  archiveCount = 0,
   renderCard,
   palette,
   isDark = false,
@@ -161,7 +165,7 @@ export function Column({
                 return (
                   <span
                     key={id}
-                    className="flex-shrink-0 rounded-full px-2 py-0.5 text-sm tabular-nums md:text-xs"
+                    className="flex-shrink-0 rounded-full px-2 py-px text-sm tabular-nums md:text-xs"
                     title={chipLabel}
                     aria-label={chipLabel}
                     style={{
@@ -196,20 +200,72 @@ export function Column({
           </div>
         </div>
         {typeof onClearColumn === "function" ? (
-          <button
-            type="button"
-            onClick={onClearColumn}
-            disabled={!hasCards}
-            className="interactive-button ml-auto rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 md:px-2 md:py-1 md:text-xs"
-            style={{
-              borderColor: palette.border,
-              color: hasCards ? palette.dangerText : palette.subtext,
-              backgroundColor: palette.surface,
-            }}
-            title="Remove all tasks in this column"
-          >
-            Clear
-          </button>
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {column.id === "done" ? (
+              <details className="relative">
+                <summary
+                  className="interactive-button flex cursor-pointer list-none items-center justify-center rounded-lg border p-2"
+                  style={{ borderColor: palette.border, color: palette.subtext, backgroundColor: palette.surface }}
+                  title="Archive options"
+                  aria-label="Archive options"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </summary>
+                <div
+                  className="absolute right-0 top-full z-20 mt-2 w-56 rounded-xl border p-1.5 shadow-lg"
+                  style={{ backgroundColor: palette.surface, borderColor: palette.border }}
+                >
+                  <button
+                    type="button"
+                    disabled={!hasCards}
+                    onClick={(event) => {
+                      event.currentTarget.closest("details").open = false;
+                      onArchiveCompleted?.();
+                    }}
+                    className="interactive-button flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm disabled:cursor-not-allowed disabled:opacity-40"
+                    style={{ color: hasCards ? palette.text : palette.subtext }}
+                  >
+                    <Archive className="h-4 w-4 shrink-0" />
+                    <span>Archive completed tasks</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details").open = false;
+                      onViewArchive?.();
+                    }}
+                    className="interactive-button flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm"
+                    style={{ color: palette.text }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Archive className="h-4 w-4 shrink-0" />
+                      <span>View archive</span>
+                    </span>
+                    <span
+                      className="rounded-full px-1.5 py-0.5 text-xs tabular-nums"
+                      style={{ backgroundColor: palette.badge, color: palette.subtext }}
+                    >
+                      {archiveCount}
+                    </span>
+                  </button>
+                </div>
+              </details>
+            ) : null}
+            <button
+              type="button"
+              onClick={onClearColumn}
+              disabled={!hasCards}
+              className="interactive-button rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 md:px-2 md:py-1 md:text-xs"
+              style={{
+                borderColor: palette.border,
+                color: hasCards ? palette.dangerText : palette.subtext,
+                backgroundColor: palette.surface,
+              }}
+              title="Remove all tasks in this column"
+            >
+              Clear
+            </button>
+          </div>
         ) : null}
       </header>
       <div data-list className="flex flex-col gap-3 empty:hidden">
