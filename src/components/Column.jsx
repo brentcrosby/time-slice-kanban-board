@@ -157,11 +157,13 @@ export function Column({
                 const pillText = colors.badgeText ?? palette.text;
                 const pillBorder = colors.cardBorder ?? palette.border;
                 const untimedLabel = `${untimedCount} untimed ${untimedCount === 1 ? "task" : "tasks"}`;
+                const chipLabel = `${group.label}: ${totalSeconds > 0 ? `${secsToHHMM(totalSeconds)} planned time` : "no planned time"}${untimedCount > 0 ? `, ${untimedLabel}` : ""}`;
                 return (
                   <span
                     key={id}
                     className="flex-shrink-0 rounded-full px-2 py-0.5 text-sm tabular-nums md:text-xs"
-                    title={`${group.label}: ${totalSeconds > 0 ? `${secsToHHMM(totalSeconds)} planned time` : "no planned time"}${untimedCount > 0 ? `, ${untimedLabel}` : ""}`}
+                    title={chipLabel}
+                    aria-label={chipLabel}
                     style={{
                       backgroundColor: pillBg,
                       color: pillText,
@@ -170,11 +172,7 @@ export function Column({
                   >
                     {totalSeconds > 0 ? secsToHHMM(totalSeconds) : null}
                     {totalSeconds > 0 && untimedCount > 0 ? " · " : null}
-                    {untimedCount > 0
-                      ? totalSeconds > 0
-                        ? `${untimedCount} untimed`
-                        : `${untimedCount} ${untimedCount === 1 ? "task" : "tasks"}`
-                      : null}
+                    {untimedCount > 0 ? untimedCount : null}
                   </span>
                 );
               })}
