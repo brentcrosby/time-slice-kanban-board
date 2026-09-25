@@ -10,7 +10,7 @@ const draftRowsForCard = (card) => card.segments?.length
   ? segmentDraftsFromSegments(card.segments)
   : [{ id: `draft-${uid()}`, value: "" }];
 
-export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette, onEditingChange }) {
+export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette, subtextColor, borderColor, onEditingChange }) {
   const containerRef = useRef(null);
   const [editing, setEditing] = useState(false);
   const [rows, setRows] = useState(() => draftRowsForCard(card));
@@ -107,8 +107,8 @@ export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette
             ? "interactive-button rounded px-3 py-1 text-sm tabular-nums md:px-2 md:py-0.5 md:text-xs"
             : "interactive-button rounded-md p-2 transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:p-1"}
           style={hasTimer
-            ? { color: palette.subtext, backgroundColor: "transparent", border: `1px dashed ${palette.border}` }
-            : { color: palette.subtext }}
+            ? { color: subtextColor ?? palette.subtext, backgroundColor: "transparent", border: `1px dashed ${borderColor ?? palette.border}` }
+            : { color: subtextColor ?? palette.subtext }}
           onClick={() => setEditing((v) => !v)}
           title={hasTimer ? "Edit segment durations" : "Add timer"}
           aria-label={hasTimer ? "Edit timer" : "Add timer"}
@@ -123,7 +123,7 @@ export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette
           <button
             type="button"
             className="interactive-button rounded-md p-1.5 md:p-1"
-            style={{ color: palette.subtext }}
+            style={{ color: subtextColor ?? palette.subtext }}
             onClick={() => {
               setEditing(false);
               onRemoveTimer?.();

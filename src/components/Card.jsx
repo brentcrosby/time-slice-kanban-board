@@ -528,6 +528,8 @@ export function Card({
               onSetSegments={onSetSegments}
               onRemoveTimer={onClearTimer}
               palette={palette}
+              subtextColor={cardSubtextColor}
+              borderColor={cardBorderColor}
               onEditingChange={setLimitEditorActive}
             />
           ) : null}
@@ -719,6 +721,8 @@ export function Card({
             onSetSegments={onSetSegments}
             onRemoveTimer={onClearTimer}
             palette={palette}
+            subtextColor={cardSubtextColor}
+            borderColor={cardBorderColor}
             onEditingChange={setLimitEditorActive}
           />
         </div>
