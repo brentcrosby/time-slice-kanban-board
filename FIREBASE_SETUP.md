@@ -17,11 +17,9 @@ Copy `.env.example` to `.env.local` and fill in the six Firebase web app configu
 
 Run `npm run test:rules` to verify Firestore rules with the local emulator before deploying them.
 
-## Configure Firebase Hosting
+## GitHub Pages: primary app address
 
-Build with `VITE_FIREBASE_AUTH_DOMAIN=tasky-6eec8.web.app npm run build`, then deploy with `firebase deploy --only hosting,firestore:rules --project tasky-6eec8`. The primary address is `https://tasky-6eec8.web.app`. The Hosting domain must also be an authorized Firebase Authentication domain and have `https://tasky-6eec8.web.app` as an OAuth JavaScript origin and `https://tasky-6eec8.web.app/__/auth/handler` as an OAuth redirect URI. This same-domain auth configuration supports Google redirect sign-in on mobile. The Hosting configuration serves the single-page app and adds browser security headers.
-
-## Configure GitHub Pages
+The primary app address is https://brentcrosby.github.io/time-slice-kanban-board/. Pushes to `main` trigger `.github/workflows/deploy.yml`, which builds and publishes the app automatically. Routine UI changes do not need `firebase login` or a Firebase Hosting deploy.
 
 In the repository's Settings → Secrets and variables → Actions → Variables, create these repository variables with the matching Firebase web app values:
 
@@ -36,6 +34,10 @@ In the repository's Settings → Secrets and variables → Actions → Variables
 The Pages workflow injects these public Firebase web configuration values into the build. Re-run the workflow (or push a commit) after adding them. Firebase web config is not a server secret; the security boundary is Google Authentication plus the Firestore rules.
 
 On GitHub Pages, mobile Google sign-in uses a popup because the app and Firebase auth helper are on different domains; redirect sign-in can fail when mobile browsers block third-party storage. On Firebase Hosting, the auth helper shares the app's domain, so mobile sign-in can use a redirect.
+
+## Optional Firebase Hosting
+
+`https://tasky-6eec8.web.app` remains configured but is not the routine publishing destination, so it may lag behind GitHub Pages. If Firebase Hosting is deliberately needed again, build for the root path and deploy Hosting separately. Firebase Authentication, App Check, Firestore, and their security rules continue to operate for the GitHub Pages app without deploying Firebase Hosting. Deploy Firestore rules separately only when those rules change.
 
 ## Data behavior
 
