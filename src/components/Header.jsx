@@ -9,6 +9,7 @@ export function Header({
   onStopChime,
   palette,
   theme,
+  themePreference,
   chimeActive,
   syncUser,
   syncStatus,
@@ -89,7 +90,9 @@ export function Header({
           </button>
           <button
             onClick={onToggleTheme}
-            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={themePreference === "system"
+              ? `Following system ${theme} mode. Click to switch to ${theme === "dark" ? "light" : "dark"} mode.`
+              : theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             className="header-action-button rounded-md p-2"
             style={{ border: `1px solid ${palette.border}` }}
           >

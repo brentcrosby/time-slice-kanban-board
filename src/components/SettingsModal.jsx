@@ -1,11 +1,11 @@
 import React from "react";
-import { Volume2, VolumeX, Sun, Moon } from "lucide-react";
+import { Volume2, VolumeX, Sun, Moon, Monitor } from "lucide-react";
 import { Modal } from "./Modal";
 
 export function SettingsModal({
   onClose,
-  theme,
-  setTheme,
+  themePreference,
+  setThemePreference,
   sound,
   setSound,
   autoMoveEnabled,
@@ -23,24 +23,32 @@ export function SettingsModal({
           <h4 className="text-sm font-semibold" style={{ color: palette.text }}>
             Appearance
           </h4>
-          <div className="mt-2 flex items-center gap-3">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setTheme("dark")}
-              className={`interactive-button rounded-lg px-3 py-2 text-sm ${theme === "dark" ? "font-semibold" : ""}`}
-              style={{ border: `1px solid ${palette.border}` }}
+              onClick={() => setThemePreference("system")}
+              aria-pressed={themePreference === "system"}
+              className={`interactive-button rounded-lg px-3 py-2 text-sm ${themePreference === "system" ? "font-semibold" : ""}`}
+              style={{ border: `1px solid ${palette.border}`, backgroundColor: themePreference === "system" ? palette.badge : undefined, color: palette.text }}
             >
               <span className="inline-flex items-center gap-2">
-                <Moon className="h-4 w-4" /> Dark
+                <Monitor className="h-4 w-4" /> System
               </span>
             </button>
             <button
-              onClick={() => setTheme("light")}
-              className={`interactive-button rounded-lg px-3 py-2 text-sm ${theme === "light" ? "font-semibold" : ""}`}
-              style={{ border: `1px solid ${palette.border}` }}
+              onClick={() => setThemePreference("light")}
+              aria-pressed={themePreference === "light"}
+              className={`interactive-button rounded-lg px-3 py-2 text-sm ${themePreference === "light" ? "font-semibold" : ""}`}
+              style={{ border: `1px solid ${palette.border}`, backgroundColor: themePreference === "light" ? palette.badge : undefined, color: palette.text }}
             >
-              <span className="inline-flex items-center gap-2">
-                <Sun className="h-4 w-4" /> Light
-              </span>
+              <span className="inline-flex items-center gap-2"><Sun className="h-4 w-4" /> Light</span>
+            </button>
+            <button
+              onClick={() => setThemePreference("dark")}
+              aria-pressed={themePreference === "dark"}
+              className={`interactive-button rounded-lg px-3 py-2 text-sm ${themePreference === "dark" ? "font-semibold" : ""}`}
+              style={{ border: `1px solid ${palette.border}`, backgroundColor: themePreference === "dark" ? palette.badge : undefined, color: palette.text }}
+            >
+              <span className="inline-flex items-center gap-2"><Moon className="h-4 w-4" /> Dark</span>
             </button>
           </div>
         </section>

@@ -56,13 +56,28 @@ export default function KanbanTimerBoard() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
-  const [theme, setTheme] = useState(loadTheme());
+  const [themePreference, setThemePreference] = useState(loadTheme());
+  const [systemTheme, setSystemTheme] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+  );
   const [sound, setSound] = useState(loadSound());
   const [autoMoveEnabled, setAutoMoveEnabled] = useState(() => initialStoredState?.autoMoveEnabled ?? true);
   const [syncSetupOpen, setSyncSetupOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  useEffect(() => saveTheme(theme), [theme]);
+  useEffect(() => {
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!media) return undefined;
+    const updateSystemTheme = (event) => setSystemTheme(event.matches ? "dark" : "light");
+    setSystemTheme(media.matches ? "dark" : "light");
+    if (media.addEventListener) {
+      media.addEventListener("change", updateSystemTheme);
+      return () => media.removeEventListener("change", updateSystemTheme);
+    }
+    media.addListener?.(updateSystemTheme);
+    return () => media.removeListener?.(updateSystemTheme);
+  }, []);
+  useEffect(() => saveTheme(themePreference), [themePreference]);
   useEffect(() => saveSound(sound), [sound]);
 
   const localSyncState = useMemo(() => ({ cardsByCol, archivedCards, autoMoveEnabled }), [cardsByCol, archivedCards, autoMoveEnabled]);
@@ -173,7 +188,8 @@ export default function KanbanTimerBoard() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [undo, redo]);
 
-  const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  const theme = themePreference === "system" ? systemTheme : themePreference;
+  const toggleTheme = () => setThemePreference(theme === "dark" ? "light" : "dark");
 
   const isDark = theme === "dark";
   const palette = useMemo(
@@ -183,6 +199,7 @@ export default function KanbanTimerBoard() {
 
   useEffect(() => {
     document.body.style.backgroundColor = palette.bg;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", palette.bg);
     return () => {
       document.body.style.backgroundColor = BODY_FALLBACK_BG;
     };
@@ -1173,6 +1190,7 @@ export default function KanbanTimerBoard() {
         onStopChime={stopLoopingChime}
         palette={palette}
         theme={theme}
+        themePreference={themePreference}
         chimeActive={chimeActive}
         syncUser={taskSync.user}
         syncStatus={taskSync.status}
@@ -1332,8 +1350,8 @@ export default function KanbanTimerBoard() {
       {settingsOpen && (
         <SettingsModal
           onClose={() => setSettingsOpen(false)}
-          theme={theme}
-          setTheme={setTheme}
+          themePreference={themePreference}
+          setThemePreference={setThemePreference}
           sound={sound}
           setSound={setSound}
           autoMoveEnabled={autoMoveEnabled}

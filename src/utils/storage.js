@@ -48,9 +48,10 @@ export function clearState() {
 
 export const loadTheme = () => {
   try {
-    return localStorage.getItem(THEME_KEY) || "dark";
+    const saved = localStorage.getItem(THEME_KEY);
+    return ["system", "light", "dark"].includes(saved) ? saved : "system";
   } catch {
-    return "dark";
+    return "system";
   }
 };
 
