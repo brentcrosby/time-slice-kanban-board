@@ -22,6 +22,9 @@ import { ensureAudioContext, playChime } from "./utils/audio";
 import { clearState, loadSound, loadState, loadTheme, saveSound, saveState, saveTheme } from "./utils/storage";
 import { parseTimeFromTitle } from "./utils/time";
 import { useTaskSync } from "./hooks/useTaskSync";
+import { useTaskSelection } from "./hooks/useTaskSelection";
+import { TaskSelectionToolbar } from "./components/TaskSelectionToolbar";
+import { moveTasks, pauseTask } from "./utils/taskActions";
 
 const HISTORY_LIMIT = 100;
 const BREAK_DURATION_SEC = 600;
@@ -499,7 +502,10 @@ export default function KanbanTimerBoard() {
           );
           if (autoMoveEnabled) {
             list.splice(idx, 1);
-            doneQueue.push(completed);
+            const completedAt = source.lastStartTs != null
+              ? Math.min(Date.now(), source.lastStartTs + (source.remainingSecAtStart ?? 0) * 1000)
+              : Date.now();
+            doneQueue.push({ ...completed, completedAt, archivedAt: null });
           } else {
             list[idx] = completed;
           }
@@ -557,6 +563,8 @@ export default function KanbanTimerBoard() {
       lastStartTs: null,
       overtime: false,
       createdAt: Date.now(),
+      completedAt: colId === "done" ? Date.now() : null,
+      flagged: false,
       isDraft,
     };
     const card = deriveCardFromSegments(baseCard, segments, {
@@ -804,7 +812,9 @@ export default function KanbanTimerBoard() {
     if (historyRef.current.length > HISTORY_LIMIT) historyRef.current.shift();
     futureRef.current = [];
     setCardsByCol((prev) => ({ ...prev, done: [] }));
-    setArchivedCards((prev) => [...completed, ...prev]);
+    const now = Date.now();
+    setArchivedCards((prev) => [...completed.map((card) => ({ ...pauseTask(card, now), archivedAt: now })), ...prev]);
+    removeChimeSources(completed.map((card) => card.id));
   };
 
   const restoreArchivedTask = (cardId) => {
@@ -813,7 +823,7 @@ export default function KanbanTimerBoard() {
     historyRef.current.push(cloneBoardState({ cardsByCol, archivedCards }));
     if (historyRef.current.length > HISTORY_LIMIT) historyRef.current.shift();
     futureRef.current = [];
-    setCardsByCol((prev) => ({ ...prev, done: [...(prev.done || []), card] }));
+    setCardsByCol((prev) => ({ ...prev, done: [...(prev.done || []), { ...card, archivedAt: null }] }));
     setArchivedCards((prev) => prev.filter((item) => item.id !== cardId));
   };
 
@@ -835,41 +845,9 @@ export default function KanbanTimerBoard() {
   };
 
   const moveCard = (fromCol, toCol, cardId, index = null) => {
-    updateCardsState(
-      (prev) => {
-        const src = [...(prev[fromCol] || [])];
-        const idx = src.findIndex((c) => c.id === cardId);
-        if (idx === -1) return prev;
-        const [card] = src.splice(idx, 1);
-        if (fromCol === toCol) {
-          let targetIndex = typeof index === "number" ? index : src.length;
-          if (targetIndex < 0) targetIndex = 0;
-          if (idx < targetIndex) targetIndex -= 1;
-          if (targetIndex < 0) targetIndex = 0;
-          if (targetIndex > src.length) targetIndex = src.length;
-          src.splice(targetIndex, 0, card);
-          return { ...prev, [fromCol]: src };
-        }
-        const movedCard = toCol === "done" && card.stopwatch?.running
-          ? {
-              ...card,
-              stopwatch: {
-                ...card.stopwatch,
-                elapsedSec: (card.stopwatch.elapsedSec || 0)
-                  + (Date.now() - (card.stopwatch.lastStartTs || Date.now())) / 1000,
-                running: false,
-                lastStartTs: null,
-              },
-            }
-          : card;
-        const dest = [...(prev[toCol] || [])];
-        let targetIndex = typeof index === "number" ? index : dest.length;
-        if (targetIndex < 0 || targetIndex > dest.length) targetIndex = dest.length;
-        dest.splice(targetIndex, 0, movedCard);
-        return { ...prev, [fromCol]: src, [toCol]: dest };
-      },
-      { track: true }
-    );
+    updateCardsState((prev) => (prev[fromCol] || []).some((card) => card.id === cardId)
+      ? moveTasks(prev, [cardId], toCol, index) : prev, { track: true });
+    if (toCol === "done") removeChimeSources([cardId]);
   };
 
   const startTimer = (colId, card) => {
@@ -1176,6 +1154,13 @@ export default function KanbanTimerBoard() {
     return out;
   }, [filter, materialized, columns]);
 
+  const selection = useTaskSelection({
+    board: cardsByCol,
+    orderedIds: columns.flatMap((column) => (filtered[column.id] || []).filter((card) => !card.isDraft).map((card) => card.id)),
+    updateBoard: updateCardsState,
+    removeChimes: removeChimeSources,
+  });
+
   return (
     <div
       className="min-h-screen w-full"
@@ -1208,7 +1193,11 @@ export default function KanbanTimerBoard() {
       )}
 
       <div className="mx-auto max-w-7xl p-4">
-        <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-3">
+        <TaskSelectionToolbar selection={selection} palette={palette} />
+        <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-3" onPointerDownCapture={(event) => {
+          const column = event.target.closest("[data-column-id]")?.dataset.columnId;
+          if (column) selection.setDestination(column);
+        }}>
           {columns.map((col) => {
             const visibleCards = filtered[col.id] || [];
             const totalCount = (materialized[col.id] || []).length;
@@ -1218,7 +1207,8 @@ export default function KanbanTimerBoard() {
                 column={col}
                 cards={visibleCards}
                 totalCount={totalCount}
-                onDropCard={(cardId, fromCol, insertIndex) => moveCard(fromCol, col.id, cardId, insertIndex)}
+                onDropCard={(cardId, fromCol, insertIndex) => selection.selectedIds.has(cardId)
+                  ? selection.move(col.id, insertIndex) : moveCard(fromCol, col.id, cardId, insertIndex)}
                 onAddCard={() => startDraftCard(col.id)}
                 onClearColumn={() => setConfirmColumnClear({ colId: col.id, name: col.name })}
                 onArchiveCompleted={archiveCompletedTasks}
@@ -1227,6 +1217,11 @@ export default function KanbanTimerBoard() {
                     key={card.id}
                     card={card}
                     colId={col.id}
+                    selected={selection.selectedIds.has(card.id)}
+                    selectionActive={selection.selected.length > 0}
+                    isCut={selection.clipboard?.mode === "cut" && selection.clipboard.ids.includes(card.id)}
+                    onSelect={(event) => selection.select(card.id, col.id, event)}
+                    onToggleFlag={() => updateCardsState((prev) => ({ ...prev, [col.id]: prev[col.id].map((item) => item.id === card.id ? { ...item, flagged: !item.flagged } : item) }), { track: true })}
                     onStart={() => handleStart(col.id, card)}
                     onPause={() => pauseTimer(col.id, card)}
                     onReset={() => resetTimer(col.id, card)}

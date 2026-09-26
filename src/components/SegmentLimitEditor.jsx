@@ -10,7 +10,7 @@ const draftRowsForCard = (card) => card.segments?.length
   ? segmentDraftsFromSegments(card.segments)
   : [{ id: `draft-${uid()}`, value: "" }];
 
-export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette, subtextColor, borderColor, onEditingChange }) {
+export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette, subtextColor, borderColor, onEditingChange, menuMode = false }) {
   const containerRef = useRef(null);
   const [editing, setEditing] = useState(false);
   const [rows, setRows] = useState(() => draftRowsForCard(card));
@@ -103,23 +103,23 @@ export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette
       <div className="flex items-center gap-1">
         <button
           type="button"
-          className={hasTimer
+          className={menuMode ? "header-action-button flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm" : hasTimer
             ? "interactive-button rounded px-3 py-1 text-sm tabular-nums md:px-2 md:py-0.5 md:text-xs"
             : "interactive-button rounded-md p-2 transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:p-1"}
-          style={hasTimer
+          style={hasTimer && !menuMode
             ? { color: subtextColor ?? palette.subtext, backgroundColor: "transparent", border: `1px dashed ${borderColor ?? palette.border}` }
             : { color: subtextColor ?? palette.subtext }}
           onClick={() => setEditing((v) => !v)}
           title={hasTimer ? "Edit segment durations" : "Add timer"}
           aria-label={hasTimer ? "Edit timer" : "Add timer"}
         >
-          {hasTimer
+          {menuMode ? <><Clock className="h-4 w-4" />{hasTimer ? "Edit timer" : "Add timer"}</> : hasTimer
             ? segments.length <= 1
               ? secsToHMS(totalLimitSec)
               : `${secsToHMS(currentSegmentTotalSec)}/${secsToHMS(totalLimitSec)}`
             : <Clock className="h-4 w-4" />}
         </button>
-        {hasTimer ? (
+        {hasTimer && !menuMode ? (
           <button
             type="button"
             className="interactive-button rounded-md p-1.5 md:p-1"
@@ -139,7 +139,7 @@ export function SegmentLimitEditor({ card, onSetSegments, onRemoveTimer, palette
       {editing && (
         <div
           ref={popoverRef}
-          className="absolute right-0 mt-2 w-64 space-y-3 rounded-xl p-3"
+          className={menuMode ? "mt-2 w-full space-y-3 rounded-xl p-3" : "absolute right-0 mt-2 w-64 space-y-3 rounded-xl p-3"}
           onKeyDown={(event) => {
             if (
               event.key === "Enter" &&

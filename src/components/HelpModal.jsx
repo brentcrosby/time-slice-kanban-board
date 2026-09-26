@@ -12,12 +12,25 @@ export function HelpModal({ onClose, palette }) {
     <Modal title="Shorthand Reference" onClose={onClose} palette={palette}>
       <div className="space-y-4 text-sm" style={{ color: palette.text }}>
         <section className="space-y-2">
+          <h4 className="text-sm font-semibold">Task options and priority</h4>
+          <p style={{ color: palette.subtext }}>Open a card’s three-dot menu to edit or delete it, or enable a timer, stopwatch, subtasks, or priority flag. Once enabled, a feature’s controls appear directly on the card, even when its clock is paused. Flagged tasks show an amber flag and edge accent; click the flag to remove it.</p>
+        </section>
+        <section className="space-y-2">
+          <h4 className="text-sm font-semibold">Select and organize tasks</h4>
+          <p style={{ color: palette.subtext }}>Cmd/Ctrl-click toggles a task; Shift-click selects a range in board order (Do, Doing, Done). You can also choose Select task in the card menu, then use the selection checkboxes. Drag a selected task to move the entire selection.</p>
+          <p style={{ color: palette.subtext }}>Use the selection toolbar to move, duplicate, flag, or delete tasks. Cmd/Ctrl+A selects all tasks, C copies, X cuts, and V pastes into the chosen column. Task copies stay in Tasky’s clipboard until you reload or press Escape. Cut tasks are moved only when pasted. Delete asks for confirmation, and Cmd/Ctrl+Z undoes changes.</p>
+        </section>
+        <section className="space-y-2">
+          <h4 className="text-sm font-semibold">Completion dates</h4>
+          <p style={{ color: palette.subtext }}>Moving a task into Done records its completion date. Archiving preserves that date and records when it was archived. Moving it back to Do or Doing clears its completion date until it is completed again. Older tasks without a recorded date are labeled accordingly.</p>
+        </section>
+        <section className="space-y-2">
           <h4 className="text-sm font-semibold" style={{ color: palette.text }}>
             Optional timers
           </h4>
           <p className="text-sm" style={{ color: palette.subtext }}>
-            Tasks start without a timer to keep the board compact. Select the timer icon on a card to add a
-            time limit; its timer controls and progress bar appear after you set one. You can also add a timer
+            Tasks start without a timer to keep the board compact. Choose Add timer in a card’s three-dot menu to add a
+            time limit; its progress bar and controls appear on the card after you set one. You can also add a timer
             with a time shorthand in the task title.
           </p>
         </section>
@@ -27,8 +40,7 @@ export function HelpModal({ onClose, palette }) {
             Stopwatch
           </h4>
           <p className="text-sm" style={{ color: palette.subtext }}>
-            Start a stopwatch with its icon on a timerless task. The elapsed time and pause/reset controls
-            appear only after it starts. A stopwatch counts up independently and does not show a progress bar
+            Choose Start stopwatch in a timerless task’s three-dot menu. Its elapsed time, pause/resume, reset, and remove controls appear beside the menu. Click the elapsed time to edit it. A stopwatch counts up independently and does not show a progress bar
             or add to planned-time totals.
           </p>
         </section>
@@ -69,7 +81,7 @@ export function HelpModal({ onClose, palette }) {
             Subtasks
           </h4>
           <p className="text-sm" style={{ color: palette.subtext }}>
-            Use the list-plus icon on a card to add its first subtask. Press Enter to save each checklist item
+            Choose Add subtasks in a card’s three-dot menu to add its first subtask. Press Enter to save each checklist item
             and start the next; click away to finish. Once a card has subtasks, its checklist stays visible.
             Use the grip to drag items into a new order, or focus it and press Alt+Up/Down. Click an item
             to rename it, and check it off when complete.

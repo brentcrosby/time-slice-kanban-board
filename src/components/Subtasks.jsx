@@ -14,6 +14,7 @@ export function Subtasks({
   textColor,
   subtextColor,
   borderColor,
+  hideAddControl = false,
 }) {
   const [expanded, setExpanded] = useState(true);
   const [draft, setDraft] = useState("");
@@ -140,7 +141,7 @@ export function Subtasks({
           <span>Subtasks</span>
           {subtasks.length > 0 ? <span className="tabular-nums">{completedCount}/{subtasks.length}</span> : null}
         </button>
-        <button
+        {!hideAddControl && <button
           type="button"
           onClick={startAdding}
           className="interactive-button flex items-center gap-1 rounded-md px-1.5 py-1 text-sm transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:text-xs"
@@ -149,7 +150,7 @@ export function Subtasks({
         >
           <Plus className="h-3.5 w-3.5" />
           <span>Add</span>
-        </button>
+        </button>}
       </div>
 
       {expanded ? (

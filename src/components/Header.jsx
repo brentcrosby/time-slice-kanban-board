@@ -25,8 +25,12 @@ export function Header({
       style={{ backgroundColor: palette.headerBg, borderColor: palette.border }}
     >
       <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3">
-        <h1 className="text-xl font-semibold tracking-tight" style={{ color: palette.text }}>
-          Tasky
+        <h1 aria-label="Tasky" className="flex shrink-0 items-baseline gap-0.5 text-xl font-semibold tracking-tight" style={{ color: palette.text }}>
+          <svg aria-hidden="true" viewBox="48 66 420 392" className="h-5 w-5" fill="currentColor" style={{ verticalAlign: "baseline" }}>
+            <rect x="48" y="66" width="132" height="140" rx="24" />
+            <rect x="192" y="66" width="132" height="392" rx="24" />
+            <rect x="336" y="66" width="132" height="140" rx="24" />
+          </svg><span aria-hidden="true">asky</span>
         </h1>
         <div className="ml-auto flex items-center gap-2">
           {syncConfigured ? (

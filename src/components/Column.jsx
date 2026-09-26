@@ -124,6 +124,7 @@ export function Column({
 
   return (
     <section
+      data-column-id={column.id}
       className="flex flex-col gap-3 rounded-2xl border p-4 shadow-sm transition-shadow"
       style={{ backgroundColor: palette.surface, borderColor: palette.border }}
       onDragOver={handleDragOver}

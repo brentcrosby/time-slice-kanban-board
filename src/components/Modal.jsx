@@ -15,6 +15,9 @@ export function Modal({ title, onClose, children, palette }) {
     <div className="fixed inset-0 z-20 flex items-start justify-center p-4 md:items-center md:p-6">
       <div className="absolute inset-0" onClick={onClose} style={{ backgroundColor: MODAL_OVERLAY_COLOR }} />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className="relative z-10 w-full max-w-lg overflow-y-auto rounded-2xl border p-4 shadow-xl sm:p-6 max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-4rem)]"
         style={{ backgroundColor: palette.surface, borderColor: palette.border }}
       >

@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ListPlus, Play, Pause, RotateCcw, Pencil, Trash2, VolumeX, Timer } from "lucide-react";
+import { Flag, Check, Play, Pause, RotateCcw, VolumeX } from "lucide-react";
+import { CardActions } from "./CardActions";
+import { StopwatchControls } from "./StopwatchControls";
 import { SegmentLimitEditor } from "./SegmentLimitEditor";
 import { Subtasks } from "./Subtasks";
 import { MIN_SEGMENT_SEC } from "../constants";
 import { clamp } from "../utils/misc";
 import { findNextActiveSegment } from "../utils/segments";
-import { parseDurationToSeconds, secsToHMS } from "../utils/time";
+import { secsToHMS } from "../utils/time";
 import { CARD_GROUPS } from "../constants/groups";
 
 const adjustColorTone = (hex, factor) => {
@@ -49,6 +51,11 @@ export function Card({
   onEditStopwatchElapsed,
   onUpdateProgress,
   onChangeSubtasks,
+  onToggleFlag,
+  onSelect,
+  selected = false,
+  selectionActive = false,
+  isCut = false,
   onRename = () => {},
   index,
   palette,
@@ -65,13 +72,9 @@ export function Card({
   const [titleDraft, setTitleDraft] = useState(card.title ?? "");
   const titleInputRef = useRef(null);
   const skipTitleCommitRef = useRef(false);
-  const [limitEditorActive, setLimitEditorActive] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [featureEditing, setFeatureEditing] = useState(false);
   const [subtaskComposerOpen, setSubtaskComposerOpen] = useState(false);
-  const [editingStopwatch, setEditingStopwatch] = useState(false);
-  const [stopwatchDraft, setStopwatchDraft] = useState("");
-  const [stopwatchEditError, setStopwatchEditError] = useState("");
-  const stopwatchInputRef = useRef(null);
-  const stopwatchEditActiveRef = useRef(false);
   const hasTimer = Boolean((card.segments?.length || 0) > 0 || card.durationSec > 0 || card.remainingSec > 0);
   const hasStopwatch = Boolean(card.stopwatch);
   const stopwatchRunning = Boolean(card.stopwatch?.running);
@@ -283,7 +286,7 @@ export function Card({
   const isOver = dragState.active ? visualTotalRemaining <= 0 : baseIsOver;
 
   const onDragStart = (event) => {
-    if (limitEditorActive || event.target.closest?.("[data-subtasks]")) {
+    if (optionsOpen || event.target.closest?.("[data-subtasks]")) {
       event.preventDefault();
       return;
     }
@@ -296,9 +299,6 @@ export function Card({
   };
 
   const onDragEnd = () => ref.current?.classList.remove("opacity-60");
-
-  const controlButtonClass =
-    "interactive-button rounded-md p-2 transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:p-1";
 
   const titleButtonClass =
     "inline-block max-w-full cursor-text rounded-md border-0 bg-transparent p-0 text-left text-base font-semibold leading-tight md:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30";
@@ -384,37 +384,6 @@ export function Card({
     event.stopPropagation();
   };
 
-  const beginStopwatchEdit = () => {
-    stopwatchEditActiveRef.current = true;
-    setStopwatchDraft(secsToHMS(Math.floor(stopwatchElapsed)));
-    setStopwatchEditError("");
-    setEditingStopwatch(true);
-  };
-
-  const saveStopwatchEdit = () => {
-    if (!stopwatchEditActiveRef.current) return;
-    const elapsedSec = parseDurationToSeconds(stopwatchDraft);
-    if (elapsedSec == null || elapsedSec < 0) {
-      setStopwatchEditError("Enter time like 1:25 or 1:02:03");
-      return;
-    }
-    stopwatchEditActiveRef.current = false;
-    setEditingStopwatch(false);
-    setStopwatchEditError("");
-    onEditStopwatchElapsed?.(Math.floor(elapsedSec));
-  };
-
-  const cancelStopwatchEdit = () => {
-    stopwatchEditActiveRef.current = false;
-    setEditingStopwatch(false);
-    setStopwatchEditError("");
-  };
-
-  useEffect(() => {
-    if (!editingStopwatch) return;
-    stopwatchInputRef.current?.focus();
-    stopwatchInputRef.current?.select();
-  }, [editingStopwatch]);
 
   const handleSegmentEnter = (idx) => {
     if (!isSegmented) return;
@@ -465,7 +434,26 @@ export function Card({
   return (
     <article
       ref={ref}
-      draggable={!limitEditorActive && !isTitleEditing}
+      draggable={!isTitleEditing && !optionsOpen && !featureEditing}
+      tabIndex={0}
+      aria-label={`${card.title || "Task"}${card.flagged ? ", important" : ""}${selected ? ", selected" : ""}`}
+      onPointerDownCapture={(event) => {
+        if ((event.metaKey || event.ctrlKey || event.shiftKey) && !event.target.closest('input, textarea, [contenteditable="true"], [data-subtasks]')) event.preventDefault();
+      }}
+      onClickCapture={(event) => {
+        if (card.isDraft || event.target.closest('input, textarea, select, [contenteditable="true"], [data-subtasks], [data-card-actions], [data-card-controls]')) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey) {
+          event.preventDefault();
+          event.stopPropagation();
+          onSelect?.(event);
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.target === event.currentTarget && (event.key === " " || event.key === "Enter")) {
+          event.preventDefault();
+          onSelect?.(event);
+        }
+      }}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       data-card-id={card.id}
@@ -475,11 +463,17 @@ export function Card({
       style={{
         backgroundColor: cardBackgroundColor,
         border: `1px solid ${cardBorderColor}`,
-        zIndex: limitEditorActive ? 200 : undefined,
+        zIndex: optionsOpen || featureEditing ? 30 : undefined,
+        outline: selected ? `2px solid ${palette.text}` : undefined,
+        outlineOffset: selected ? 2 : undefined,
+        opacity: isCut ? 0.5 : undefined,
+        boxShadow: card.flagged ? "inset 3px 0 0 #d97706" : undefined,
       }}
     >
-      <div className={hasTimer ? "mb-2 flex items-center gap-2" : "flex items-center gap-2"}>
-        <div className="flex-1 min-w-0">
+      <div className={`${hasTimer ? "mb-2 " : ""}flex flex-wrap items-center gap-2`}>
+        {card.flagged && <button type="button" data-card-controls title="Remove priority flag" aria-label="Remove priority flag" onClick={onToggleFlag} className="interactive-button shrink-0 rounded-md p-1 hover:bg-black/10" style={{ color: isDark ? "#fbbf24" : "#b45309" }}><Flag className="h-4 w-4" fill="currentColor" /></button>}
+        {selectionActive && <button type="button" role="checkbox" aria-checked={selected} aria-label={`Select ${card.title || "task"}`} onClick={(event) => onSelect?.({ ...event, metaKey: true })} className="flex h-5 w-5 shrink-0 items-center justify-center rounded border" style={{ borderColor: palette.text, backgroundColor: selected ? palette.text : "transparent", color: palette.bg }}>{selected && <Check size={14} />}</button>}
+        <div className="min-w-[5rem] flex-1">
           {isTitleEditing ? (
             <input
               ref={titleInputRef}
@@ -501,6 +495,7 @@ export function Card({
           ) : (
             <button
               type="button"
+              data-card-title
               onClick={startTitleEditing}
               className={titleButtonClass}
               style={{ color: cardTextColor }}
@@ -514,187 +509,21 @@ export function Card({
             </p>
           ) : null}
         </div>
-        <div className="flex shrink-0 flex-col items-stretch">
-          <div className="flex items-center gap-1">
-          {hasStopwatch ? (
-            <>
-              <button
-                type="button"
-                onClick={onClearStopwatch}
-                title="Cancel stopwatch"
-                aria-label="Cancel stopwatch"
-                className={`${controlButtonClass} bg-black/10`}
-                style={{ color: cardSubtextColor }}
-              >
-                <Timer className="h-4 w-4" />
-              </button>
-            </>
-          ) : isChiming ? (
-            <button
-              onClick={onStopChime}
-              title="Mute chime"
-              aria-label="Mute chime"
-              className={controlButtonClass}
-              style={{ color: cardSubtextColor }}
-            >
-              <VolumeX className="h-4 w-4" />
-            </button>
-          ) : hasTimer && card.running ? (
-            <button
-              onClick={onPause}
-              title="Pause"
-              aria-label="Pause"
-              className={controlButtonClass}
-              style={{ color: cardSubtextColor }}
-            >
-              <Pause className="h-4 w-4" />
-            </button>
-          ) : hasTimer ? (
-            <button
-              onClick={onStart}
-              title="Start"
-              aria-label="Start"
-              className={controlButtonClass}
-              style={{ color: cardSubtextColor }}
-            >
-              <Play className="h-4 w-4" />
-            </button>
-          ) : null}
-          {!hasTimer && !hasStopwatch ? (
-            <SegmentLimitEditor
-              card={card}
-              onSetSegments={onSetSegments}
-              onRemoveTimer={onClearTimer}
-              palette={palette}
-              subtextColor={cardSubtextColor}
-              borderColor={cardBorderColor}
-              onEditingChange={setLimitEditorActive}
-            />
-          ) : null}
-          {!hasTimer && !hasStopwatch ? (
-            <button
-              type="button"
-              onClick={onStartStopwatch}
-              title="Start stopwatch"
-              aria-label="Start stopwatch"
-              className={controlButtonClass}
-              style={{ color: cardSubtextColor }}
-            >
-              <Timer className="h-4 w-4" />
-            </button>
-          ) : null}
-          {hasTimer ? (
-            <button
-              onClick={onReset}
-              title="Reset"
-              aria-label="Reset"
-              className={controlButtonClass}
-              style={{ color: cardSubtextColor }}
-            >
-              <RotateCcw className="h-4 w-4" />
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setSubtaskComposerOpen(true)}
-            title="Add subtask"
-            aria-label="Add subtask"
-            className={controlButtonClass}
-            style={{ color: cardSubtextColor }}
-          >
-            <ListPlus className="h-4 w-4" />
-          </button>
-          <button
-            onClick={onEdit}
-            title="Edit"
-            aria-label="Edit"
-            className={controlButtonClass}
-            style={{ color: cardSubtextColor }}
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            onClick={onRemove}
-            title="Delete"
-            aria-label="Delete"
-            className={controlButtonClass}
-            style={{ color: cardSubtextColor }}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-          </div>
-          {hasStopwatch && (
-            <div className="mt-1 flex w-full flex-wrap items-center justify-between gap-x-2">
-              {editingStopwatch ? (
-                <input
-                  ref={stopwatchInputRef}
-                  type="text"
-                  inputMode="text"
-                  value={stopwatchDraft}
-                  onChange={(event) => {
-                    setStopwatchDraft(event.target.value);
-                    setStopwatchEditError("");
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      saveStopwatchEdit();
-                    } else if (event.key === "Escape") {
-                      event.preventDefault();
-                      cancelStopwatchEdit();
-                    }
-                  }}
-                  onBlur={saveStopwatchEdit}
-                  onPointerDown={handleTitleInputPointerDown}
-                  aria-label="Edit stopwatch elapsed time"
-                  aria-invalid={Boolean(stopwatchEditError)}
-                  className="w-24 rounded-md px-2 py-1 text-center text-sm font-medium tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:text-xs"
-                  style={{
-                    backgroundColor: palette.badge,
-                    color: palette.text,
-                    border: stopwatchEditError ? `1px solid ${palette.dangerText}` : `1px solid ${palette.border}`,
-                  }}
-                  title="Enter elapsed time as minutes:seconds or hours:minutes:seconds"
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={beginStopwatchEdit}
-                  className="interactive-button inline-flex items-center rounded-md px-2 py-1 text-sm font-medium tabular-nums"
-                  style={{ backgroundColor: palette.badge, color: palette.text }}
-                  title="Click to edit elapsed stopwatch time"
-                  aria-label={`Edit stopwatch elapsed time, currently ${secsToHMS(Math.floor(stopwatchElapsed))}`}
-                >
-                  {secsToHMS(Math.floor(stopwatchElapsed))}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={stopwatchRunning ? onPauseStopwatch : onStartStopwatch}
-                title={stopwatchRunning ? "Pause stopwatch" : "Resume stopwatch"}
-                aria-label={stopwatchRunning ? "Pause stopwatch" : "Resume stopwatch"}
-                className={controlButtonClass}
-                style={{ color: cardSubtextColor }}
-              >
-                {stopwatchRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              </button>
-              <button
-                type="button"
-                onClick={onResetStopwatch}
-                title="Reset stopwatch"
-                aria-label="Reset stopwatch"
-                className={controlButtonClass}
-                style={{ color: cardSubtextColor }}
-              >
-                <RotateCcw className="h-4 w-4" />
-              </button>
-              {stopwatchEditError ? (
-                <span className="w-full text-right text-xs" role="alert" style={{ color: palette.dangerText }}>
-                  {stopwatchEditError}
-                </span>
-              ) : null}
-            </div>
-          )}
+        <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
+        {isChiming && <button type="button" data-card-controls className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" style={{ color: cardSubtextColor }} title="Mute chime" aria-label="Mute chime" onClick={onStopChime}><VolumeX size={16} /></button>}
+        {hasStopwatch && <StopwatchControls running={stopwatchRunning} elapsed={stopwatchElapsed} onStart={onStartStopwatch} onPause={onPauseStopwatch} onReset={onResetStopwatch} onRemove={onClearStopwatch} onEdit={onEditStopwatchElapsed} color={cardSubtextColor} palette={palette} onEditingChange={setFeatureEditing} />}
+        {hasTimer && <div data-card-controls className="flex items-center gap-1" style={{ color: cardSubtextColor }}>
+          <button type="button" className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" title={card.running ? "Pause timer" : "Start timer"} aria-label={card.running ? "Pause timer" : "Start timer"} onClick={card.running ? onPause : onStart}>{card.running ? <Pause size={16} /> : <Play size={16} />}</button>
+          <button type="button" className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" title="Reset timer" aria-label="Reset timer" onClick={onReset}><RotateCcw size={16} /></button>
+        </div>}
+        <CardActions
+          card={card} hasTimer={hasTimer} hasStopwatch={hasStopwatch}
+          palette={palette} color={cardSubtextColor} borderColor={cardBorderColor}
+          onSetSegments={onSetSegments} onStartStopwatch={onStartStopwatch}
+          onAddSubtask={() => setSubtaskComposerOpen(true)} onToggleFlag={onToggleFlag}
+          onSelect={() => onSelect?.({ metaKey: true })} onOpenChange={setOptionsOpen}
+          onEdit={onEdit} onRemove={onRemove}
+        />
         </div>
       </div>
 
@@ -794,15 +623,9 @@ export function Card({
               ? `Over: ${secsToHMS(Math.abs(visualActiveRemaining))}`
               : secsToHMS(Math.max(visualActiveRemaining, 0))}
           </span>
-          <SegmentLimitEditor
-            card={card}
-            onSetSegments={onSetSegments}
-            onRemoveTimer={onClearTimer}
-            palette={palette}
-            subtextColor={cardSubtextColor}
-            borderColor={cardBorderColor}
-            onEditingChange={setLimitEditorActive}
-          />
+          <div data-card-controls>
+            <SegmentLimitEditor card={card} onSetSegments={onSetSegments} onRemoveTimer={onClearTimer} palette={palette} subtextColor={cardSubtextColor} borderColor={cardBorderColor} onEditingChange={setFeatureEditing} />
+          </div>
         </div>
       </div> : null}
 

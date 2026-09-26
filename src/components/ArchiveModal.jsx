@@ -1,5 +1,5 @@
 import React from "react";
-import { ArchiveRestore, CheckSquare, Clock3, RotateCcw } from "lucide-react";
+import { ArchiveRestore, CheckSquare, Clock3, RotateCcw, Flag } from "lucide-react";
 import { Modal } from "./Modal";
 import { CARD_GROUPS } from "../constants/groups";
 
@@ -12,6 +12,10 @@ const formatStopwatch = (seconds) => {
     ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
     : `${minutes}:${String(remainder).padStart(2, "0")}`;
 };
+
+const formatDate = (timestamp) => typeof timestamp === "number" && Number.isFinite(timestamp) && timestamp > 0
+  ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(timestamp))
+  : null;
 
 function ArchivedTask({ card, onRestore, palette, isDark }) {
   const groupColors = card.group
@@ -30,8 +34,13 @@ function ArchivedTask({ card, onRestore, palette, isDark }) {
     >
       <div className="min-w-0 flex-1">
         <h4 className="break-words text-sm font-semibold" style={{ color: groupColors?.cardText || palette.text }}>
+          {card.flagged && <Flag aria-label="Important" className="mr-1 inline h-3.5 w-3.5" fill="currentColor" />}
           {card.title || "Untitled"}
         </h4>
+        <p className="mt-1 text-xs" style={{ color: groupColors?.cardSubtext || palette.subtext }}>
+          {formatDate(card.completedAt) ? <>Completed <time dateTime={new Date(card.completedAt).toISOString()}>{formatDate(card.completedAt)}</time></> : "Completion date unavailable"}
+        </p>
+        {formatDate(card.archivedAt) && <p className="mt-0.5 text-xs" style={{ color: groupColors?.cardSubtext || palette.subtext }}>Archived <time dateTime={new Date(card.archivedAt).toISOString()}>{formatDate(card.archivedAt)}</time></p>}
         {card.notes ? (
           <p className="mt-1 whitespace-pre-wrap break-words text-xs" style={{ color: groupColors?.cardSubtext || palette.subtext }}>
             {card.notes}
