@@ -3,7 +3,8 @@ import { Modal } from "./Modal";
 import { SegmentRowsEditor } from "./SegmentRowsEditor";
 import { MIN_SEGMENT_SEC, MAX_SEGMENT_SEC } from "../constants";
 import { clamp, uid } from "../utils/misc";
-import { parseDurationToSeconds, parseTimeFromTitle } from "../utils/time";
+import { parseDurationToSeconds } from "../utils/time";
+import { parseTaskTitle } from "../utils/taskTitle";
 import { segmentDraftsFromSegments } from "../utils/segments";
 import { TITLE_PLACEHOLDERS } from "../constants/titlePlaceholders";
 import { useRotatingPlaceholder } from "../hooks/useRotatingPlaceholder";
@@ -60,7 +61,7 @@ export function NewCardModal({ defaultCol, onClose, onCreate, columns, palette }
   };
 
   const submit = () => {
-    const parsed = parseTimeFromTitle(title);
+    const parsed = parseTaskTitle(title);
     let segments = [];
 
     if (useSegments) {
@@ -108,6 +109,9 @@ export function NewCardModal({ defaultCol, onClose, onCreate, columns, palette }
       durationSec: total,
       segments,
       group: normalizedGroup || null,
+      dueDate: parsed.dueDate || null,
+      dueTime: parsed.dueTime || null,
+      dueTimeExplicit: Boolean(parsed.dueTimeExplicit),
     });
   };
 

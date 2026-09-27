@@ -25,6 +25,11 @@ export function HelpModal({ onClose, palette }) {
           <p style={{ color: palette.subtext }}>Moving a task into Done records its completion date. Archiving preserves that date and records when it was archived. Moving it back to Do or Doing clears its completion date until it is completed again. Older tasks without a recorded date are labeled accordingly.</p>
         </section>
         <section className="space-y-2">
+          <h4 className="text-sm font-semibold">Due dates</h4>
+          <p style={{ color: palette.subtext }}>Set a due date and optional time in Edit task. Without a time, it is due at 11:59 PM. Due dates appear under task titles; click one to change it. Tasks still in Do or Doing become flagged when their due day arrives.</p>
+          <p style={{ color: palette.subtext }}>Title shortcuts work when adding or renaming a task: <code>due tomorrow</code>, <code>due tmrw</code>, <code>due Friday</code>, <code>due Sept 29 at 5pm</code>, <code>due 9/29</code>, <code>due 2026-09-29 at 17:00</code>, or <code>due in 3 days</code>. Use <code>due clear</code> to remove a date.</p>
+        </section>
+        <section className="space-y-2">
           <h4 className="text-sm font-semibold" style={{ color: palette.text }}>
             Optional timers
           </h4>

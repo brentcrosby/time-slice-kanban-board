@@ -12,8 +12,10 @@ service cloud.firestore {
         return request.resource.data.keys().hasAll(['state', 'updatedAt'])
           && request.resource.data.keys().hasOnly(['state', 'updatedAt'])
           && board is map
-          && board.keys().hasAll(['cardsByCol', 'autoMoveEnabled'])
-          && board.keys().hasOnly(['cardsByCol', 'autoMoveEnabled', 'archivedCards'])
+          && board.keys().hasAll(['cardsByCol', 'autoMoveEnabled', 'syncRevision'])
+          && board.keys().hasOnly(['cardsByCol', 'autoMoveEnabled', 'archivedCards', 'syncRevision'])
+          && board.syncRevision is int
+          && board.syncRevision > 0
           && columns is map
           && columns.keys().hasAll(['todo', 'doing', 'done'])
           && columns.keys().hasOnly(['todo', 'doing', 'done'])
@@ -26,7 +28,10 @@ service cloud.firestore {
       }
 
       allow read: if isOwner();
-      allow create, update: if isOwner() && validBoard();
+      allow create: if isOwner() && validBoard();
+      allow update: if isOwner() && validBoard()
+        && (!resource.data.state.keys().hasAny(['syncRevision'])
+          || request.resource.data.state.syncRevision > resource.data.state.syncRevision);
       allow delete: if false;
     }
   }

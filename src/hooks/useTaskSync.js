@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
-import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, runTransaction, serverTimestamp } from "firebase/firestore";
 import { auth, firebaseConfigured, firestore } from "../utils/firebase";
-import { boardFingerprint, incomingSyncAction, initialSyncAction, mergeBoards } from "../utils/boardSync";
+import { boardFingerprint, boardRevision, incomingSyncAction, initialSyncAction, mergeBoards } from "../utils/boardSync";
 import { loadSyncBaseline, saveSyncBaseline } from "../utils/storage";
 
-export function useTaskSync(localState, onApplyState) {
+export function useTaskSync(localState, onApplyState, onRevisionChange) {
   const [user, setUser] = useState(null);
   const [status, setStatus] = useState(firebaseConfigured ? "signed-out" : "unconfigured");
   const [error, setError] = useState("");
@@ -15,19 +15,29 @@ export function useTaskSync(localState, onApplyState) {
   const conflictRef = useRef(false);
   const readyRef = useRef(false);
   const baselineRef = useRef(null);
+  const baselineRevisionRef = useRef(0);
   const outgoingRef = useRef(new Set());
   const resolvingRef = useRef(false);
   const localStateRef = useRef(localState);
   const applyRef = useRef(onApplyState);
+  const revisionChangeRef = useRef(onRevisionChange);
+  const writingRef = useRef(false);
   const unsubscribeRef = useRef(null);
 
   localStateRef.current = localState;
   applyRef.current = onApplyState;
+  revisionChangeRef.current = onRevisionChange;
 
   const rememberBaseline = useCallback((uid, state) => {
     const fingerprint = boardFingerprint(state);
     baselineRef.current = fingerprint;
-    saveSyncBaseline(uid, fingerprint);
+    baselineRevisionRef.current = boardRevision(state);
+    saveSyncBaseline(uid, fingerprint, baselineRevisionRef.current);
+    revisionChangeRef.current?.((revision) =>
+      boardFingerprint(localStateRef.current) === fingerprint
+        ? baselineRevisionRef.current
+        : Math.max(revision, baselineRevisionRef.current + 1)
+    );
   }, []);
 
   const markReady = useCallback(() => {
@@ -38,20 +48,50 @@ export function useTaskSync(localState, onApplyState) {
 
   const writeBoard = useCallback(async (uid, state) => {
     const fingerprint = boardFingerprint(state);
+    const expectedFingerprint = baselineRef.current;
+    if (writingRef.current) return;
+    writingRef.current = true;
     outgoingRef.current.add(fingerprint);
     setStatus("connecting");
     try {
       const stateRef = doc(firestore, "users", uid, "tasky", "state");
-      await setDoc(stateRef, { state, updatedAt: serverTimestamp() });
-      rememberBaseline(uid, state);
+      const result = await runTransaction(firestore, async (transaction) => {
+        const snapshot = await transaction.get(stateRef);
+        const remote = snapshot.exists() ? snapshot.data()?.state : null;
+        if (remote && boardFingerprint(remote) !== expectedFingerprint) {
+          return { remote };
+        }
+        if (!remote && expectedFingerprint !== null) return { remote: null };
+        const committed = {
+          ...state,
+          syncRevision: Math.max(boardRevision(remote), boardRevision(state)) + 1,
+        };
+        transaction.set(stateRef, { state: committed, updatedAt: serverTimestamp() });
+        return { committed };
+      });
+      if (result.remote !== undefined) {
+        if (result.remote) {
+          pendingRemoteRef.current = result.remote;
+          conflictRef.current = true;
+          setConflict(true);
+          setStatus("needs-choice");
+        } else {
+          setError("The cloud board was removed while syncing. Your device copy is safe; reload to retry.");
+          setStatus("error");
+        }
+        return null;
+      }
+      rememberBaseline(uid, result.committed);
       setError("");
       if (boardFingerprint(localStateRef.current) === fingerprint) setStatus("synced");
+      return result.committed;
     } catch (writeError) {
       setError(writeError.message || "Could not sync your board.");
       setStatus("error");
       throw writeError;
     } finally {
       outgoingRef.current.delete(fingerprint);
+      writingRef.current = false;
       if (boardFingerprint(localStateRef.current) !== fingerprint && readyRef.current) {
         setSyncGeneration((generation) => generation + 1);
       }
@@ -64,9 +104,12 @@ export function useTaskSync(localState, onApplyState) {
       unsubscribeRef.current?.();
       unsubscribeRef.current = null;
       readyRef.current = false;
-      baselineRef.current = nextUser ? loadSyncBaseline(nextUser.uid) : null;
+      const baseline = nextUser ? loadSyncBaseline(nextUser.uid) : null;
+      baselineRef.current = baseline?.fingerprint ?? null;
+      baselineRevisionRef.current = baseline?.revision ?? 0;
       outgoingRef.current.clear();
       resolvingRef.current = false;
+      writingRef.current = false;
       pendingRemoteRef.current = null;
       conflictRef.current = false;
       setConflict(false);
@@ -99,14 +142,14 @@ export function useTaskSync(localState, onApplyState) {
           firstSnapshot = false;
           if (!snapshot.exists()) {
             try {
-              await writeBoard(user.uid, localStateRef.current);
-              markReady();
+              const committed = await writeBoard(user.uid, localStateRef.current);
+              if (committed) markReady();
             } catch { /* writeBoard reports the error */ }
             return;
           }
 
           const remote = snapshot.data()?.state;
-          const action = initialSyncAction(localStateRef.current, remote, baselineRef.current);
+          const action = initialSyncAction(localStateRef.current, remote, baselineRef.current, baselineRevisionRef.current);
           if (action === "same") {
             rememberBaseline(user.uid, remote);
             markReady();
@@ -138,7 +181,7 @@ export function useTaskSync(localState, onApplyState) {
           pendingRemoteRef.current = remote;
           return;
         }
-        const action = incomingSyncAction(localStateRef.current, remote, baselineRef.current);
+        const action = incomingSyncAction(localStateRef.current, remote, baselineRef.current, baselineRevisionRef.current);
         if (outgoingRef.current.has(remoteFingerprint) || action === "same") {
           rememberBaseline(user.uid, remote);
           setStatus("synced");
@@ -169,7 +212,7 @@ export function useTaskSync(localState, onApplyState) {
 
   useEffect(() => {
     if (!user || !firestore || !readyRef.current || conflict) return undefined;
-    if (boardFingerprint(localState) === baselineRef.current) return undefined;
+    if (boardFingerprint(localState) === baselineRef.current || writingRef.current) return undefined;
     const timeout = window.setTimeout(async () => {
       try {
         if (readyRef.current && boardFingerprint(localState) !== baselineRef.current) {
@@ -220,9 +263,17 @@ export function useTaskSync(localState, onApplyState) {
     const selected = choice === "merge" ? mergeBoards(localStateRef.current, remote) : remote;
     try {
       // Persist the merged result before dismissing the choice dialog.
-      if (choice === "merge") await writeBoard(user.uid, selected);
-      rememberBaseline(user.uid, selected);
-      applyRef.current(selected);
+      let resolved = selected;
+      if (choice === "merge") {
+        // Resolve against the exact cloud version the user reviewed. A newer
+        // cloud edit stays in the dialog rather than being silently replaced.
+        baselineRef.current = boardFingerprint(remote);
+        const committed = await writeBoard(user.uid, selected);
+        if (!committed) return;
+        resolved = committed;
+      }
+      rememberBaseline(user.uid, resolved);
+      applyRef.current(resolved);
       pendingRemoteRef.current = null;
       conflictRef.current = false;
       setConflict(false);

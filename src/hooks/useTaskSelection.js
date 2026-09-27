@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { copyTask, moveTasks, pauseTask, selectionRange, TASK_COLUMNS } from "../utils/taskActions";
 import { uid } from "../utils/misc";
+import { setManualFlag } from "../utils/dueDates";
 
 export function useTaskSelection({ board, orderedIds, updateBoard, removeChimes }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -67,7 +68,7 @@ export function useTaskSelection({ board, orderedIds, updateBoard, removeChimes 
   };
 
   const flag = () => updateBoard((prev) => Object.fromEntries(TASK_COLUMNS.map((column) => [column,
-    (prev[column] || []).map((card) => selectedIds.has(card.id) ? { ...card, flagged: !allFlagged } : card),
+    (prev[column] || []).map((card) => selectedIds.has(card.id) ? setManualFlag(card, !allFlagged) : card),
   ])), { track: true });
 
   const confirmDelete = () => {

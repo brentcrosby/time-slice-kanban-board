@@ -5,15 +5,17 @@ const SYNC_BASELINE_KEY = "kanban-timer-board:sync-baseline:v1";
 export function loadSyncBaseline(uid) {
   try {
     const saved = JSON.parse(localStorage.getItem(SYNC_BASELINE_KEY));
-    return saved?.uid === uid && typeof saved.fingerprint === "string" ? saved.fingerprint : null;
+    return saved?.uid === uid && typeof saved.fingerprint === "string"
+      ? { fingerprint: saved.fingerprint, revision: Number.isSafeInteger(saved.revision) ? saved.revision : 0 }
+      : null;
   } catch {
     return null;
   }
 }
 
-export function saveSyncBaseline(uid, fingerprint) {
+export function saveSyncBaseline(uid, fingerprint, revision = 0) {
   try {
-    localStorage.setItem(SYNC_BASELINE_KEY, JSON.stringify({ uid, fingerprint }));
+    localStorage.setItem(SYNC_BASELINE_KEY, JSON.stringify({ uid, fingerprint, revision }));
   } catch {
     // Sync still works in memory when browser storage is unavailable.
   }

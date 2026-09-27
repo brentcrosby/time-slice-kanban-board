@@ -3,7 +3,9 @@ import { Modal } from "./Modal";
 import { SegmentRowsEditor } from "./SegmentRowsEditor";
 import { MIN_SEGMENT_SEC, MAX_SEGMENT_SEC } from "../constants";
 import { clamp, uid } from "../utils/misc";
-import { parseDurationToSeconds, parseTimeFromTitle } from "../utils/time";
+import { parseDurationToSeconds } from "../utils/time";
+import { DEFAULT_DUE_TIME, extractDueShortcut } from "../utils/dueDates";
+import { parseTaskTitle } from "../utils/taskTitle";
 import {
   findNextActiveSegment,
   formatSegmentForInput,
@@ -18,6 +20,9 @@ const VALID_GROUP_IDS = CARD_GROUP_OPTIONS.filter((option) => option.value).map(
 export function EditCardModal({ card, onClose, onSave, palette }) {
   const [title, setTitle] = useState(card.title);
   const [notes, setNotes] = useState(card.notes || "");
+  const [dueDate, setDueDate] = useState(card.dueDate || "");
+  const [dueTime, setDueTime] = useState(card.dueTimeExplicit ? card.dueTime || "" : "");
+  const [dueTouched, setDueTouched] = useState(false);
   const [limitInput, setLimitInput] = useState(card.segments?.length ? formatSegmentForInput(card.durationSec) : "");
   const [timingMode, setTimingMode] = useState(
     (card.segments?.length || 0) > 1 ? "segments" : card.segments?.length ? "single" : "none"
@@ -49,6 +54,13 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
       else setGroupId("");
     }
   }, [title, groupTouched]);
+
+  useEffect(() => {
+    if (dueTouched) return;
+    const shortcut = extractDueShortcut(title);
+    setDueDate(shortcut.dueFound ? shortcut.dueDate || "" : card.dueDate || "");
+    setDueTime(shortcut.dueFound ? shortcut.dueTimeExplicit ? shortcut.dueTime : "" : card.dueTimeExplicit ? card.dueTime || "" : "");
+  }, [title, dueTouched, card.dueDate, card.dueTime, card.dueTimeExplicit]);
 
   const handleSegmentChange = (id, value) => {
     setSegmentRows((prev) => prev.map((row) => (row.id === id ? { ...row, value } : row)));
@@ -98,7 +110,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
       durations = [clamp(sec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC)];
     }
 
-    const parsedTitle = parseTimeFromTitle(title);
+    const parsedTitle = parseTaskTitle(title);
     if (timingMode === "none" && parsedTitle.segments?.length > 1) {
       durations = parsedTitle.segments.map((sec) => clamp(sec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC));
     } else if (timingMode === "none" && parsedTitle.durationSec != null) {
@@ -122,9 +134,16 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
 
     const nextActiveIndex = segmentsPayload.length ? findNextActiveSegment(segmentsPayload) : 0;
 
+    const resolvedDueDate = dueTouched ? dueDate || null : parsedTitle.dueFound ? parsedTitle.dueDate : card.dueDate || null;
+    const resolvedDueTime = dueTouched ? dueTime || DEFAULT_DUE_TIME : parsedTitle.dueFound ? parsedTitle.dueTime : card.dueTime || DEFAULT_DUE_TIME;
+    const resolvedDueTimeExplicit = dueTouched ? Boolean(dueTime) : parsedTitle.dueFound ? parsedTitle.dueTimeExplicit : Boolean(card.dueTimeExplicit);
+
     onSave({
       title: cleanTitle,
       notes,
+      dueDate: resolvedDueDate,
+      dueTime: resolvedDueDate ? resolvedDueTime : null,
+      dueTimeExplicit: Boolean(resolvedDueDate && resolvedDueTimeExplicit),
       segments: segmentsPayload,
       group: normalizedGroup || null,
       running: false,
@@ -185,6 +204,30 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
             className="mt-1 w-full rounded-xl px-3 py-2 text-base md:text-sm outline-none"
             style={{ backgroundColor: "transparent", border: `1px solid ${palette.border}`, color: palette.text }}
           />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block text-sm font-medium md:text-xs" style={{ color: palette.subtext }}>
+            Due date
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(event) => { setDueTouched(true); setDueDate(event.target.value); }}
+              className="mt-1 w-full rounded-xl px-3 py-2 text-base md:text-sm outline-none"
+              style={{ backgroundColor: palette.surface, border: `1px solid ${palette.border}`, color: palette.text }}
+            />
+          </label>
+          <label className="block text-sm font-medium md:text-xs" style={{ color: palette.subtext }}>
+            Due time (optional)
+            <input
+              type="time"
+              value={dueTime}
+              disabled={!dueDate}
+              onChange={(event) => { setDueTouched(true); setDueTime(event.target.value); }}
+              className="mt-1 w-full rounded-xl px-3 py-2 text-base md:text-sm outline-none disabled:opacity-50"
+              style={{ backgroundColor: palette.surface, border: `1px solid ${palette.border}`, color: palette.text }}
+            />
+          </label>
+          <p className="text-xs sm:col-span-2" style={{ color: palette.subtext }}>No time means due by 11:59 PM. Clear the date to remove it.</p>
         </div>
         <div>
           <label className="block text-sm font-medium md:text-xs" style={{ color: palette.subtext }}>

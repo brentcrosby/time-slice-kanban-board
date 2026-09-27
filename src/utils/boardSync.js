@@ -17,21 +17,34 @@ export const boardFingerprint = (state) => JSON.stringify({
 export const hasTasks = (state) =>
   BOARD_COLUMNS.some((column) => state?.cardsByCol?.[column]?.length) || state?.archivedCards?.length > 0;
 
-export const initialSyncAction = (local, remote, baseline) => {
+export const boardRevision = (state) => Number.isSafeInteger(state?.syncRevision) && state.syncRevision >= 0
+  ? state.syncRevision : 0;
+
+export const initialSyncAction = (local, remote, baseline, baselineRevision = 0) => {
   const localFingerprint = boardFingerprint(local);
   const remoteFingerprint = boardFingerprint(remote);
   if (localFingerprint === remoteFingerprint) return "same";
-  if (!hasTasks(local) || localFingerprint === baseline) return "remote";
-  if (remoteFingerprint === baseline) return "local";
+  const localRevision = boardRevision(local);
+  const remoteRevision = boardRevision(remote);
+  const localChangedSinceSync = localFingerprint !== baseline && localRevision > baselineRevision;
+  if (localFingerprint === baseline || (!hasTasks(local) && !localChangedSinceSync)) return "remote";
+  if (remoteRevision > localRevision) return localChangedSinceSync ? "conflict" : "remote";
+  if (remoteFingerprint === baseline && localChangedSinceSync) return "local";
   return "conflict";
 };
 
-export const incomingSyncAction = (local, remote, baseline) => {
+export const incomingSyncAction = (local, remote, baseline, baselineRevision = 0) => {
   const localFingerprint = boardFingerprint(local);
   const remoteFingerprint = boardFingerprint(remote);
   if (localFingerprint === remoteFingerprint) return "same";
-  if (remoteFingerprint === baseline) return "local";
+  if (remoteFingerprint === baseline) {
+    if (boardRevision(local) > baselineRevision) return "local";
+    if (boardRevision(local) < baselineRevision) return "remote";
+    return "conflict";
+  }
   if (localFingerprint === baseline) return "remote";
+  const localChangedSinceSync = boardRevision(local) > baselineRevision;
+  if (boardRevision(remote) > boardRevision(local) && !localChangedSinceSync) return "remote";
   return "conflict";
 };
 

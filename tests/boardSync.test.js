@@ -23,12 +23,25 @@ test("a previously synced device accepts newer account changes without prompting
 });
 
 test("device-only changes upload and concurrent changes ask for a choice", () => {
-  const original = board([task("a", "Write")]);
-  const local = board([task("a", "Write"), task("b", "Review")]);
-  const remote = board([task("a", "Write"), task("c", "Publish")]);
-  assert.equal(initialSyncAction(local, original, boardFingerprint(original)), "local");
-  assert.equal(initialSyncAction(local, remote, boardFingerprint(original)), "conflict");
-  assert.equal(incomingSyncAction(local, remote, boardFingerprint(original)), "conflict");
+  const original = { ...board([task("a", "Write")]), syncRevision: 4 };
+  const local = { ...board([task("a", "Write"), task("b", "Review")]), syncRevision: 5 };
+  const remote = { ...board([task("a", "Write"), task("c", "Publish")]), syncRevision: 5 };
+  assert.equal(initialSyncAction(local, original, boardFingerprint(original), 4), "local");
+  assert.equal(initialSyncAction(local, remote, boardFingerprint(original), 4), "conflict");
+  assert.equal(incomingSyncAction(local, remote, boardFingerprint(original), 4), "conflict");
+});
+
+test("stale phone content never replaces a newer cloud board even when its saved baseline matches cloud", () => {
+  const stalePhone = { ...board([task("a", "Old title")]), syncRevision: 4 };
+  const currentCloud = { ...board([task("a", "New title")]), syncRevision: 8 };
+  assert.equal(initialSyncAction(stalePhone, currentCloud, boardFingerprint(currentCloud), 8), "remote");
+  assert.equal(incomingSyncAction(stalePhone, currentCloud, boardFingerprint(currentCloud), 8), "remote");
+});
+
+test("a legacy device with different content cannot automatically upload over a cloud board", () => {
+  const oldPhone = board([task("a", "Old title")]);
+  const cloud = board([task("a", "New title")]);
+  assert.equal(initialSyncAction(oldPhone, cloud, boardFingerprint(cloud)), "conflict");
 });
 
 test("merge keeps remote tasks, device-only tasks, and both edits of one task", () => {

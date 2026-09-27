@@ -20,8 +20,10 @@ import {
 } from "./utils/segments";
 import { ensureAudioContext, playChime } from "./utils/audio";
 import { clearState, loadSound, loadState, loadTheme, saveSound, saveState, saveTheme } from "./utils/storage";
-import { parseTimeFromTitle } from "./utils/time";
+import { DEFAULT_DUE_TIME, applyDueDate, flagDueTasks, setManualFlag } from "./utils/dueDates";
+import { parseTaskTitle } from "./utils/taskTitle";
 import { useTaskSync } from "./hooks/useTaskSync";
+import { boardFingerprint, boardRevision } from "./utils/boardSync";
 import { useTaskSelection } from "./hooks/useTaskSelection";
 import { TaskSelectionToolbar } from "./components/TaskSelectionToolbar";
 import { moveTasks, pauseTask } from "./utils/taskActions";
@@ -44,6 +46,18 @@ export default function KanbanTimerBoard() {
     });
     return initial;
   });
+  useEffect(() => {
+    const checkDueDates = () => setCardsByCol((current) => flagDueTasks(current));
+    checkDueDates();
+    const interval = window.setInterval(checkDueDates, 60_000);
+    window.addEventListener("focus", checkDueDates);
+    document.addEventListener("visibilitychange", checkDueDates);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", checkDueDates);
+      document.removeEventListener("visibilitychange", checkDueDates);
+    };
+  }, [cardsByCol]);
   const [archivedCards, setArchivedCards] = useState(() =>
     (Array.isArray(initialStoredState?.archivedCards) ? initialStoredState.archivedCards : []).map(upgradeLegacyCard)
   );
@@ -65,6 +79,7 @@ export default function KanbanTimerBoard() {
   );
   const [sound, setSound] = useState(loadSound());
   const [autoMoveEnabled, setAutoMoveEnabled] = useState(() => initialStoredState?.autoMoveEnabled ?? true);
+  const [syncRevision, setSyncRevision] = useState(() => boardRevision(initialStoredState));
   const [syncSetupOpen, setSyncSetupOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -83,23 +98,41 @@ export default function KanbanTimerBoard() {
   useEffect(() => saveTheme(themePreference), [themePreference]);
   useEffect(() => saveSound(sound), [sound]);
 
-  const localSyncState = useMemo(() => ({ cardsByCol, archivedCards, autoMoveEnabled }), [cardsByCol, archivedCards, autoMoveEnabled]);
+  const boardState = useMemo(() => ({ cardsByCol, archivedCards, autoMoveEnabled }), [cardsByCol, archivedCards, autoMoveEnabled]);
+  const localSyncState = useMemo(() => ({ ...boardState, syncRevision }), [boardState, syncRevision]);
+  const observedBoardRef = useRef(boardFingerprint(boardState));
+  const applyingRemoteRef = useRef(null);
+  useEffect(() => {
+    const fingerprint = boardFingerprint(boardState);
+    if (fingerprint === observedBoardRef.current) return;
+    observedBoardRef.current = fingerprint;
+    if (fingerprint === applyingRemoteRef.current) {
+      applyingRemoteRef.current = null;
+      return;
+    }
+    applyingRemoteRef.current = null;
+    setSyncRevision((revision) => revision + 1);
+  }, [boardState]);
   const applySyncedState = useCallback((state) => {
     if (!state || typeof state !== "object") return;
-    setCardsByCol((current) => {
-      const next = {};
-      DEFAULT_COLUMNS.forEach((column) => {
-        const cards = state.cardsByCol?.[column.id];
-        next[column.id] = Array.isArray(cards) ? cards.map(upgradeLegacyCard) : current[column.id] || [];
-      });
-      return next;
+    const nextCardsByCol = {};
+    DEFAULT_COLUMNS.forEach((column) => {
+      const cards = state.cardsByCol?.[column.id];
+      nextCardsByCol[column.id] = Array.isArray(cards) ? cards.map(upgradeLegacyCard) : [];
     });
-    setArchivedCards(Array.isArray(state.archivedCards) ? state.archivedCards.map(upgradeLegacyCard) : []);
-    if (typeof state.autoMoveEnabled === "boolean") setAutoMoveEnabled(state.autoMoveEnabled);
+    const nextArchivedCards = Array.isArray(state.archivedCards) ? state.archivedCards.map(upgradeLegacyCard) : [];
+    const nextAutoMove = typeof state.autoMoveEnabled === "boolean" ? state.autoMoveEnabled : true;
+    applyingRemoteRef.current = boardFingerprint({
+      cardsByCol: nextCardsByCol, archivedCards: nextArchivedCards, autoMoveEnabled: nextAutoMove,
+    });
+    setCardsByCol(nextCardsByCol);
+    setArchivedCards(nextArchivedCards);
+    setAutoMoveEnabled(nextAutoMove);
+    setSyncRevision(boardRevision(state));
     historyRef.current = [];
     futureRef.current = [];
   }, []);
-  const taskSync = useTaskSync(localSyncState, applySyncedState);
+  const taskSync = useTaskSync(localSyncState, applySyncedState, setSyncRevision);
 
   const handleSignOut = async (removeLocalTasks) => {
     setSigningOut(true);
@@ -109,6 +142,7 @@ export default function KanbanTimerBoard() {
       setCardsByCol(Object.fromEntries(DEFAULT_COLUMNS.map((column) => [column.id, []])));
       setArchivedCards([]);
       setAutoMoveEnabled(true);
+      setSyncRevision(0);
       historyRef.current = [];
       futureRef.current = [];
       setFilter("");
@@ -536,8 +570,8 @@ export default function KanbanTimerBoard() {
   }, [materialized, columns, sound, autoMoveEnabled]);
 
   useEffect(() => {
-    saveState({ cardsByCol, archivedCards, autoMoveEnabled });
-  }, [cardsByCol, archivedCards, autoMoveEnabled]);
+    saveState(localSyncState);
+  }, [localSyncState]);
 
   const addCard = (colId, payload = {}) => {
     const id = uid();
@@ -565,6 +599,9 @@ export default function KanbanTimerBoard() {
       createdAt: Date.now(),
       completedAt: colId === "done" ? Date.now() : null,
       flagged: false,
+      dueDate: payload.dueDate || null,
+      dueTime: payload.dueDate ? payload.dueTime || DEFAULT_DUE_TIME : null,
+      dueTimeExplicit: Boolean(payload.dueDate && payload.dueTimeExplicit),
       isDraft,
     };
     const card = deriveCardFromSegments(baseCard, segments, {
@@ -746,7 +783,7 @@ export default function KanbanTimerBoard() {
 
   const applyTitleShortcuts = useCallback(
     (colId, cardId, rawTitle) => {
-      const parsed = parseTimeFromTitle(rawTitle);
+      const parsed = parseTaskTitle(rawTitle);
       const cleanTitle = parsed.cleanTitle?.trim() || "Untitled";
       const durations =
         parsed.segments && parsed.segments.length > 1
@@ -764,6 +801,8 @@ export default function KanbanTimerBoard() {
             next = { ...next, group: nextGroup };
           }
         }
+
+        if (parsed.dueFound) next = applyDueDate(next, parsed.dueDate, parsed.dueTime, parsed.dueTimeExplicit);
 
         if (durations && durations.length) {
           const sanitized = durations.map((sec) => sanitizeSegmentDuration(sec));
@@ -1221,7 +1260,7 @@ export default function KanbanTimerBoard() {
                     selectionActive={selection.selected.length > 0}
                     isCut={selection.clipboard?.mode === "cut" && selection.clipboard.ids.includes(card.id)}
                     onSelect={(event) => selection.select(card.id, col.id, event)}
-                    onToggleFlag={() => updateCardsState((prev) => ({ ...prev, [col.id]: prev[col.id].map((item) => item.id === card.id ? { ...item, flagged: !item.flagged } : item) }), { track: true })}
+                    onToggleFlag={() => updateCardsState((prev) => ({ ...prev, [col.id]: prev[col.id].map((item) => item.id === card.id ? setManualFlag(item, !item.flagged) : item) }), { track: true })}
                     onStart={() => handleStart(col.id, card)}
                     onPause={() => pauseTimer(col.id, card)}
                     onReset={() => resetTimer(col.id, card)}
@@ -1266,7 +1305,10 @@ export default function KanbanTimerBoard() {
           card={editCard.card}
           onClose={() => setEditCard(null)}
           onSave={(patch) => {
-            updateCard(editCard.colId, editCard.card.id, patch);
+            const { dueDate, dueTime, dueTimeExplicit, ...otherChanges } = patch;
+            updateCard(editCard.colId, editCard.card.id, (current) =>
+              applyDueDate({ ...current, ...otherChanges }, dueDate, dueTime, dueTimeExplicit)
+            );
             setEditCard(null);
           }}
           palette={palette}

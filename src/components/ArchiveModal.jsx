@@ -2,6 +2,7 @@ import React from "react";
 import { ArchiveRestore, CheckSquare, Clock3, RotateCcw, Flag } from "lucide-react";
 import { Modal } from "./Modal";
 import { CARD_GROUPS } from "../constants/groups";
+import { formatDueDate } from "../utils/dueDates";
 
 const formatStopwatch = (seconds) => {
   const total = Math.max(0, Math.floor(seconds || 0));
@@ -41,6 +42,7 @@ function ArchivedTask({ card, onRestore, palette, isDark }) {
           {formatDate(card.completedAt) ? <>Completed <time dateTime={new Date(card.completedAt).toISOString()}>{formatDate(card.completedAt)}</time></> : "Completion date unavailable"}
         </p>
         {formatDate(card.archivedAt) && <p className="mt-0.5 text-xs" style={{ color: groupColors?.cardSubtext || palette.subtext }}>Archived <time dateTime={new Date(card.archivedAt).toISOString()}>{formatDate(card.archivedAt)}</time></p>}
+        {card.dueDate && <p className="mt-0.5 text-xs" style={{ color: groupColors?.cardSubtext || palette.subtext }}>{formatDueDate(card)}</p>}
         {card.notes ? (
           <p className="mt-1 whitespace-pre-wrap break-words text-xs" style={{ color: groupColors?.cardSubtext || palette.subtext }}>
             {card.notes}

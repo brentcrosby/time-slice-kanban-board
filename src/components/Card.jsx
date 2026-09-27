@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Flag, Check, Play, Pause, RotateCcw, VolumeX } from "lucide-react";
+import { CalendarDays, Flag, Check, Play, Pause, RotateCcw, VolumeX } from "lucide-react";
 import { CardActions } from "./CardActions";
 import { StopwatchControls } from "./StopwatchControls";
 import { SegmentLimitEditor } from "./SegmentLimitEditor";
@@ -9,6 +9,7 @@ import { clamp } from "../utils/misc";
 import { findNextActiveSegment } from "../utils/segments";
 import { secsToHMS } from "../utils/time";
 import { CARD_GROUPS } from "../constants/groups";
+import { formatDueDate, localDateKey } from "../utils/dueDates";
 
 const adjustColorTone = (hex, factor) => {
   if (typeof hex !== "string" || !hex.startsWith("#")) return hex;
@@ -508,6 +509,18 @@ export function Card({
               {card.notes}
             </p>
           ) : null}
+          {card.dueDate && <button
+            type="button"
+            data-card-controls
+            title="Edit due date"
+            aria-label={`${formatDueDate(card)}. Edit due date`}
+            onClick={onEdit}
+            className="interactive-button mt-1 flex max-w-full items-center gap-1 rounded-md text-left text-sm md:text-xs"
+            style={{ color: colId !== "done" && card.dueDate < localDateKey() ? palette.dangerText : cardSubtextColor }}
+          >
+            <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{formatDueDate(card)}</span>
+          </button>}
         </div>
         <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
         {isChiming && <button type="button" data-card-controls className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" style={{ color: cardSubtextColor }} title="Mute chime" aria-label="Mute chime" onClick={onStopChime}><VolumeX size={16} /></button>}
