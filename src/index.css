@@ -11,7 +11,11 @@ body,
 body {
   margin: 0;
   font-family: theme("fontFamily.sans");
-  background-color: #0f172a;
+  background-color: #ffffff;
+}
+
+html[data-tasky-theme="dark"] body {
+  background-color: #191919;
 }
 
 @layer base {

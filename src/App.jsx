@@ -8,7 +8,7 @@ import { EditCardModal } from "./components/EditCardModal";
 import { SettingsModal } from "./components/SettingsModal";
 import { ArchiveModal } from "./components/ArchiveModal";
 import { DEFAULT_COLUMNS, MIN_SEGMENT_SEC } from "./constants";
-import { BODY_FALLBACK_BG, THEME_COLORS } from "./constants/themeColors";
+import { THEME_COLORS } from "./constants/themeColors";
 import { useNowTicker } from "./hooks/useNowTicker";
 import { clamp, uid } from "./utils/misc";
 import {
@@ -25,6 +25,7 @@ import { parseTaskTitle } from "./utils/taskTitle";
 import { useTaskSync } from "./hooks/useTaskSync";
 import { boardFingerprint, boardRevision } from "./utils/boardSync";
 import { useTaskSelection } from "./hooks/useTaskSelection";
+import { usePullToRefresh } from "./hooks/usePullToRefresh";
 import { TaskSelectionToolbar } from "./components/TaskSelectionToolbar";
 import { moveTasks, pauseTask } from "./utils/taskActions";
 
@@ -238,11 +239,18 @@ export default function KanbanTimerBoard() {
 
   useEffect(() => {
     document.body.style.backgroundColor = palette.bg;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", palette.bg);
+    const chromeColor = isDark ? palette.bg : "#ffffff";
+    document.documentElement.dataset.taskyTheme = isDark ? "dark" : "light";
+    document.documentElement.style.backgroundColor = chromeColor;
+    document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", chromeColor);
+    document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.setAttribute("content", isDark ? "black" : "default");
     return () => {
-      document.body.style.backgroundColor = BODY_FALLBACK_BG;
+      document.body.style.backgroundColor = "";
     };
-  }, [palette.bg]);
+  }, [palette.bg, isDark]);
+
+  const pullToRefresh = usePullToRefresh();
 
   const audioRef = useRef(null);
   const [chimeActive, setChimeActive] = useState(false);
@@ -1208,6 +1216,15 @@ export default function KanbanTimerBoard() {
       data-theme={theme}
       style={{ backgroundColor: palette.bg, color: palette.text }}
     >
+      {pullToRefresh.offset > 0 && <div
+        role="status"
+        aria-live="polite"
+        className="pointer-events-none fixed left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium shadow-md"
+        style={{ top: 12, transform: `translate(-50%, ${Math.min(pullToRefresh.offset, 88)}px)`, backgroundColor: palette.surface, borderColor: palette.border, color: palette.text }}
+      >
+        <span aria-hidden="true" className={pullToRefresh.refreshing ? "animate-spin" : ""}>↻</span>
+        {pullToRefresh.refreshing ? "Refreshing…" : pullToRefresh.ready ? "Release to refresh" : "Pull to refresh"}
+      </div>}
       <Header
         onOpenHelp={() => setHelpOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
