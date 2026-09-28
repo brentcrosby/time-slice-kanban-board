@@ -1,6 +1,7 @@
 import React from "react";
 import { Volume2, VolumeX, Sun, Moon, Monitor } from "lucide-react";
 import { Modal } from "./Modal";
+import { CARD_CONTROLS } from "../constants/cardControls";
 
 export function SettingsModal({
   onClose,
@@ -15,10 +16,23 @@ export function SettingsModal({
   chimeActive,
   onStopChime,
   onRequestClearAll,
+  pinnedControls,
+  setPinnedControls,
 }) {
   return (
     <Modal onClose={onClose} title="Settings" palette={palette}>
       <div className="space-y-6">
+        <section>
+          <h4 className="text-sm font-semibold" style={{ color: palette.text }}>Pinned task controls</h4>
+          <p className="mt-1 text-xs" style={{ color: palette.subtext }}>Show your favorite controls to the left of each task’s three-dot menu. Active features keep their controls visible. Saved on this device.</p>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {CARD_CONTROLS.map(({ id, label }) => <label key={id} className="inline-flex items-center gap-2 text-sm" style={{ color: palette.text }}>
+              <input type="checkbox" checked={pinnedControls.includes(id)} onChange={(event) => setPinnedControls((current) => event.target.checked ? [...current, id] : current.filter((item) => item !== id))} />
+              {label}
+            </label>)}
+          </div>
+        </section>
+
         <section>
           <h4 className="text-sm font-semibold" style={{ color: palette.text }}>
             Appearance
@@ -149,7 +163,7 @@ export function SettingsModal({
               Auto move tasks with timer
             </label>
             <p className="text-xs" style={{ color: palette.subtext }}>
-              When off, cards stay in their column after starting or finishing a timer.
+              When off, cards stay in their column after starting or finishing a timer. Starting a stopwatch in Do always moves the task to Doing.
             </p>
             <button
               type="button"

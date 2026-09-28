@@ -1,4 +1,17 @@
 import { DEFAULT_SOUND, SOUND_KEY, STORAGE_KEY, THEME_KEY } from "../constants";
+import { CARD_CONTROLS } from "../constants/cardControls";
+
+export function loadPinnedControls() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("tasky:pinned-controls"));
+    return Array.isArray(saved) ? CARD_CONTROLS.filter(({ id }) => saved.includes(id)).map(({ id }) => id) : ["stopwatch"];
+  } catch { return ["stopwatch"]; }
+}
+
+export function savePinnedControls(controls) {
+  try { localStorage.setItem("tasky:pinned-controls", JSON.stringify(controls)); }
+  catch { /* Preferences still work for this session. */ }
+}
 
 const SYNC_BASELINE_KEY = "kanban-timer-board:sync-baseline:v1";
 

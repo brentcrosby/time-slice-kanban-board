@@ -1,18 +1,21 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Flag, ListPlus, MoreHorizontal, MousePointer2, Timer, Pencil, Trash2 } from "lucide-react";
+import { Flag, ListPlus, MoreHorizontal, MousePointer2, Timer, Pencil, Trash2, ArrowRight, ChevronDown, ArrowUpToLine, ArrowDownToLine } from "lucide-react";
 import { SegmentLimitEditor } from "./SegmentLimitEditor";
 
 export function CardActions({
   card, hasTimer, hasStopwatch, palette, color, borderColor, onSetSegments, onStartStopwatch,
   onAddSubtask, onToggleFlag, onSelect, onOpenChange, onEdit, onRemove,
+  colId, onMove,
 }) {
   const [open, setOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
   const [placement, setPlacement] = useState({ up: false, maxHeight: 480 });
   const container = useRef(null);
   const trigger = useRef(null);
   useEffect(() => {
     onOpenChange(open);
     if (!open) {
+      setMoveOpen(false);
       return undefined;
     }
     const position = () => {
@@ -54,7 +57,7 @@ export function CardActions({
   }, [open, onOpenChange]);
   const act = (callback) => () => { setOpen(false); callback(); };
   const buttonClass = "header-action-button flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm";
-  return <div ref={container} className="shrink-0">
+  return <div ref={container} data-card-controls className="shrink-0">
     <button ref={trigger} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="dialog" title="Task options" aria-label={`Options for ${card.title || "task"}`} className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" style={{ color }}>
       <MoreHorizontal className="h-4 w-4" />
     </button>
@@ -67,6 +70,12 @@ export function CardActions({
         <button className={buttonClass} onClick={act(onStartStopwatch)}><Timer size={16} />Start stopwatch</button>
       </>}
       <div className="my-1 border-t" style={{ borderColor: palette.border }} />
+      <button type="button" className={buttonClass} aria-expanded={moveOpen} onClick={() => setMoveOpen((value) => !value)}><ArrowRight size={16} />Move to<ChevronDown size={16} className={`ml-auto transition-transform ${moveOpen ? "rotate-180" : ""}`} /></button>
+      {moveOpen && <div role="group" aria-label="Move task" className="ml-3 border-l pl-1" style={{ borderColor: palette.border }}>
+        <button type="button" className={buttonClass} onClick={act(() => onMove(colId, "top"))}><ArrowUpToLine size={16} />Move to top</button>
+        <button type="button" className={buttonClass} onClick={act(() => onMove(colId, "bottom"))}><ArrowDownToLine size={16} />Move to bottom</button>
+        {[["todo", "Do"], ["doing", "Doing"], ["done", "Done"]].map(([id, label]) => <button type="button" key={id} disabled={colId === id} className={`${buttonClass} disabled:opacity-40`} onClick={act(() => onMove(id, "bottom"))}><ArrowRight size={16} />Move to {label}</button>)}
+      </div>}
       <button className={buttonClass} onClick={act(onSelect)}><MousePointer2 size={16} />Select task</button>
       <button className={buttonClass} style={{ color: palette.dangerText }} onClick={act(onRemove)}><Trash2 size={16} />Delete task</button>
     </div>}

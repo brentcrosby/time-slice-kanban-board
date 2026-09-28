@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, Flag, Check, Play, Pause, RotateCcw, VolumeX } from "lucide-react";
+import { CalendarDays, Flag, Check, Play, Pause, RotateCcw, VolumeX, Timer, ListPlus, Pencil, Trash2 } from "lucide-react";
 import { CardActions } from "./CardActions";
 import { StopwatchControls } from "./StopwatchControls";
 import { SegmentLimitEditor } from "./SegmentLimitEditor";
@@ -38,6 +38,8 @@ const adjustColorTone = (hex, factor) => {
 export function Card({
   card,
   colId,
+  pinnedControls = [],
+  onMove,
   onStart,
   onPause,
   onReset,
@@ -529,8 +531,17 @@ export function Card({
           <button type="button" className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" title={card.running ? "Pause timer" : "Start timer"} aria-label={card.running ? "Pause timer" : "Start timer"} onClick={card.running ? onPause : onStart}>{card.running ? <Pause size={16} /> : <Play size={16} />}</button>
           <button type="button" className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" title="Reset timer" aria-label="Reset timer" onClick={onReset}><RotateCcw size={16} /></button>
         </div>}
+        <div data-card-controls className="flex flex-wrap items-center justify-end gap-1" style={{ color: cardSubtextColor }}>
+          {pinnedControls.includes("stopwatch") && !hasStopwatch && !hasTimer && <button type="button" className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" title="Start stopwatch" aria-label="Start stopwatch" onClick={onStartStopwatch}><Timer size={16} /></button>}
+          {pinnedControls.includes("timer") && !hasStopwatch && !hasTimer && <SegmentLimitEditor card={card} onSetSegments={onSetSegments} palette={palette} subtextColor={cardSubtextColor} borderColor={cardBorderColor} onEditingChange={setFeatureEditing} />}
+          {pinnedControls.includes("subtasks") && <button type="button" className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" title="Add subtask" aria-label="Add subtask" onClick={() => setSubtaskComposerOpen(true)}><ListPlus size={16} /></button>}
+          {pinnedControls.includes("flag") && !card.flagged && <button type="button" className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" title="Flag as important" aria-label="Flag as important" onClick={onToggleFlag}><Flag size={16} /></button>}
+          {pinnedControls.includes("edit") && <button type="button" className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" title="Edit task" aria-label="Edit task" onClick={onEdit}><Pencil size={16} /></button>}
+          {pinnedControls.includes("delete") && <button type="button" className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" title="Delete task" aria-label="Delete task" onClick={onRemove}><Trash2 size={16} /></button>}
+        </div>
         <CardActions
           card={card} hasTimer={hasTimer} hasStopwatch={hasStopwatch}
+          colId={colId} onMove={onMove}
           palette={palette} color={cardSubtextColor} borderColor={cardBorderColor}
           onSetSegments={onSetSegments} onStartStopwatch={onStartStopwatch}
           onAddSubtask={() => setSubtaskComposerOpen(true)} onToggleFlag={onToggleFlag}

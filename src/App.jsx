@@ -19,7 +19,7 @@ import {
   upgradeLegacyCard,
 } from "./utils/segments";
 import { ensureAudioContext, playChime } from "./utils/audio";
-import { clearState, loadSound, loadState, loadTheme, saveSound, saveState, saveTheme } from "./utils/storage";
+import { clearState, loadSound, loadState, loadTheme, saveSound, saveState, saveTheme, loadPinnedControls, savePinnedControls } from "./utils/storage";
 import { DEFAULT_DUE_TIME, applyDueDate, flagDueTasks, setManualFlag } from "./utils/dueDates";
 import { parseTaskTitle } from "./utils/taskTitle";
 import { useTaskSync } from "./hooks/useTaskSync";
@@ -78,6 +78,8 @@ export default function KanbanTimerBoard() {
     typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
   );
   const [sound, setSound] = useState(loadSound());
+  const [pinnedControls, setPinnedControls] = useState(loadPinnedControls);
+  useEffect(() => savePinnedControls(pinnedControls), [pinnedControls]);
   const [autoMoveEnabled, setAutoMoveEnabled] = useState(() => initialStoredState?.autoMoveEnabled ?? true);
   const [syncRevision, setSyncRevision] = useState(() => boardRevision(initialStoredState));
   const [syncSetupOpen, setSyncSetupOpen] = useState(false);
@@ -692,7 +694,7 @@ export default function KanbanTimerBoard() {
   const startStopwatch = (colId, card) => {
     if (card.segments?.length) return;
     const now = Date.now();
-    const targetCol = colId === "todo" && autoMoveEnabled ? "doing" : colId;
+    const targetCol = colId === "todo" ? "doing" : colId;
     updateCardsState((prev) => {
       const source = [...(prev[colId] || [])];
       const cardIndex = source.findIndex((item) => item.id === card.id);
@@ -1256,6 +1258,8 @@ export default function KanbanTimerBoard() {
                     key={card.id}
                     card={card}
                     colId={col.id}
+                    pinnedControls={pinnedControls}
+                    onMove={(destination, position) => updateCardsState((prev) => moveTasks(prev, [card.id], destination, position === "top" ? 0 : null), { track: true })}
                     selected={selection.selectedIds.has(card.id)}
                     selectionActive={selection.selected.length > 0}
                     isCut={selection.clipboard?.mode === "cut" && selection.clipboard.ids.includes(card.id)}
@@ -1391,6 +1395,8 @@ export default function KanbanTimerBoard() {
           setThemePreference={setThemePreference}
           sound={sound}
           setSound={setSound}
+          pinnedControls={pinnedControls}
+          setPinnedControls={setPinnedControls}
           autoMoveEnabled={autoMoveEnabled}
           setAutoMoveEnabled={setAutoMoveEnabled}
           onTest={() => playChime(audioRef, { type: sound.type, volume: sound.volume })}
