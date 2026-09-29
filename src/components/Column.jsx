@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { secsToHHMM } from "../utils/time";
 import { CARD_GROUP_ORDER, CARD_GROUPS, CARD_GROUP_OPTIONS } from "../constants/groups";
 import { summarizeGroupTasks } from "../utils/groupChips";
@@ -21,7 +21,9 @@ export function Column({
   const chipsRef = useRef(null);
   const archiveMenuRef = useRef(null);
   const addMenuRef = useRef(null);
+  const addMenuPanelRef = useRef(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [addMenuLayout, setAddMenuLayout] = useState({ placement: "down", maxHeight: null });
   const [chipFadeState, setChipFadeState] = useState({ canScroll: false, atStart: true, atEnd: true });
   const cardCount = totalCount != null ? totalCount : cards.length;
   const hasCards = cardCount > 0;
@@ -45,6 +47,37 @@ export function Column({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+  useLayoutEffect(() => {
+    if (!addMenuOpen) return;
+    const updatePlacement = () => {
+      const control = addMenuRef.current;
+      const menu = addMenuPanelRef.current;
+      if (!control || !menu) return;
+      const viewport = window.visualViewport;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight);
+      const bounds = control.getBoundingClientRect();
+      const below = Math.max(0, viewportBottom - bounds.bottom - 8);
+      const above = Math.max(0, bounds.top - viewportTop - 8);
+      const menuHeight = menu.scrollHeight;
+      const placement = below >= menuHeight || (above < menuHeight && below >= above) ? "down" : "up";
+      const maxHeight = Math.floor(placement === "down" ? below : above);
+      setAddMenuLayout((current) => current.placement === placement && current.maxHeight === maxHeight
+        ? current : { placement, maxHeight });
+    };
+    updatePlacement();
+    window.addEventListener("resize", updatePlacement);
+    window.addEventListener("scroll", updatePlacement, true);
+    window.visualViewport?.addEventListener("resize", updatePlacement);
+    window.visualViewport?.addEventListener("scroll", updatePlacement);
+    return () => {
+      window.removeEventListener("resize", updatePlacement);
+      window.removeEventListener("scroll", updatePlacement, true);
+      window.visualViewport?.removeEventListener("resize", updatePlacement);
+      window.visualViewport?.removeEventListener("scroll", updatePlacement);
+    };
+  }, [addMenuOpen]);
 
   const findInsertIndex = (event) => {
     const list = event.currentTarget.querySelector("[data-list]");
@@ -312,7 +345,12 @@ export function Column({
           <MoreHorizontal className="h-5 w-5" />
         </button>
         {addMenuOpen && (
-          <div id={`add-task-groups-${column.id}`} className="absolute bottom-full right-0 z-20 mb-2 w-44 rounded-xl border p-1.5 shadow-lg" style={{ backgroundColor: palette.surface, borderColor: palette.border }}>
+          <div
+            ref={addMenuPanelRef}
+            id={`add-task-groups-${column.id}`}
+            className={`absolute right-0 z-20 w-44 overflow-y-auto rounded-xl border p-1.5 shadow-lg ${addMenuLayout.placement === "up" ? "bottom-full mb-2" : "top-full mt-2"}`}
+            style={{ backgroundColor: palette.surface, borderColor: palette.border, maxHeight: addMenuLayout.maxHeight ?? undefined }}
+          >
             {CARD_GROUP_OPTIONS.map(({ value, label }) => {
               const colors = CARD_GROUPS[value]?.colors?.[isDark ? "dark" : "light"];
               return (

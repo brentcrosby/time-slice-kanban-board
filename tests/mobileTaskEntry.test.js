@@ -138,6 +138,29 @@ for (const [label, group, column] of [["Red", "g1", "todo"], ["Blue", "g2", "doi
     assert.deepEqual(savedCards().map((card) => [card.title, card.group]), [["First", group], ["Second", group]]);
   });
 }
+test("group menu opens below when it fits and above near the viewport bottom", async () => {
+  const control = document.querySelector('[data-column-id="doing"] [data-add-task-control]');
+  const originalRect = control.getBoundingClientRect;
+  const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(window.Element.prototype, "scrollHeight");
+  let bounds = { top: 80, bottom: 130 };
+  control.getBoundingClientRect = () => bounds;
+  Object.defineProperty(window.Element.prototype, "scrollHeight", {
+    configurable: true,
+    get() { return this.id?.startsWith("add-task-groups-") ? 180 : scrollHeightDescriptor?.get?.call(this) ?? 0; },
+  });
+  try {
+    await tap(button("Add task group options", control));
+    const menu = control.querySelector('[id^="add-task-groups-"]');
+    assert.equal(menu.classList.contains("top-full"), true);
+    bounds = { top: window.innerHeight - 90, bottom: window.innerHeight - 40 };
+    await act(async () => window.dispatchEvent(new Event("resize")));
+    assert.equal(menu.classList.contains("bottom-full"), true);
+  } finally {
+    control.getBoundingClientRect = originalRect;
+    if (scrollHeightDescriptor) Object.defineProperty(window.Element.prototype, "scrollHeight", scrollHeightDescriptor);
+    else delete window.Element.prototype.scrollHeight;
+  }
+});
 test("Return follows a title group shortcut, including clearing the group", async () => {
   const scope = document.querySelector('[data-column-id="doing"]');
   await tap(button("Add task group options", scope));
