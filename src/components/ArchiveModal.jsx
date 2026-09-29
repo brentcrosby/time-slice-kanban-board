@@ -3,6 +3,7 @@ import { ArchiveRestore, CheckSquare, Clock3, RotateCcw, Flag } from "lucide-rea
 import { Modal } from "./Modal";
 import { CARD_GROUPS } from "../constants/groups";
 import { formatDueDate } from "../utils/dueDates";
+import { groupArchivedCardsByDay } from "../utils/archiveGroups";
 
 const formatStopwatch = (seconds) => {
   const total = Math.max(0, Math.floor(seconds || 0));
@@ -87,18 +88,30 @@ function ArchivedTask({ card, onRestore, palette, isDark }) {
 }
 
 export function ArchiveModal({ archivedCards, onRestore, onClose, palette, isDark }) {
+  const archiveGroups = groupArchivedCardsByDay(archivedCards);
   return (
     <Modal title={`Archived tasks (${archivedCards.length})`} onClose={onClose} palette={palette}>
       {archivedCards.length ? (
-        <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
-          {archivedCards.map((card) => (
-            <ArchivedTask
-              key={card.id}
-              card={card}
-              onRestore={() => onRestore(card.id)}
-              palette={palette}
-              isDark={isDark}
-            />
+        <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
+          {archiveGroups.map((group) => (
+            <section key={group.key} aria-label={group.label}>
+              <div className="mb-2 flex items-center gap-3" aria-hidden="true">
+                <div className="h-px flex-1" style={{ backgroundColor: palette.border }} />
+                <h4 className="shrink-0 text-xs font-semibold" style={{ color: palette.subtext }}>{group.label}</h4>
+                <div className="h-px flex-1" style={{ backgroundColor: palette.border }} />
+              </div>
+              <div className="space-y-2">
+                {group.cards.map((card) => (
+                  <ArchivedTask
+                    key={card.id}
+                    card={card}
+                    onRestore={() => onRestore(card.id)}
+                    palette={palette}
+                    isDark={isDark}
+                  />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       ) : (
