@@ -1,3 +1,5 @@
+import { pauseSubtaskStopwatches } from "./subtaskStopwatch";
+
 export const TASK_COLUMNS = ["todo", "doing", "done"];
 
 // Move only tasks that just changed from unflagged to flagged. This leaves
@@ -20,7 +22,7 @@ export function promoteNewlyFlagged(previous, next) {
 
 // Freeze elapsed time before completing, archiving, or copying a running task.
 export function pauseTask(card, now = Date.now()) {
-  const next = { ...card, running: false, lastStartTs: null };
+  const next = { ...card, running: false, lastStartTs: null, subtasks: pauseSubtaskStopwatches(card.subtasks, now) };
   if (card.running && card.lastStartTs != null && card.segments?.length) {
     const active = card.activeSegmentIndex ?? 0;
     next.segments = card.segments.map((segment, index) => index === active ? {

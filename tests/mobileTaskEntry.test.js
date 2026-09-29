@@ -314,6 +314,71 @@ test("Save with [] opens the subtask editor without creating a blank task", asyn
   assert.deepEqual(savedCards().map((card) => card.title), ["Plan trip"]);
   assert.equal(document.activeElement?.getAttribute("aria-label"), "New subtask");
 });
+test("subtask menu stopwatches add into the task total and pause on completion", async () => {
+  await add("Project []", "todo");
+  await key("Enter");
+  const createSubtask = async (title) => {
+    await act(async () => {
+      const field = document.querySelector('input[aria-label="New subtask"]');
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(field, title);
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => document.querySelector('input[aria-label="New subtask"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+  };
+  await createSubtask("Research");
+  await createSubtask("Write");
+  const realNow = Date.now;
+  let now = realNow();
+  Date.now = () => now;
+  try {
+    await tap(button("Options for subtask Research"));
+    const firstMenu = document.querySelector('[role="dialog"][aria-label="Options for subtask Research"]');
+    assert.deepEqual([...firstMenu.querySelectorAll("button")].map((item) => item.textContent), ["Edit subtask", "Start stopwatch", "Delete subtask"]);
+    await tap(button("Start stopwatch", firstMenu));
+    assert.equal(savedCards()[0].subtasks[0].stopwatch.running, true);
+    assert.ok(document.querySelector('[data-column-id="doing"] [data-card-title]'), "starting a subtask clock moves a To Do task to Doing");
+    now += 5000;
+    await tap(button("Options for subtask Research"));
+    await tap(button("Pause stopwatch", document.querySelector('[role="dialog"][aria-label="Options for subtask Research"]')));
+    assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 5);
+    await tap(button("Options for subtask Write"));
+    await tap(button("Start stopwatch", document.querySelector('[role="dialog"][aria-label="Options for subtask Write"]')));
+    now += 3000;
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 120)); });
+    assert.equal(document.querySelector('[title="Total subtask stopwatch time"]').textContent, "0:08");
+    await tap(button("Options for Project"));
+    await tap(button("Move to"));
+    await tap(button("Move to Done"));
+    const saved = savedCards().find((card) => card.title === "Project");
+    assert.equal(saved.subtasks[1].stopwatch.running, false);
+    assert.equal(saved.subtasks[1].stopwatch.elapsedSec, 3);
+  } finally {
+    Date.now = realNow;
+  }
+});
+test("subtask menu edits and deletes the selected subtask", async () => {
+  await add("Project []");
+  await key("Enter");
+  await act(async () => {
+    const field = document.querySelector('input[aria-label="New subtask"]');
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(field, "Draft");
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => document.querySelector('input[aria-label="New subtask"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+  await tap(button("Options for subtask Draft"));
+  await tap(button("Edit subtask", document.querySelector('[role="dialog"][aria-label="Options for subtask Draft"]')));
+  const editField = document.querySelector('input[aria-label="Edit subtask"]');
+  assert.equal(document.activeElement, editField);
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(editField, "Revised");
+    editField.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => editField.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+  assert.equal(savedCards()[0].subtasks[0].title, "Revised");
+  await tap(button("Options for subtask Revised"));
+  await tap(button("Delete subtask", document.querySelector('[role="dialog"][aria-label="Options for subtask Revised"]')));
+  assert.deepEqual(savedCards()[0].subtasks, []);
+});
 test("title shortcuts highlight the exact text and show the saved values on hover", async () => {
   await add("Study 25m g2 due tomorrow at 11am");
   const shortcuts = [...document.querySelectorAll("[data-title-shortcut]")];

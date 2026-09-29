@@ -4,6 +4,7 @@ import { CalendarDays, Flag, Check, Play, Pause, RotateCcw, VolumeX, Timer, List
 import { CardActions } from "./CardActions";
 import { TaskTitleInput } from "./TaskTitleInput";
 import { StopwatchControls } from "./StopwatchControls";
+import { StopwatchReadout } from "./StopwatchReadout";
 import { SegmentLimitEditor } from "./SegmentLimitEditor";
 import { Subtasks } from "./Subtasks";
 import { MIN_SEGMENT_SEC } from "../constants";
@@ -58,6 +59,7 @@ export function Card({
   onEditStopwatchElapsed,
   onUpdateProgress,
   onChangeSubtasks,
+  onToggleSubtaskStopwatch,
   onToggleFlag,
   onSelect,
   onSetSelectionAnchor,
@@ -86,6 +88,7 @@ export function Card({
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [featureEditing, setFeatureEditing] = useState(false);
   const [subtaskComposerOpen, setSubtaskComposerOpen] = useState(false);
+  const [subtaskMenuOpen, setSubtaskMenuOpen] = useState(false);
   const hasTimer = Boolean((card.segments?.length || 0) > 0 || card.durationSec > 0 || card.remainingSec > 0);
   const hasStopwatch = Boolean(card.stopwatch);
   const stopwatchRunning = Boolean(card.stopwatch?.running);
@@ -432,7 +435,7 @@ export function Card({
   return (
     <article
       ref={ref}
-      draggable={!isTitleEditing && !optionsOpen && !featureEditing}
+      draggable={!isTitleEditing && !optionsOpen && !featureEditing && !subtaskMenuOpen}
       tabIndex={0}
       aria-label={`${card.title || "Task"}${card.flagged ? ", important" : ""}${selected ? ", selected" : ""}`}
       onPointerDownCapture={(event) => {
@@ -475,7 +478,7 @@ export function Card({
         padding: TASK_CONTENT_INSET,
         backgroundColor: cardBackgroundColor,
         border: `1px solid ${cardBorderColor}`,
-        zIndex: optionsOpen || featureEditing ? 30 : undefined,
+        zIndex: optionsOpen || featureEditing || subtaskMenuOpen ? 30 : undefined,
         outline: selected ? `2px solid ${palette.text}` : undefined,
         outlineOffset: selected ? 2 : undefined,
         opacity: isCut ? 0.5 : undefined,
@@ -531,6 +534,7 @@ export function Card({
         <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
         {isChiming && <button type="button" data-card-controls className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" style={{ color: cardSubtextColor }} title="Mute chime" aria-label="Mute chime" onClick={onStopChime}><VolumeX size={16} /></button>}
         {hasStopwatch && <StopwatchControls running={stopwatchRunning} elapsed={stopwatchElapsed} onStart={onStartStopwatch} onPause={onPauseStopwatch} onReset={onResetStopwatch} onRemove={onClearStopwatch} onEdit={onEditStopwatchElapsed} color={cardSubtextColor} palette={palette} onEditingChange={setFeatureEditing} />}
+        {card.computedSubtaskStopwatchElapsed != null && <StopwatchReadout elapsed={card.computedSubtaskStopwatchElapsed} label="Total subtask stopwatch time" palette={palette} color={cardSubtextColor} />}
         {hasTimer && <div data-card-controls className="flex items-center gap-1" style={{ color: cardSubtextColor }}>
           <button type="button" className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" title={card.running ? "Pause timer" : "Start timer"} aria-label={card.running ? "Pause timer" : "Start timer"} onClick={card.running ? onPause : onStart}>{card.running ? <Pause size={16} /> : <Play size={16} />}</button>
           <button type="button" className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" title="Reset timer" aria-label="Reset timer" onClick={onReset}><RotateCcw size={16} /></button>
@@ -681,6 +685,8 @@ export function Card({
         adding={subtaskComposerOpen}
         onAddingChange={setSubtaskComposerOpen}
         onChange={onChangeSubtasks}
+        onToggleStopwatch={onToggleSubtaskStopwatch}
+        onMenuOpenChange={setSubtaskMenuOpen}
         palette={palette}
         textColor={cardTextColor}
         subtextColor={cardSubtextColor}
