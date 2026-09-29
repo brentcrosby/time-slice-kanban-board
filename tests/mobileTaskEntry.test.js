@@ -50,7 +50,23 @@ async function tap(node) {
     allowFocus = node.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, cancelable: true }));
     if (allowFocus) node.focus();
   });
-  await act(async () => node.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })));
+  let focusedDuringClick = false;
+  let dispatchingClick = false;
+  const focus = window.HTMLElement.prototype.focus;
+  window.HTMLElement.prototype.focus = function (...args) {
+    if (dispatchingClick && this.matches('input[aria-label="Edit card title"]')) focusedDuringClick = true;
+    return focus.apply(this, args);
+  };
+  try {
+    await act(async () => {
+      dispatchingClick = true;
+      try { node.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })); }
+      finally { dispatchingClick = false; }
+    });
+  } finally {
+    window.HTMLElement.prototype.focus = focus;
+  }
+  return focusedDuringClick;
 }
 async function type(value) {
   await act(async () => {
@@ -62,8 +78,8 @@ async function key(key, options = {}) {
   await act(async () => input().dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...options })));
 }
 async function add(value = "", column = "doing") {
-  await tap(button("+Add task", document.querySelector(`[data-column-id="${column}"]`)));
-  await act(async () => { await new Promise((resolve) => window.requestAnimationFrame(resolve)); });
+  const focusedDuringClick = await tap(button("+Add task", document.querySelector(`[data-column-id="${column}"]`)));
+  assert.equal(focusedDuringClick, true, "Add task focuses the new input during the tap");
   assert.equal(document.activeElement, input());
   if (value) await type(value);
 }
@@ -116,7 +132,8 @@ test("Cancel and Escape discard typed drafts, even when blur follows", async () 
 test("clearing an existing title preserves it; later edits still save", async () => {
   await add("Keep me");
   await key("Enter");
-  await tap(button("Keep me"));
+  assert.equal(await tap(button("Keep me")), true, "title tap focuses the input immediately");
+  assert.equal(document.activeElement, input());
   await type(" ");
   await key("Enter");
   assert.equal(savedCards()[0].title, "Keep me");

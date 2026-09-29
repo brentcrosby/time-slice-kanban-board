@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { CalendarDays, Flag, Check, Play, Pause, RotateCcw, VolumeX, Timer, ListPlus, Pencil, Trash2 } from "lucide-react";
 import { CardActions } from "./CardActions";
 import { StopwatchControls } from "./StopwatchControls";
@@ -70,11 +71,13 @@ export function Card({
   onDraftCancel = () => {},
 }) {
   const ref = useRef(null);
-  const [isTitleEditing, setIsTitleEditing] = useState(false);
+  // A new draft mounts its input during the Add task tap, while iOS still
+  // allows that tap to open the software keyboard.
+  const [isTitleEditing, setIsTitleEditing] = useState(autoFocusTitle);
   const [titleDraft, setTitleDraft] = useState(card.title ?? "");
   const titleInputRef = useRef(null);
   // Close each edit session once: Enter, blur, and a tap can arrive together.
-  const titleEditActiveRef = useRef(false);
+  const titleEditActiveRef = useRef(autoFocusTitle);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [featureEditing, setFeatureEditing] = useState(false);
   const [subtaskComposerOpen, setSubtaskComposerOpen] = useState(false);
@@ -132,16 +135,10 @@ export function Card({
     }
   }, [card.title, isTitleEditing]);
 
-  useEffect(() => {
-    if (!isTitleEditing) return undefined;
-    const frame = window.requestAnimationFrame(() => {
-      const node = titleInputRef.current;
-      if (node) {
-        node.focus();
-        node.select();
-      }
-    });
-    return () => window.cancelAnimationFrame(frame);
+  useLayoutEffect(() => {
+    if (!isTitleEditing) return;
+    titleInputRef.current?.focus();
+    titleInputRef.current?.select();
   }, [isTitleEditing]);
 
   const segmentFlexMeta = useMemo(() => {
@@ -353,11 +350,9 @@ export function Card({
     setIsTitleEditing(true);
   }, [card.title]);
 
-  useEffect(() => {
-    if (!autoFocusTitle || isTitleEditing) return;
-    startTitleEditing();
-    onAutoFocusHandled(card.id);
-  }, [autoFocusTitle, isTitleEditing, startTitleEditing, onAutoFocusHandled, card.id]);
+  useLayoutEffect(() => {
+    if (autoFocusTitle) onAutoFocusHandled(card.id);
+  }, [autoFocusTitle, onAutoFocusHandled, card.id]);
 
   const handleTitleKeyDown = (event) => {
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
@@ -503,7 +498,7 @@ export function Card({
             <button
               type="button"
               data-card-title
-              onClick={startTitleEditing}
+              onClick={() => flushSync(startTitleEditing)}
               className={titleButtonClass}
               style={{ color: cardTextColor }}
             >
