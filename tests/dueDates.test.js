@@ -35,6 +35,33 @@ test("invalid dates stay in title, and a clear shortcut removes a due date", () 
   assert.equal(extractDueShortcut("Send due clear", now).cleanTitle.trim(), "Send");
 });
 
+test("trailing natural date phrases set due dates without the word due", () => {
+  const cases = [
+    ["Meeting with Client Wednesday at 11am", "Meeting with Client", "2026-09-30", "11:00", true],
+    ["Call client on Wednesday at 11:30 AM", "Call client", "2026-09-30", "11:30", true],
+    ["Doctor appointment tomorrow at 2pm", "Doctor appointment", "2026-09-27", "14:00", true],
+    ["Team meeting next Monday at 17:00", "Team meeting", "2026-09-28", "17:00", true],
+    ["Send report Sept 29 at 5pm", "Send report", "2026-09-29", "17:00", true],
+    ["Pay rent on 10/1", "Pay rent", "2026-10-01", "23:59", false],
+  ];
+  for (const [raw, title, date, time, explicit] of cases) {
+    const parsed = extractDueShortcut(raw, now);
+    assert.equal(parsed.cleanTitle, title, raw);
+    assert.equal(parsed.dueDate, date, raw);
+    assert.equal(parsed.dueTime, time, raw);
+    assert.equal(parsed.dueTimeExplicit, explicit, raw);
+  }
+});
+
+test("ambiguous or invalid unmarked date text stays in the task title", () => {
+  for (const title of ["Discuss Wednesday meeting notes", "Read about Monday's meeting", "Send report Sept 31", "Meet client Wednesday at 14pm"]) {
+    const parsed = extractDueShortcut(title, now);
+    assert.equal(parsed.cleanTitle, title);
+    assert.equal(parsed.dueFound, false);
+  }
+  assert.equal(extractDueShortcut("Send report due clear", now).dueDate, null);
+});
+
 test("automatic flags trigger once on due day and respect later manual changes", () => {
   const task = { id: "a", flagged: false, dueDate: "2026-09-27", dueTime: "23:59" };
   const board = { todo: [task], doing: [], done: [] };

@@ -8,6 +8,13 @@ const DATE_RE = `(?:today|tomorrow|tmrw|tmr|tonight|in\\s+\\d+\\s+days?|(?:next|
 const TIME_RE = "(?:[01]?\\d|2[0-3]):[0-5]\\d\\s*(?:am|pm)?|(?:0?[1-9]|1[0-2])\\s*(?:am|pm)";
 const DUE_RE = new RegExp(`\\bdue\\s+(?:by\\s+|on\\s+)?(${DATE_RE})(?:\\s+(?:at|by)\\s+(${TIME_RE})|\\s+(${TIME_RE}))?(?=$|[\\s.,;!?)])`, "i");
 
+// Unmarked date phrases count as shortcuts only at the end of a title.
+// Clearing a date still requires the explicit "due clear" shortcut.
+const IMPLICIT_DATE_RE = new RegExp(
+  "\\s+(?:on\\s+)?(" + DATE_RE.replace("|none|clear|remove", "") + ")(?:\\s+(?:at|by)\\s+(" + TIME_RE + ")|\\s+(" + TIME_RE + "))?[.,;!?]*$",
+  "i"
+);
+
 export const localDateKey = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
@@ -68,7 +75,7 @@ function parseTimeExpression(raw) {
 }
 
 export function extractDueShortcut(rawTitle, now = new Date()) {
-  const match = String(rawTitle || "").match(DUE_RE);
+  const match = String(rawTitle || "").match(DUE_RE) || String(rawTitle || "").match(IMPLICIT_DATE_RE);
   if (!match) return { cleanTitle: rawTitle || "", dueFound: false };
   const date = parseDateExpression(match[1], now);
   if (date === null && !/^(none|clear|remove)$/i.test(match[1])) return { cleanTitle: rawTitle, dueFound: false };
