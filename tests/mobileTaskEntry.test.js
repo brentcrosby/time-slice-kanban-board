@@ -197,3 +197,13 @@ test("saving a draft still applies duration and due-date shortcuts", async () =>
   assert.ok(card.dueDate);
   assert.equal(card.isDraft, false);
 });
+test("natural weekday and time in a new task become a due date", async () => {
+  await add("Meeting with Client Wednesday at 11am");
+  await tap(button("Save"));
+  const [card] = savedCards();
+  assert.equal(card.title, "Meeting with Client");
+  assert.equal(card.dueTime, "11:00");
+  assert.equal(card.dueTimeExplicit, true);
+  assert.ok(card.dueDate);
+  assert.equal(card.durationSec, 0);
+});
