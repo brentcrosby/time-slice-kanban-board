@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { secsToHHMM } from "../utils/time";
-import { CARD_GROUP_ORDER, CARD_GROUPS } from "../constants/groups";
+import { CARD_GROUP_ORDER, CARD_GROUPS, CARD_GROUP_OPTIONS } from "../constants/groups";
 import { summarizeGroupTasks } from "../utils/groupChips";
 import { Archive, MoreHorizontal, Plus } from "lucide-react";
 
@@ -20,6 +20,8 @@ export function Column({
   const [dropIndex, setDropIndex] = useState(null);
   const chipsRef = useRef(null);
   const archiveMenuRef = useRef(null);
+  const addMenuRef = useRef(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [chipFadeState, setChipFadeState] = useState({ canScroll: false, atStart: true, atEnd: true });
   const cardCount = totalCount != null ? totalCount : cards.length;
   const hasCards = cardCount > 0;
@@ -28,9 +30,20 @@ export function Column({
     const handlePointerDown = (event) => {
       const menu = archiveMenuRef.current;
       if (menu?.open && !menu.contains(event.target)) menu.open = false;
+      if (!addMenuRef.current?.contains(event.target)) setAddMenuOpen(false);
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape" && addMenuRef.current?.contains(event.target)) {
+        addMenuRef.current.querySelector('[aria-expanded="true"]')?.focus();
+        setAddMenuOpen(false);
+      }
     };
     document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   const findInsertIndex = (event) => {
@@ -277,33 +290,47 @@ export function Column({
         ))}
         {dropIndex !== null && dropIndex >= cards.length ? renderDropIndicator("end") : null}
       </div>
-      <div data-add-task-control className="relative w-full rounded-xl border" style={{ backgroundColor: palette.card, borderColor: palette.border }}>
+      <div ref={addMenuRef} data-add-task-control className="relative w-full rounded-xl border" style={{ backgroundColor: palette.card, borderColor: palette.border }}>
         <button
           type="button"
-          onClick={() => onAddCard(null)}
+          onClick={() => { setAddMenuOpen(false); onAddCard(null); }}
           className="interactive-surface flex min-h-12 w-full items-center justify-center gap-1 rounded-xl px-2 py-3 text-sm font-medium"
           style={{ color: palette.subtext }}
         >
           <span className="text-lg leading-none">+</span>
           <span>Add task</span>
         </button>
-        <div className="absolute right-1.5 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1">
-          {CARD_GROUP_ORDER.map((id) => {
-            const group = CARD_GROUPS[id];
-            const colors = group.colors[isDark ? "dark" : "light"];
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => onAddCard(id)}
-                aria-label={`Add ${group.label} task`}
-                title={`Add ${group.label} task`}
-                className="interactive-button h-6 w-6 rounded-full border"
-                style={{ backgroundColor: colors.badgeBg, borderColor: colors.cardBorder }}
-              />
-            );
-          })}
-        </div>
+        <button
+          type="button"
+          aria-label="Add task group options"
+          aria-expanded={addMenuOpen}
+          aria-controls={`add-task-groups-${column.id}`}
+          onClick={() => setAddMenuOpen((open) => !open)}
+          className="interactive-button absolute right-1 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg"
+          style={{ color: palette.subtext }}
+        >
+          <MoreHorizontal className="h-5 w-5" />
+        </button>
+        {addMenuOpen && (
+          <div id={`add-task-groups-${column.id}`} className="absolute bottom-full right-0 z-20 mb-2 w-44 rounded-xl border p-1.5 shadow-lg" style={{ backgroundColor: palette.surface, borderColor: palette.border }}>
+            {CARD_GROUP_OPTIONS.map(({ value, label }) => {
+              const colors = CARD_GROUPS[value]?.colors?.[isDark ? "dark" : "light"];
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-label={value ? `Add ${label} task` : "Add task without a group"}
+                  onClick={() => { setAddMenuOpen(false); onAddCard(value || null); }}
+                  className="interactive-button flex w-full items-center gap-2 rounded-lg px-3 py-3 text-left text-sm"
+                  style={{ color: palette.text }}
+                >
+                  <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-full border" style={{ backgroundColor: colors?.badgeBg || palette.badge, borderColor: colors?.badgeText || palette.border }} />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </section>
   );
