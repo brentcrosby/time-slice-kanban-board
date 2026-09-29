@@ -35,6 +35,8 @@ export function useTaskSelection({ board, orderedIds, updateBoard, removeChimes 
     if (!event.shiftKey) anchor.current = id;
   };
 
+  const setAnchor = (id) => { anchor.current = id; };
+
   const move = (column = destination, index = null) => {
     updateBoard((prev) => moveTasks(prev, selectedIds, column, index), { track: true });
     if (column === "done") removeChimes([...selectedIds]);
@@ -114,7 +116,7 @@ export function useTaskSelection({ board, orderedIds, updateBoard, removeChimes 
     return () => document.removeEventListener("pointerdown", outside);
   }, []);
 
-  return { selectedIds, selected, destination, setDestination, select, move, copy, paste, duplicate, flag, allFlagged,
+  return { selectedIds, selected, destination, setDestination, select, setAnchor, move, copy, paste, duplicate, flag, allFlagged,
     clipboard, deleteIds, confirmDelete, cancelDelete: () => setDeleteIds(null), requestDelete: () => setDeleteIds([...selectedIds]),
     clear: () => { setSelectedIds(new Set()); setClipboard(null); },
   };

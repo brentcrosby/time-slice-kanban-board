@@ -1285,6 +1285,7 @@ export default function KanbanTimerBoard() {
                     selectionActive={selection.selected.length > 0}
                     isCut={selection.clipboard?.mode === "cut" && selection.clipboard.ids.includes(card.id)}
                     onSelect={(event) => selection.select(card.id, col.id, event)}
+                    onSetSelectionAnchor={selection.setAnchor}
                     onToggleFlag={() => updateCardsState((prev) => ({ ...prev, [col.id]: prev[col.id].map((item) => item.id === card.id ? setManualFlag(item, !item.flagged) : item) }), { track: true })}
                     onStart={() => handleStart(col.id, card)}
                     onPause={() => pauseTimer(col.id, card)}
