@@ -90,6 +90,7 @@ export function extractDueShortcut(rawTitle, now = new Date()) {
     dueDate: date ? localDateKey(date) : null,
     dueTime: date ? dueTime : null,
     dueTimeExplicit: Boolean(date && explicitTime),
+    dueRange: { start: match.index + (match[0].match(/^\s*/)?.[0].length || 0), end: match.index + match[0].length },
   };
 }
 

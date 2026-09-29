@@ -71,7 +71,9 @@ export function parseTimeFromTitle(rawTitle) {
   if (!rawTitle) return { cleanTitle: title, durationSec: null, segments: [], groupId: null };
 
   let detectedGroup = null;
-  const titleWithoutGroups = title.replace(GROUP_TOKEN_RE, (match) => {
+  const groupRanges = [];
+  const titleWithoutGroups = title.replace(GROUP_TOKEN_RE, (match, _group, offset) => {
+    groupRanges.push({ start: offset, end: offset + match.length, type: "group" });
     if (!detectedGroup) {
       const lower = match.toLowerCase();
       detectedGroup = lower === "g0" ? "" : lower;
@@ -96,6 +98,7 @@ export function parseTimeFromTitle(rawTitle) {
   }
 
   let slashSegments = null;
+  const shortcutRanges = [...groupRanges, ...matches.map(({ index, token }) => ({ start: index, end: index + token.length, type: "duration" }))];
   if (matches.length && rawTitle.includes("/")) {
     const slashIndices = [];
     for (let i = 0; i < rawTitle.length; i += 1) {
@@ -147,6 +150,7 @@ export function parseTimeFromTitle(rawTitle) {
       durationSec: total,
       segments: durations,
       groupId: detectedGroup,
+      shortcutRanges,
     };
   }
 
@@ -162,6 +166,7 @@ export function parseTimeFromTitle(rawTitle) {
       durationSec: total,
       segments: durations,
       groupId: detectedGroup,
+      shortcutRanges,
     };
   }
 
@@ -174,11 +179,13 @@ export function parseTimeFromTitle(rawTitle) {
       durationSec: sec,
       segments: [],
       groupId: detectedGroup,
+      shortcutRanges,
     };
   }
 
   const lower = rawTitle.toLowerCase();
   let durationSec = null;
+  let durationMatch = null;
 
   const hhmmss = lower.match(/\b(\d+):(\d{1,2}):(\d{1,2})\b/);
   if (hhmmss) {
@@ -187,6 +194,7 @@ export function parseTimeFromTitle(rawTitle) {
     const seconds = parseInt(hhmmss[3], 10) || 0;
     if (minutes >= 0 && minutes < 60 && seconds >= 0 && seconds < 60) {
       durationSec = hours * 3600 + minutes * 60 + seconds;
+      durationMatch = hhmmss;
       title = title.replace(hhmmss[0], "");
     }
   }
@@ -197,6 +205,7 @@ export function parseTimeFromTitle(rawTitle) {
     const seconds = parseInt(mmss[2], 10) || 0;
     if (seconds >= 0 && seconds < 60) {
       durationSec = minutes * 60 + seconds;
+      durationMatch = mmss;
       title = title.replace(mmss[0], "");
     }
   }
@@ -207,6 +216,7 @@ export function parseTimeFromTitle(rawTitle) {
       const hours = verbose[1] ? parseFloat(verbose[1]) : 0;
       const minutes = verbose[2] ? parseFloat(verbose[2]) : 0;
       durationSec = Math.round(hours * 3600 + minutes * 60);
+      durationMatch = verbose;
       title = title.replace(verbose[0], "");
     }
   }
@@ -217,15 +227,18 @@ export function parseTimeFromTitle(rawTitle) {
       const amount = parseFloat(loose[1]);
       const unit = loose[2];
       durationSec = /^h/.test(unit) ? Math.round(amount * 3600) : Math.round(amount * 60);
+      durationMatch = loose;
       title = title.replace(loose[0], "");
     }
   }
 
   title = title.replace(/[()\[\]\-_,]+/g, " ").replace(/\s{2,}/g, " ").trim();
+  if (durationMatch) shortcutRanges.push({ start: durationMatch.index, end: durationMatch.index + durationMatch[0].length, type: "duration" });
   return {
     cleanTitle: title || titleWithoutGroups.trim() || rawTitle.trim(),
     durationSec,
     segments: [],
     groupId: detectedGroup,
+    shortcutRanges,
   };
 }
