@@ -803,7 +803,7 @@ export default function KanbanTimerBoard() {
           : null;
 
       updateCard(colId, cardId, (current) => {
-        let next = { ...current, title: cleanTitle };
+        let next = { ...current, title: cleanTitle, isDraft: false };
 
         if (parsed.groupId != null) {
           const nextGroup = parsed.groupId === "" ? null : parsed.groupId;
@@ -1297,10 +1297,6 @@ export default function KanbanTimerBoard() {
                     onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
                     onChangeSubtasks={(updater) => updateSubtasks(col.id, card.id, updater)}
                     onRename={(nextTitle) => applyTitleShortcuts(col.id, card.id, nextTitle)}
-                    onDraftCommit={() => {
-                      updateCard(col.id, card.id, { isDraft: false });
-                      startDraftCard(col.id);
-                    }}
                     onDraftCancel={() => removeCard(col.id, card.id)}
                     index={index}
                     palette={palette}
@@ -1323,7 +1319,7 @@ export default function KanbanTimerBoard() {
 
       {editCard && (
         <EditCardModal
-          card={editCard.card}
+          card={(cardsByCol[editCard.colId] || []).find((card) => card.id === editCard.card.id) || editCard.card}
           onClose={() => setEditCard(null)}
           onSave={(patch) => {
             const { dueDate, dueTime, dueTimeExplicit, ...otherChanges } = patch;
