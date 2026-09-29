@@ -339,10 +339,10 @@ export function Column({
           aria-expanded={addMenuOpen}
           aria-controls={`add-task-groups-${column.id}`}
           onClick={() => setAddMenuOpen((open) => !open)}
-          className="interactive-button absolute right-1 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg"
+          className="interactive-button absolute right-1 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md hover:bg-black/10"
           style={{ color: palette.subtext }}
         >
-          <MoreHorizontal className="h-5 w-5" />
+          <MoreHorizontal className="h-4 w-4" />
         </button>
         {addMenuOpen && (
           <div
