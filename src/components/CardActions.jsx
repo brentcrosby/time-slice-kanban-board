@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Flag, ListPlus, MoreHorizontal, MousePointer2, Timer, Pencil, Trash2, ArrowRight, ChevronDown, ArrowUpToLine, ArrowDownToLine } from "lucide-react";
+import { Flag, ListPlus, MousePointer2, Timer, Pencil, Trash2, ArrowRight, ChevronDown, ArrowUpToLine, ArrowDownToLine } from "lucide-react";
 import { SegmentLimitEditor } from "./SegmentLimitEditor";
+import { MenuButton } from "./MenuButton";
 
 export function CardActions({
   card, hasTimer, hasStopwatch, palette, color, borderColor, onSetSegments, onStartStopwatch,
@@ -58,9 +59,7 @@ export function CardActions({
   const act = (callback) => () => { setOpen(false); callback(); };
   const buttonClass = "header-action-button flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm";
   return <div ref={container} data-card-controls className="shrink-0">
-    <button ref={trigger} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="dialog" title="Task options" aria-label={`Options for ${card.title || "task"}`} className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" style={{ color }}>
-      <MoreHorizontal className="h-4 w-4" />
-    </button>
+    <MenuButton ref={trigger} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="dialog" title="Task options" aria-label={`Options for ${card.title || "task"}`} color={color} />
     {open && <div data-card-actions role="dialog" aria-label="Task options" className="absolute inset-x-0 z-30 overflow-y-auto rounded-xl border p-1.5 shadow-xl" style={{ [placement.up ? "bottom" : "top"]: placement.offset, maxHeight: placement.maxHeight, backgroundColor: palette.surface, borderColor: palette.border, color: palette.text }}>
       <button className={buttonClass} onClick={act(onEdit)}><Pencil size={16} />Edit task</button>
       {!card.flagged && <button className={buttonClass} onClick={act(onToggleFlag)}><Flag size={16} />Flag as important</button>}

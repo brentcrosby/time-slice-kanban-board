@@ -11,6 +11,7 @@ import { clamp } from "../utils/misc";
 import { findNextActiveSegment } from "../utils/segments";
 import { secsToHMS } from "../utils/time";
 import { CARD_GROUPS } from "../constants/groups";
+import { TASK_CONTENT_INSET } from "../constants/layout";
 import { formatDueDate, localDateKey } from "../utils/dueDates";
 
 const adjustColorTone = (hex, factor) => {
@@ -462,10 +463,11 @@ export function Card({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       data-card-id={card.id}
-      className={`relative interactive-card group rounded-xl p-3 shadow-sm ${
+      className={`relative interactive-card group rounded-xl shadow-sm ${
         hasTimer ? "" : "flex flex-col justify-center"
       }`}
       style={{
+        padding: TASK_CONTENT_INSET,
         backgroundColor: cardBackgroundColor,
         border: `1px solid ${cardBorderColor}`,
         zIndex: optionsOpen || featureEditing ? 30 : undefined,
