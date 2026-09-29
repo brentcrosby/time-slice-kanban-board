@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { flushSync } from "react-dom";
 import { CalendarDays, Flag, Check, Play, Pause, RotateCcw, VolumeX, Timer, ListPlus, Pencil, Trash2 } from "lucide-react";
 import { CardActions } from "./CardActions";
+import { TaskTitleInput } from "./TaskTitleInput";
 import { StopwatchControls } from "./StopwatchControls";
 import { SegmentLimitEditor } from "./SegmentLimitEditor";
 import { Subtasks } from "./Subtasks";
@@ -359,7 +360,8 @@ export function Card({
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     if (event.key === "Enter") {
       event.preventDefault();
-      if (handleTitleCommit() && card.isDraft) onDraftCommit();
+      const committedTitle = (titleInputRef.current?.value ?? titleDraft).trim();
+      if (handleTitleCommit() && card.isDraft) onDraftCommit(committedTitle);
     } else if (event.key === "Escape") {
       event.preventDefault();
       handleTitleCancel();
@@ -477,23 +479,17 @@ export function Card({
         {selectionActive && <button type="button" role="checkbox" aria-checked={selected} aria-label={`Select ${card.title || "task"}`} onClick={(event) => onSelect?.({ ...event, metaKey: true })} className="flex h-5 w-5 shrink-0 items-center justify-center rounded border" style={{ borderColor: palette.text, backgroundColor: selected ? palette.text : "transparent", color: palette.bg }}>{selected && <Check size={14} />}</button>}
         <div className="min-w-[5rem] flex-1">
           {isTitleEditing ? (
-            <input
+            <TaskTitleInput
               ref={titleInputRef}
               value={titleDraft}
               onChange={(event) => setTitleDraft(event.target.value)}
               onKeyDown={handleTitleKeyDown}
               onBlur={handleTitleBlur}
               onPointerDown={handleTitleInputPointerDown}
-              className="w-full rounded-md border px-2 py-1 text-base font-semibold md:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30"
-              style={{
-                color: cardTextColor,
-                backgroundColor: palette.surface,
-                borderColor: cardBorderColor,
-              }}
-              enterKeyHint="done"
-              spellCheck="false"
-              autoComplete="off"
-              aria-label="Edit card title"
+              color={cardTextColor}
+              borderColor={cardBorderColor}
+              palette={palette}
+              isDark={isDark}
             />
           ) : (
             <button

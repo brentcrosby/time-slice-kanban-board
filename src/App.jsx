@@ -628,8 +628,8 @@ export default function KanbanTimerBoard() {
     return card.id;
   };
 
-  const startDraftCard = (colId) => {
-    const newId = addCard(colId, { title: "", isDraft: true });
+  const startDraftCard = (colId, group = null) => {
+    const newId = addCard(colId, { title: "", isDraft: true, group });
     setPendingTitleEditId(newId);
     return newId;
   };
@@ -1268,7 +1268,7 @@ export default function KanbanTimerBoard() {
                 totalCount={totalCount}
                 onDropCard={(cardId, fromCol, insertIndex) => selection.selectedIds.has(cardId)
                   ? selection.move(col.id, insertIndex) : moveCard(fromCol, col.id, cardId, insertIndex)}
-                onAddCard={() => flushSync(() => startDraftCard(col.id))}
+                onAddCard={(group) => flushSync(() => startDraftCard(col.id, group))}
                 onClearColumn={() => setConfirmColumnClear({ colId: col.id, name: col.name })}
                 onArchiveCompleted={archiveCompletedTasks}
                 renderCard={(card, index) => (
@@ -1298,7 +1298,10 @@ export default function KanbanTimerBoard() {
                     onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
                     onChangeSubtasks={(updater) => updateSubtasks(col.id, card.id, updater)}
                     onRename={(nextTitle) => applyTitleShortcuts(col.id, card.id, nextTitle)}
-                    onDraftCommit={() => flushSync(() => startDraftCard(col.id))}
+                    onDraftCommit={(title) => {
+                      const nextGroup = parseTaskTitle(title).groupId ?? card.group;
+                      flushSync(() => startDraftCard(col.id, nextGroup || null));
+                    }}
                     onDraftCancel={() => removeCard(col.id, card.id)}
                     index={index}
                     palette={palette}

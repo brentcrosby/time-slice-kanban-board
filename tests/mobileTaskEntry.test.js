@@ -119,6 +119,39 @@ test("Return can add several tasks in sequence, then leaving removes only the em
   await tap(document.querySelector("h1"));
   assert.deepEqual(savedCards().map((card) => card.title), ["First", "Second"]);
 });
+for (const [label, group, column] of [["Red", "g1", "todo"], ["Blue", "g2", "doing"], ["Yellow", "g3", "done"], ["without a group", null, "todo"]]) {
+  test(`Add ${label} task focuses immediately and Return keeps its group in ${column}`, async () => {
+    const scope = document.querySelector(`[data-column-id="${column}"]`);
+    await tap(button("Add task group options", scope));
+    assert.equal(button("Add task group options", scope).getAttribute("aria-expanded"), "true");
+    assert.equal(await tap(button(`Add ${label} task`.replace("Add without a group task", "Add task without a group"), scope)), true);
+    assert.equal(document.activeElement, input());
+    assert.equal(savedCards()[0].group, group);
+    await type("First");
+    await key("Enter");
+    assert.equal(document.activeElement, input());
+    await type("Second");
+    await key("Enter");
+    assert.deepEqual(savedCards().map((card) => [card.title, card.group]), [["First", group], ["Second", group], ["", group]]);
+    await tap(document.querySelector("h1"));
+    assert.deepEqual(savedCards().map((card) => [card.title, card.group]), [["First", group], ["Second", group]]);
+  });
+}
+test("Return follows a title group shortcut, including clearing the group", async () => {
+  const scope = document.querySelector('[data-column-id="doing"]');
+  await tap(button("Add task group options", scope));
+  await tap(button("Add Red task", scope));
+  await type("First g2");
+  await key("Enter");
+  assert.deepEqual(savedCards().map((card) => card.group), ["g2", "g2"]);
+  await type("Second g0");
+  await key("Enter");
+  assert.deepEqual(savedCards().map((card) => card.group), ["g2", null, null]);
+  await tap(document.querySelector("h1"));
+  await add("Plain task");
+  await tap(button("Save"));
+  assert.equal(savedCards().at(-1).group, null);
+});
 for (const method of ["Return", "blur", "stopwatch"]) {
   test(`whitespace-only draft + ${method} leaves no task`, async () => {
     await add("   ");
@@ -196,6 +229,41 @@ test("saving a draft still applies duration and due-date shortcuts", async () =>
   assert.equal(card.durationSec, 1500);
   assert.ok(card.dueDate);
   assert.equal(card.isDraft, false);
+});
+test("title shortcuts highlight the exact text and show the saved values on hover", async () => {
+  await add("Study 25m g2 due tomorrow at 11am");
+  const shortcuts = [...document.querySelectorAll("[data-title-shortcut]")];
+  assert.deepEqual(shortcuts.map((node) => node.textContent), ["25m", "g2", "due tomorrow at 11am"]);
+  assert.equal(shortcuts[0].dataset.shortcutLabel, "Timer: 25 min");
+  assert.equal(shortcuts[1].dataset.shortcutLabel, "Group: Blue");
+  assert.match(shortcuts[2].dataset.shortcutLabel, /^Due .* at 11:00 AM$/);
+  shortcuts[0].getBoundingClientRect = () => ({ left: 5, right: 30, top: 5, bottom: 25 });
+  await act(async () => input().dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: 10, clientY: 10 })));
+  assert.equal(document.querySelector('[role="tooltip"]').textContent, "Timer: 25 min");
+  await key("Enter");
+  assert.equal(savedCards()[0].title, "Study");
+  assert.equal(savedCards()[0].durationSec, 1500);
+  assert.equal(savedCards()[0].dueTime, "11:00");
+  assert.equal(savedCards()[1].group, "g2");
+});
+test("preview keeps character positions after a due phrase and explains segmented timers", async () => {
+  await add("Study due tomorrow 25m/5m g1");
+  const shortcuts = [...document.querySelectorAll("[data-title-shortcut]")];
+  assert.deepEqual(shortcuts.map((node) => node.textContent), ["due tomorrow", "25m", "5m", "g1"]);
+  assert.equal(shortcuts[1].dataset.shortcutLabel, "Timer: 25 min + 5 min (2 segments)");
+  await act(async () => { input().scrollLeft = 120; input().dispatchEvent(new Event("scroll", { bubbles: true })); });
+  assert.equal(shortcuts[0].parentElement.style.transform, "translateX(-120px)");
+  await tap(button("Save"));
+  assert.equal(savedCards()[0].segments.length, 2);
+});
+test("invalid date text is not highlighted and deleting shortcuts removes the preview", async () => {
+  await add("Report due Sept 31");
+  assert.equal(document.querySelector("[data-title-shortcut]"), null);
+  await type("Report 25m due clear g0");
+  assert.deepEqual([...document.querySelectorAll("[data-title-shortcut]")].map((node) => node.dataset.shortcutLabel), ["Timer: 25 min", "Remove due date", "Group: No group"]);
+  await type("Report");
+  assert.equal(document.querySelector("[data-title-shortcut]"), null);
+  assert.equal(document.querySelector('[role="status"]'), null);
 });
 test("natural weekday and time in a new task become a due date", async () => {
   await add("Meeting with Client Wednesday at 11am");
