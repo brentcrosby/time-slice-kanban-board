@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Header } from "./components/Header";
 import { Column } from "./components/Column";
 import { Card } from "./components/Card";
@@ -1267,7 +1268,7 @@ export default function KanbanTimerBoard() {
                 totalCount={totalCount}
                 onDropCard={(cardId, fromCol, insertIndex) => selection.selectedIds.has(cardId)
                   ? selection.move(col.id, insertIndex) : moveCard(fromCol, col.id, cardId, insertIndex)}
-                onAddCard={() => startDraftCard(col.id)}
+                onAddCard={() => flushSync(() => startDraftCard(col.id))}
                 onClearColumn={() => setConfirmColumnClear({ colId: col.id, name: col.name })}
                 onArchiveCompleted={archiveCompletedTasks}
                 renderCard={(card, index) => (
