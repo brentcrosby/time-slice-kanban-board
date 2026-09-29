@@ -68,6 +68,7 @@ export function Card({
   onStopChime,
   autoFocusTitle = false,
   onAutoFocusHandled = () => {},
+  onDraftCommit = () => {},
   onDraftCancel = () => {},
 }) {
   const ref = useRef(null);
@@ -358,7 +359,7 @@ export function Card({
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     if (event.key === "Enter") {
       event.preventDefault();
-      handleTitleCommit();
+      if (handleTitleCommit() && card.isDraft) onDraftCommit();
     } else if (event.key === "Escape") {
       event.preventDefault();
       handleTitleCancel();

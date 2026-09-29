@@ -48,7 +48,13 @@ async function tap(node) {
   let allowFocus;
   await act(async () => {
     allowFocus = node.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, cancelable: true }));
-    if (allowFocus) node.focus();
+    if (allowFocus) {
+      node.focus();
+      // Tapping nonfocusable page content dismisses the active mobile input.
+      if (document.activeElement !== node && document.activeElement?.matches('input[aria-label="Edit card title"]')) {
+        document.activeElement.blur();
+      }
+    }
   });
   let focusedDuringClick = false;
   let dispatchingClick = false;
@@ -85,10 +91,15 @@ async function add(value = "", column = "doing") {
 }
 
 for (const method of ["Return", "keyboard Done/blur", "Save"]) {
-  test(`${method} saves exactly one named task without a follow-on draft`, async () => {
+  test(`${method} saves exactly one named task without leaving a blank task behind`, async () => {
     await add("  Make breakfast  ");
     assert.equal(input().getAttribute("enterkeyhint"), "done");
-    if (method === "Return") await key("Enter");
+    if (method === "Return") {
+      await key("Enter");
+      assert.equal(cards().length, 2, "Return opens the next draft");
+      assert.equal(document.activeElement, input(), "next draft is focused for typing");
+      assert.equal(input().value, "");
+    }
     else if (method === "Save") await tap(button("Save"));
     else await act(async () => input().blur());
     await tap(document.querySelector("h1"));
@@ -98,6 +109,16 @@ for (const method of ["Return", "keyboard Done/blur", "Save"]) {
     assert.equal(savedCards()[0].isDraft, false);
   });
 }
+test("Return can add several tasks in sequence, then leaving removes only the empty draft", async () => {
+  await add("First");
+  await key("Enter");
+  await type("Second");
+  await key("Enter");
+  assert.deepEqual(savedCards().map((card) => card.title), ["First", "Second", ""]);
+  assert.equal(document.activeElement, input());
+  await tap(document.querySelector("h1"));
+  assert.deepEqual(savedCards().map((card) => card.title), ["First", "Second"]);
+});
 for (const method of ["Return", "blur", "stopwatch"]) {
   test(`whitespace-only draft + ${method} leaves no task`, async () => {
     await add("   ");
@@ -132,6 +153,7 @@ test("Cancel and Escape discard typed drafts, even when blur follows", async () 
 test("clearing an existing title preserves it; later edits still save", async () => {
   await add("Keep me");
   await key("Enter");
+  await tap(document.querySelector("h1"));
   assert.equal(await tap(button("Keep me")), true, "title tap focuses the input immediately");
   assert.equal(document.activeElement, input());
   await type(" ");
@@ -148,7 +170,7 @@ test("IME confirmation does not submit; final Return still does", async () => {
   assert.ok(input());
   await key("Enter");
   assert.equal(savedCards()[0].title, "Composed title");
-  assert.equal(input(), null);
+  assert.ok(input(), "the completed Return opens the next draft");
 });
 test("task options can be opened directly from a draft", async () => {
   await add("Open options");

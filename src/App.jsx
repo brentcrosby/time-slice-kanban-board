@@ -1298,6 +1298,7 @@ export default function KanbanTimerBoard() {
                     onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
                     onChangeSubtasks={(updater) => updateSubtasks(col.id, card.id, updater)}
                     onRename={(nextTitle) => applyTitleShortcuts(col.id, card.id, nextTitle)}
+                    onDraftCommit={() => flushSync(() => startDraftCard(col.id))}
                     onDraftCancel={() => removeCard(col.id, card.id)}
                     index={index}
                     palette={palette}
