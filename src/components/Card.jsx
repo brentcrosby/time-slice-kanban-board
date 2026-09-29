@@ -67,14 +67,14 @@ export function Card({
   onStopChime,
   autoFocusTitle = false,
   onAutoFocusHandled = () => {},
-  onDraftCommit = () => {},
   onDraftCancel = () => {},
 }) {
   const ref = useRef(null);
   const [isTitleEditing, setIsTitleEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(card.title ?? "");
   const titleInputRef = useRef(null);
-  const skipTitleCommitRef = useRef(false);
+  // Close each edit session once: Enter, blur, and a tap can arrive together.
+  const titleEditActiveRef = useRef(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [featureEditing, setFeatureEditing] = useState(false);
   const [subtaskComposerOpen, setSubtaskComposerOpen] = useState(false);
@@ -325,24 +325,30 @@ export function Card({
   const showHoverOverlay = Boolean(overlaySegment && overlayMeta);
 
   const handleTitleCommit = useCallback(() => {
-    skipTitleCommitRef.current = false;
-    const trimmed = (titleDraft || "").trim();
-    const nextTitle = trimmed || "Untitled";
+    if (!titleEditActiveRef.current) return true;
+    titleEditActiveRef.current = false;
+    const trimmed = (titleInputRef.current?.value ?? titleDraft).trim();
     setIsTitleEditing(false);
-    setTitleDraft(nextTitle);
-    if (nextTitle !== card.title) {
-      onRename(nextTitle);
+    if (!trimmed) {
+      setTitleDraft(card.title ?? "");
+      if (card.isDraft) onDraftCancel();
+      return !card.isDraft;
     }
-  }, [card.title, onRename, titleDraft]);
+    setTitleDraft(trimmed);
+    if (card.isDraft || trimmed !== card.title) onRename(trimmed);
+    return true;
+  }, [card.title, card.isDraft, onDraftCancel, onRename, titleDraft]);
 
   const handleTitleCancel = useCallback(() => {
-    skipTitleCommitRef.current = false;
+    if (!titleEditActiveRef.current) return;
+    titleEditActiveRef.current = false;
     setIsTitleEditing(false);
     setTitleDraft(card.title ?? "");
-  }, [card.title]);
+    if (card.isDraft) onDraftCancel();
+  }, [card.title, card.isDraft, onDraftCancel]);
 
   const startTitleEditing = useCallback(() => {
-    skipTitleCommitRef.current = false;
+    titleEditActiveRef.current = true;
     setTitleDraft(card.title ?? "");
     setIsTitleEditing(true);
   }, [card.title]);
@@ -354,34 +360,18 @@ export function Card({
   }, [autoFocusTitle, isTitleEditing, startTitleEditing, onAutoFocusHandled, card.id]);
 
   const handleTitleKeyDown = (event) => {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     if (event.key === "Enter") {
       event.preventDefault();
       handleTitleCommit();
-      if (card.isDraft) {
-        onDraftCommit();
-      }
     } else if (event.key === "Escape") {
       event.preventDefault();
-      skipTitleCommitRef.current = true;
-      if (card.isDraft) {
-        onDraftCancel();
-      } else {
-        handleTitleCancel();
-      }
+      handleTitleCancel();
     }
   };
 
-  const handleTitleBlur = () => {
-    if (skipTitleCommitRef.current) {
-      skipTitleCommitRef.current = false;
-      return;
-    }
-    if (card.isDraft) {
-      onDraftCancel();
-      return;
-    }
-    handleTitleCommit();
-  };
+  // iOS keyboard Done/checkmark dismisses the field without sending Enter.
+  const handleTitleBlur = () => handleTitleCommit();
 
   const handleTitleInputPointerDown = (event) => {
     event.stopPropagation();
@@ -441,10 +431,23 @@ export function Card({
       tabIndex={0}
       aria-label={`${card.title || "Task"}${card.flagged ? ", important" : ""}${selected ? ", selected" : ""}`}
       onPointerDownCapture={(event) => {
+        // Keep the tapped control in place until its click has saved the title
+        // and run the action. This also prevents blur from beating Cancel.
+        if (isTitleEditing && event.target.closest("button, summary") &&
+          event.target.closest("[data-card-controls], [data-card-actions], [data-title-editor]")) {
+          event.preventDefault();
+        }
         if ((event.metaKey || event.ctrlKey || event.shiftKey) && !event.target.closest('input, textarea, [contenteditable="true"], [data-subtasks]')) event.preventDefault();
       }}
       onClickCapture={(event) => {
-        if (card.isDraft || event.target.closest('input, textarea, select, [contenteditable="true"], [data-subtasks], [data-card-actions], [data-card-controls]')) return;
+        if (isTitleEditing && event.target.closest("button, summary") &&
+          event.target.closest("[data-card-controls], [data-card-actions]") &&
+          !handleTitleCommit()) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        if (card.isDraft || event.target.closest('input, textarea, select, [contenteditable="true"], [data-subtasks], [data-card-actions], [data-card-controls], [data-title-editor]')) return;
         if (event.metaKey || event.ctrlKey || event.shiftKey) {
           event.preventDefault();
           event.stopPropagation();
@@ -491,6 +494,7 @@ export function Card({
                 backgroundColor: palette.surface,
                 borderColor: cardBorderColor,
               }}
+              enterKeyHint="done"
               spellCheck="false"
               autoComplete="off"
               aria-label="Edit card title"
@@ -550,6 +554,24 @@ export function Card({
         />
         </div>
       </div>
+
+      {isTitleEditing && (
+        <div data-title-editor className="mt-2 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={handleTitleCancel}
+            className="interactive-button min-h-[44px] rounded-lg px-3 text-sm"
+            style={{ color: cardSubtextColor }}
+          >Cancel</button>
+          <button
+            type="button"
+            onClick={handleTitleCommit}
+            disabled={!titleDraft.trim()}
+            className="interactive-button flex min-h-[44px] items-center gap-1.5 rounded-lg border px-3 text-sm font-medium disabled:opacity-40"
+            style={{ color: cardTextColor, borderColor: cardBorderColor, backgroundColor: palette.surface }}
+          ><Check size={16} />Save</button>
+        </div>
+      )}
 
       {hasTimer ? <div className="mb-2">
         <div
