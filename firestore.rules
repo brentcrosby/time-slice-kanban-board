@@ -34,5 +34,33 @@ service cloud.firestore {
           || request.resource.data.state.syncRevision > resource.data.state.syncRevision);
       allow delete: if false;
     }
+
+    match /users/{userId}/notifications/{subscriptionId} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function validSubscription() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['endpoint', 'keys', 'timeZone', 'updatedAt'])
+          && data.keys().hasOnly(['endpoint', 'keys', 'timeZone', 'updatedAt', 'lastSentDate', 'lastSentAt'])
+          && data.endpoint is string && data.endpoint.size() <= 2048
+          && data.endpoint.matches('https://.*')
+          && data.keys is map && data.keys.keys().hasAll(['p256dh', 'auth'])
+          && data.keys.keys().hasOnly(['p256dh', 'auth'])
+          && data.keys.p256dh is string && data.keys.p256dh.size() <= 256
+          && data.keys.auth is string && data.keys.auth.size() <= 256
+          && data.timeZone is string && data.timeZone.size() <= 100
+          && data.updatedAt == request.time
+          && (!data.keys().hasAny(['lastSentDate']) || data.lastSentDate is string)
+          && (!data.keys().hasAny(['lastSentAt']) || data.lastSentAt is timestamp);
+      }
+
+      allow read, delete: if isOwner();
+      allow create: if isOwner() && validSubscription()
+        && !request.resource.data.keys().hasAny(['lastSentDate', 'lastSentAt']);
+      allow update: if isOwner() && validSubscription()
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastSentDate', 'lastSentAt']);
+    }
   }
 }

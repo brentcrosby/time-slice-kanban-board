@@ -11,6 +11,9 @@ export function SettingsModal({
   setSound,
   autoMoveEnabled,
   setAutoMoveEnabled,
+  dueNotifications,
+  syncUser,
+  syncStatus,
   onTest,
   palette,
   chimeActive,
@@ -147,6 +150,33 @@ export function SettingsModal({
               </div>
             )}
           </div>
+        </section>
+
+        <section>
+          <h4 className="text-sm font-semibold" style={{ color: palette.text }}>Due date reminders</h4>
+          <p className="mt-1 text-xs" style={{ color: palette.subtext }}>
+            Get one notification at 8:00 a.m. in this device’s time zone when unfinished tasks are due today.
+          </p>
+          {!syncUser ? (
+            <p className="mt-2 text-sm" style={{ color: palette.subtext }}>Sign in with Google to sync tasks before enabling reminders.</p>
+          ) : !dueNotifications.supported ? (
+            <p className="mt-2 text-sm" style={{ color: palette.subtext }}>On iPhone, add Tasky to your Home Screen in Safari, then open it there to enable notifications.</p>
+          ) : !dueNotifications.available ? (
+            <p className="mt-2 text-sm" style={{ color: palette.subtext }}>Reminders are being set up and aren’t available yet.</p>
+          ) : dueNotifications.permission === "denied" ? (
+            <p className="mt-2 text-sm" style={{ color: palette.subtext }}>Notifications are blocked. Allow Tasky notifications in your device settings.</p>
+          ) : (
+            <button
+              type="button"
+              disabled={dueNotifications.busy || syncStatus !== "synced"}
+              onClick={dueNotifications.enabled ? dueNotifications.disable : dueNotifications.enable}
+              className="interactive-button mt-3 rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-50"
+              style={{ border: `1px solid ${palette.border}`, color: palette.text }}
+            >
+              {dueNotifications.busy ? "Updating…" : dueNotifications.enabled ? "Turn off reminders" : "Enable reminders"}
+            </button>
+          )}
+          {dueNotifications.error && <p role="alert" className="mt-2 text-xs" style={{ color: palette.dangerText }}>{dueNotifications.error}</p>}
         </section>
 
         <section>

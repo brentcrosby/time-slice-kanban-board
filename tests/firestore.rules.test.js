@@ -71,3 +71,31 @@ test("Tasky board rules isolate owners and reject malformed writes", async () =>
     await environment.cleanup();
   }
 });
+
+test("notification subscriptions belong to their owner and clients cannot forge delivery state", async () => {
+  const environment = await initializeTestEnvironment({
+    projectId: "demo-tasky",
+    firestore: { rules: readFileSync(new URL("../firestore.rules", import.meta.url), "utf8") },
+  });
+  try {
+    const owner = environment.authenticatedContext("owner");
+    const stranger = environment.authenticatedContext("stranger");
+    const path = ["users", "owner", "notifications", "device"];
+    const target = doc(owner.firestore(), ...path);
+    const value = { endpoint: "https://web.push.apple.com/endpoint", keys: { p256dh: "abc", auth: "def" }, timeZone: "America/Los_Angeles", updatedAt: serverTimestamp() };
+    await assertSucceeds(setDoc(target, value));
+    await assertSucceeds(getDoc(target));
+    await assertFails(getDoc(doc(stranger.firestore(), ...path)));
+    await assertFails(setDoc(doc(stranger.firestore(), ...path), value));
+    await assertFails(setDoc(target, { ...value, lastSentDate: "2026-09-29" }));
+    const sentAt = new Date("2026-09-29");
+    await environment.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), ...path), { ...value, updatedAt: new Date(), lastSentDate: "2026-09-29", lastSentAt: sentAt });
+    });
+    await assertSucceeds(setDoc(target, { ...value, lastSentDate: "2026-09-29", lastSentAt: sentAt }));
+    await assertFails(setDoc(target, { ...value, lastSentDate: "2026-09-30", lastSentAt: sentAt }));
+    await assertSucceeds(deleteDoc(target));
+  } finally {
+    await environment.cleanup();
+  }
+});

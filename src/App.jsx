@@ -24,6 +24,7 @@ import { clearState, loadSound, loadState, loadTheme, saveSound, saveState, save
 import { DEFAULT_DUE_TIME, applyDueDate, flagDueTasks, setManualFlag } from "./utils/dueDates";
 import { parseTaskTitle } from "./utils/taskTitle";
 import { useTaskSync } from "./hooks/useTaskSync";
+import { useDueNotifications } from "./hooks/useDueNotifications";
 import { boardFingerprint, boardRevision } from "./utils/boardSync";
 import { useTaskSelection } from "./hooks/useTaskSelection";
 import { usePullToRefresh } from "./hooks/usePullToRefresh";
@@ -137,9 +138,13 @@ export default function KanbanTimerBoard() {
     futureRef.current = [];
   }, []);
   const taskSync = useTaskSync(localSyncState, applySyncedState, setSyncRevision);
+  const dueNotifications = useDueNotifications(taskSync.user, taskSync.status);
 
   const handleSignOut = async (removeLocalTasks) => {
     setSigningOut(true);
+    if (dueNotifications.enabled) {
+      await dueNotifications.disable();
+    }
     const signedOut = await taskSync.signOut();
     if (signedOut && removeLocalTasks) {
       clearState();
@@ -1414,6 +1419,9 @@ export default function KanbanTimerBoard() {
           setPinnedControls={setPinnedControls}
           autoMoveEnabled={autoMoveEnabled}
           setAutoMoveEnabled={setAutoMoveEnabled}
+          dueNotifications={dueNotifications}
+          syncUser={taskSync.user}
+          syncStatus={taskSync.status}
           onTest={() => playChime(audioRef, { type: sound.type, volume: sound.volume })}
           palette={palette}
           chimeActive={chimeActive}
