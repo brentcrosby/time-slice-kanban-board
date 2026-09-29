@@ -119,13 +119,13 @@ test("Return can add several tasks in sequence, then leaving removes only the em
   await tap(document.querySelector("h1"));
   assert.deepEqual(savedCards().map((card) => card.title), ["First", "Second"]);
 });
-for (const [label, group, column] of [["Red", "g1", "todo"], ["Blue", "g2", "doing"], ["Yellow", "g3", "done"]]) {
+for (const [label, group, column] of [["Red", "g1", "todo"], ["Blue", "g2", "doing"], ["Yellow", "g3", "done"], ["without a group", null, "todo"]]) {
   test(`Add ${label} task focuses immediately and Return keeps its group in ${column}`, async () => {
     const scope = document.querySelector(`[data-column-id="${column}"]`);
-    const groupButtons = [...scope.querySelectorAll('[data-add-task-control] button[aria-label^="Add "]')];
-    assert.deepEqual(groupButtons.map((node) => node.getAttribute("aria-label")), ["Add Red task", "Add Blue task", "Add Yellow task"]);
-    assert.equal(groupButtons.every((node) => node.textContent.trim() === ""), true);
-    assert.equal(await tap(button(`Add ${label} task`, scope)), true);
+    assert.equal(await tap(button("Add task group options", scope)), false);
+    assert.equal(button("Add task group options", scope).getAttribute("aria-expanded"), "true");
+    assert.deepEqual([...scope.querySelectorAll('[data-add-task-control] [id^="add-task-groups-"] button')].map((node) => node.textContent.trim()), ["No group", "Red", "Blue", "Yellow"]);
+    assert.equal(await tap(button(group ? `Add ${label} task` : "Add task without a group", scope)), true);
     assert.equal(document.activeElement, input());
     assert.equal(savedCards()[0].group, group);
     await type("First");
@@ -140,6 +140,7 @@ for (const [label, group, column] of [["Red", "g1", "todo"], ["Blue", "g2", "doi
 }
 test("Return follows a title group shortcut, including clearing the group", async () => {
   const scope = document.querySelector('[data-column-id="doing"]');
+  await tap(button("Add task group options", scope));
   await tap(button("Add Red task", scope));
   await type("First g2");
   await key("Enter");
