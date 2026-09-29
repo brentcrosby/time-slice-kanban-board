@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, GripVertical, ListChecks, Pencil, Plus, Trash2 } from "lucide-react";
 import { uid } from "../utils/misc";
 
@@ -26,7 +26,7 @@ export function Subtasks({
   const editInputRef = useRef(null);
   const completedCount = subtasks.filter((subtask) => subtask.completed).length;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (adding && !expanded) {
       setExpanded(true);
     } else if (adding) {

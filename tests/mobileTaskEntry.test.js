@@ -286,6 +286,34 @@ test("saving a draft still applies duration and due-date shortcuts", async () =>
   assert.ok(card.dueDate);
   assert.equal(card.isDraft, false);
 });
+test("[] saves the task and focuses its subtask editor instead of opening another task", async () => {
+  await add("Plan trip [] due tomorrow", "doing");
+  const shortcut = document.querySelector('[data-title-shortcut][data-shortcut-label="Open subtask editor"]');
+  assert.equal(shortcut?.textContent, "[]");
+  await key("Enter");
+  const [card] = savedCards().filter((item) => item.title === "Plan trip");
+  assert.ok(card?.dueDate);
+  assert.equal(card.isDraft, false);
+  assert.equal(input(), null, "Enter does not open the next task draft");
+  const subtaskInput = document.querySelector(`[data-card-id="${card.id}"] input[aria-label="New subtask"]`);
+  assert.ok(subtaskInput);
+  assert.equal(document.activeElement, subtaskInput);
+});
+test("[] also opens the subtask editor when renaming a saved task", async () => {
+  await add("Plan trip");
+  await tap(button("Save"));
+  await tap(button("Plan trip"));
+  await type("Plan trip []");
+  await key("Enter");
+  assert.equal(savedCards()[0].title, "Plan trip");
+  assert.equal(document.activeElement?.getAttribute("aria-label"), "New subtask");
+});
+test("Save with [] opens the subtask editor without creating a blank task", async () => {
+  await add("Plan trip []");
+  await tap(button("Save"));
+  assert.deepEqual(savedCards().map((card) => card.title), ["Plan trip"]);
+  assert.equal(document.activeElement?.getAttribute("aria-label"), "New subtask");
+});
 test("title shortcuts highlight the exact text and show the saved values on hover", async () => {
   await add("Study 25m g2 due tomorrow at 11am");
   const shortcuts = [...document.querySelectorAll("[data-title-shortcut]")];

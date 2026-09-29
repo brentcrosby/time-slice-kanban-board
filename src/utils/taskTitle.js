@@ -3,10 +3,23 @@ import { extractDueShortcut, formatDueDate } from "./dueDates";
 import { CARD_GROUPS } from "../constants/groups";
 import { sanitizeSegmentDuration } from "./segments";
 
+function subtaskShortcuts(title) {
+  const ranges = [...String(title || "").matchAll(/(^|\s)\[\](?=\s|$)/g)].map((match) => {
+    const start = match.index + match[1].length;
+    return { start, end: start + 2, type: "subtask" };
+  });
+  let maskedTitle = String(title || "");
+  for (const { start, end } of ranges) {
+    maskedTitle = maskedTitle.slice(0, start) + " ".repeat(end - start) + maskedTitle.slice(end);
+  }
+  return { ranges, maskedTitle };
+}
+
 export function parseTaskTitle(rawTitle, now = new Date()) {
-  const due = extractDueShortcut(rawTitle, now);
+  const { ranges, maskedTitle } = subtaskShortcuts(rawTitle);
+  const due = extractDueShortcut(maskedTitle, now);
   const parsed = parseTimeFromTitle(due.cleanTitle);
-  return { ...parsed, ...due, cleanTitle: parsed.cleanTitle };
+  return { ...parsed, ...due, cleanTitle: parsed.cleanTitle, openSubtaskEditor: ranges.length > 0, subtaskRanges: ranges };
 }
 
 function durationLabel(seconds) {
@@ -32,5 +45,6 @@ export function previewTaskTitle(rawTitle, now = new Date()) {
     label: range.type === "group" ? `Group: ${CARD_GROUPS[parsed.groupId]?.label || "No group"}` : timerLabel,
   }));
   if (dueRange) tokens.push({ ...dueRange, type: "due", label: parsed.dueDate ? formatDueDate(parsed, now) : "Remove due date" });
+  tokens.push(...parsed.subtaskRanges.map((range) => ({ ...range, label: "Open subtask editor" })));
   return tokens.sort((left, right) => left.start - right.start).map((token) => ({ ...token, text: rawTitle.slice(token.start, token.end) }));
 }
