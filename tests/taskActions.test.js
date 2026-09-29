@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { copyTask, moveTasks, pauseTask, selectionRange } from "../src/utils/taskActions.js";
+import { copyTask, moveTasks, pauseTask, promoteNewlyFlagged, selectionRange } from "../src/utils/taskActions.js";
 import { boardFingerprint, mergeBoards } from "../src/utils/boardSync.js";
 
 test("bulk moves complete tasks, pause running clocks, and retain data", () => {
@@ -25,6 +25,27 @@ test("reordering selected tasks preserves order and completion dates", () => {
   const reopened = moveTasks(next, ["a"], "todo", null, 30);
   assert.equal(reopened.todo[0].completedAt, null);
   assert.equal(moveTasks(next, ["missing"], "todo"), next);
+});
+
+test("newly flagged tasks move to the top of their own column in stable order", () => {
+  const board = {
+    todo: [{ id: "a" }, { id: "b", flagged: true }, { id: "c" }, { id: "d" }],
+    doing: [{ id: "e" }, { id: "f" }],
+    done: [{ id: "g" }, { id: "h" }],
+  };
+  const flagged = {
+    todo: board.todo.map((card) => ["c", "d"].includes(card.id) ? { ...card, flagged: true } : card),
+    doing: board.doing.map((card) => card.id === "f" ? { ...card, flagged: true } : card),
+    done: board.done.map((card) => card.id === "h" ? { ...card, flagged: true } : card),
+  };
+  const promoted = promoteNewlyFlagged(board, flagged);
+  assert.deepEqual(promoted.todo.map((card) => card.id), ["c", "d", "a", "b"]);
+  assert.deepEqual(promoted.doing.map((card) => card.id), ["f", "e"]);
+  assert.deepEqual(promoted.done.map((card) => card.id), ["h", "g"]);
+  assert.deepEqual(board.todo.map((card) => card.id), ["a", "b", "c", "d"]);
+  assert.equal(promoteNewlyFlagged(promoted, promoted), promoted);
+  const reordered = { ...promoted, todo: [promoted.todo[2], ...promoted.todo.filter((card) => card.id !== "a")] };
+  assert.deepEqual(promoteNewlyFlagged(promoted, reordered).todo, reordered.todo);
 });
 
 test("copying and archiving capture elapsed countdown time without mutating source", () => {

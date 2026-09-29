@@ -28,7 +28,7 @@ import { boardFingerprint, boardRevision } from "./utils/boardSync";
 import { useTaskSelection } from "./hooks/useTaskSelection";
 import { usePullToRefresh } from "./hooks/usePullToRefresh";
 import { TaskSelectionToolbar } from "./components/TaskSelectionToolbar";
-import { moveTasks, pauseTask } from "./utils/taskActions";
+import { moveTasks, pauseTask, promoteNewlyFlagged } from "./utils/taskActions";
 
 const HISTORY_LIMIT = 100;
 const BREAK_DURATION_SEC = 600;
@@ -159,7 +159,7 @@ export default function KanbanTimerBoard() {
   const updateCardsState = useCallback(
     (updater, { track = false } = {}) => {
       setCardsByCol((prev) => {
-        const next = typeof updater === "function" ? updater(prev) : updater;
+        const next = promoteNewlyFlagged(prev, typeof updater === "function" ? updater(prev) : updater);
         if (next === prev) return prev;
         if (track) {
           historyRef.current.push(cloneBoardState({ cardsByCol: prev, archivedCards }));

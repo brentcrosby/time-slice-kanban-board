@@ -207,3 +207,16 @@ test("natural weekday and time in a new task become a due date", async () => {
   assert.ok(card.dueDate);
   assert.equal(card.durationSec, 0);
 });
+test("flagging a task places it at the top of its current column", async () => {
+  await add("First");
+  await tap(button("Save"));
+  await add("Priority");
+  await tap(button("Save"));
+  const priorityCard = [...document.querySelectorAll('[data-column-id="doing"] [data-card-id]')]
+    .find((node) => node.textContent.includes("Priority"));
+  await tap(button("Options for Priority", priorityCard));
+  await tap(button("Flag as important", priorityCard));
+  const titles = [...document.querySelectorAll('[data-column-id="doing"] [data-card-id]')]
+    .map((node) => node.querySelector('[data-card-title]')?.textContent);
+  assert.deepEqual(titles, ["Priority", "First"]);
+});

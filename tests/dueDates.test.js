@@ -77,6 +77,19 @@ test("automatic flags trigger once on due day and respect later manual changes",
   assert.equal(applyDueDate(flagDueTasks({ ...board, todo: [manual] }, "2026-09-27").todo[0], null).flagged, true);
 });
 
+test("a newly due task moves above other tasks in its column", () => {
+  const board = {
+    todo: [{ id: "later", dueDate: "2026-10-01" }, { id: "due", dueDate: "2026-09-29" }],
+    doing: [{ id: "regular" }, { id: "also-due", dueDate: "2026-09-29" }],
+    done: [{ id: "finished", dueDate: "2026-09-29" }],
+  };
+  const updated = flagDueTasks(board, "2026-09-29");
+  assert.deepEqual(updated.todo.map((card) => card.id), ["due", "later"]);
+  assert.deepEqual(updated.doing.map((card) => card.id), ["also-due", "regular"]);
+  assert.equal(updated.done[0].flagged, undefined);
+  assert.equal(flagDueTasks(updated, "2026-09-29"), updated);
+});
+
 test("due dates format independently of the browser time zone", () => {
   assert.match(formatDueDate({ dueDate: "2026-09-29", dueTime: "17:00" }, now), /Sep 29.*5:00\s?PM/i);
 });

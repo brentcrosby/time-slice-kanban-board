@@ -1,3 +1,5 @@
+import { promoteNewlyFlagged } from "./taskActions.js";
+
 export const DEFAULT_DUE_TIME = "23:59";
 
 const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
@@ -123,7 +125,7 @@ export function flagDueTasks(board, today = localDateKey()) {
       return { ...card, flagged: true, dueReminderHandledDate: card.dueDate, autoFlaggedDueDate: card.flagged ? null : card.dueDate };
     });
   }
-  return changed ? next : board;
+  return changed ? promoteNewlyFlagged(board, next) : board;
 }
 
 export function formatDueDate(card, now = new Date()) {

@@ -1,5 +1,23 @@
 export const TASK_COLUMNS = ["todo", "doing", "done"];
 
+// Move only tasks that just changed from unflagged to flagged. This leaves
+// existing flagged tasks and manual ordering alone until they are flagged anew.
+export function promoteNewlyFlagged(previous, next) {
+  if (next === previous) return next;
+  const wasFlagged = new Map(TASK_COLUMNS.flatMap((column) =>
+    (previous[column] || []).map((card) => [card.id, Boolean(card.flagged)])
+  ));
+  let result = next;
+  for (const column of TASK_COLUMNS) {
+    const cards = next[column] || [];
+    const promoted = cards.filter((card) => card.flagged && wasFlagged.get(card.id) === false);
+    if (!promoted.length) continue;
+    const promotedIds = new Set(promoted.map((card) => card.id));
+    result = { ...result, [column]: [...promoted, ...cards.filter((card) => !promotedIds.has(card.id))] };
+  }
+  return result;
+}
+
 // Freeze elapsed time before completing, archiving, or copying a running task.
 export function pauseTask(card, now = Date.now()) {
   const next = { ...card, running: false, lastStartTs: null };
