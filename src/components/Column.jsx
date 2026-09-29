@@ -298,11 +298,9 @@ export function Column({
                 onClick={() => onAddCard(id)}
                 aria-label={`Add ${group.label} task`}
                 title={`Add ${group.label} task`}
-                className="interactive-button flex h-6 w-6 items-center justify-center rounded-md border text-[10px] font-semibold"
-                style={{ backgroundColor: colors.badgeBg, borderColor: colors.cardBorder, color: colors.badgeText }}
-              >
-                {id}
-              </button>
+                className="interactive-button h-6 w-6 rounded-full border"
+                style={{ backgroundColor: colors.badgeBg, borderColor: colors.cardBorder }}
+              />
             );
           })}
         </div>

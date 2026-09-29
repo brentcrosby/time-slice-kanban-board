@@ -122,8 +122,9 @@ test("Return can add several tasks in sequence, then leaving removes only the em
 for (const [label, group, column] of [["Red", "g1", "todo"], ["Blue", "g2", "doing"], ["Yellow", "g3", "done"]]) {
   test(`Add ${label} task focuses immediately and Return keeps its group in ${column}`, async () => {
     const scope = document.querySelector(`[data-column-id="${column}"]`);
-    assert.deepEqual([...scope.querySelectorAll('button[aria-label^="Add "]')]
-      .filter((node) => node.textContent.match(/^g[1-3]$/)).map((node) => node.textContent), ["g1", "g2", "g3"]);
+    const groupButtons = [...scope.querySelectorAll('[data-add-task-control] button[aria-label^="Add "]')];
+    assert.deepEqual(groupButtons.map((node) => node.getAttribute("aria-label")), ["Add Red task", "Add Blue task", "Add Yellow task"]);
+    assert.equal(groupButtons.every((node) => node.textContent.trim() === ""), true);
     assert.equal(await tap(button(`Add ${label} task`, scope)), true);
     assert.equal(document.activeElement, input());
     assert.equal(savedCards()[0].group, group);
