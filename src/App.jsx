@@ -614,6 +614,7 @@ export default function KanbanTimerBoard() {
       dueTime: payload.dueDate ? payload.dueTime || DEFAULT_DUE_TIME : null,
       dueTimeExplicit: Boolean(payload.dueDate && payload.dueTimeExplicit),
       isDraft,
+      draftPosition: isDraft && payload.position === "top" ? "top" : undefined,
     };
     const card = deriveCardFromSegments(baseCard, segments, {
       running: false,
@@ -622,14 +623,14 @@ export default function KanbanTimerBoard() {
       overtime: false,
     });
     updateCardsState(
-      (prev) => ({ ...prev, [colId]: [...(prev[colId] || []), card] }),
+      (prev) => ({ ...prev, [colId]: payload.position === "top" ? [card, ...(prev[colId] || [])] : [...(prev[colId] || []), card] }),
       { track: true }
     );
     return card.id;
   };
 
-  const startDraftCard = (colId, group = null) => {
-    const newId = addCard(colId, { title: "", isDraft: true, group });
+  const startDraftCard = (colId, group = null, position = "bottom") => {
+    const newId = addCard(colId, { title: "", isDraft: true, group, position });
     setPendingTitleEditId(newId);
     return newId;
   };
@@ -805,6 +806,7 @@ export default function KanbanTimerBoard() {
 
       updateCard(colId, cardId, (current) => {
         let next = { ...current, title: cleanTitle, isDraft: false };
+        delete next.draftPosition;
 
         if (parsed.groupId != null) {
           const nextGroup = parsed.groupId === "" ? null : parsed.groupId;
@@ -1269,6 +1271,7 @@ export default function KanbanTimerBoard() {
                 onDropCard={(cardId, fromCol, insertIndex) => selection.selectedIds.has(cardId)
                   ? selection.move(col.id, insertIndex) : moveCard(fromCol, col.id, cardId, insertIndex)}
                 onAddCard={(group) => flushSync(() => startDraftCard(col.id, group))}
+                onAddCardAtTop={() => flushSync(() => startDraftCard(col.id, null, "top"))}
                 onClearColumn={() => setConfirmColumnClear({ colId: col.id, name: col.name })}
                 onArchiveCompleted={archiveCompletedTasks}
                 renderCard={(card, index) => (
@@ -1300,7 +1303,7 @@ export default function KanbanTimerBoard() {
                     onRename={(nextTitle) => applyTitleShortcuts(col.id, card.id, nextTitle)}
                     onDraftCommit={(title) => {
                       const nextGroup = parseTaskTitle(title).groupId ?? card.group;
-                      flushSync(() => startDraftCard(col.id, nextGroup || null));
+                      flushSync(() => startDraftCard(col.id, nextGroup || null, card.draftPosition || "bottom"));
                     }}
                     onDraftCancel={() => removeCard(col.id, card.id)}
                     index={index}

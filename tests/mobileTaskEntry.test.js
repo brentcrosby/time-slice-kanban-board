@@ -119,12 +119,12 @@ test("Return can add several tasks in sequence, then leaving removes only the em
   await tap(document.querySelector("h1"));
   assert.deepEqual(savedCards().map((card) => card.title), ["First", "Second"]);
 });
-for (const [label, group, column] of [["Red", "g1", "todo"], ["Blue", "g2", "doing"], ["Yellow", "g3", "done"], ["without a group", null, "todo"]]) {
+for (const [label, group, column] of [["Red", "g1", "todo"], ["Blue", "g2", "doing"], ["Yellow", "g3", "done"]]) {
   test(`Add ${label} task focuses immediately and Return keeps its group in ${column}`, async () => {
     const scope = document.querySelector(`[data-column-id="${column}"]`);
-    await tap(button("Add task group options", scope));
-    assert.equal(button("Add task group options", scope).getAttribute("aria-expanded"), "true");
-    assert.equal(await tap(button(`Add ${label} task`.replace("Add without a group task", "Add task without a group"), scope)), true);
+    assert.deepEqual([...scope.querySelectorAll('button[aria-label^="Add "]')]
+      .filter((node) => node.textContent.match(/^g[1-3]$/)).map((node) => node.textContent), ["g1", "g2", "g3"]);
+    assert.equal(await tap(button(`Add ${label} task`, scope)), true);
     assert.equal(document.activeElement, input());
     assert.equal(savedCards()[0].group, group);
     await type("First");
@@ -139,7 +139,6 @@ for (const [label, group, column] of [["Red", "g1", "todo"], ["Blue", "g2", "doi
 }
 test("Return follows a title group shortcut, including clearing the group", async () => {
   const scope = document.querySelector('[data-column-id="doing"]');
-  await tap(button("Add task group options", scope));
   await tap(button("Add Red task", scope));
   await type("First g2");
   await key("Enter");
@@ -152,6 +151,24 @@ test("Return follows a title group shortcut, including clearing the group", asyn
   await tap(button("Save"));
   assert.equal(savedCards().at(-1).group, null);
 });
+for (const column of ["todo", "doing", "done"]) {
+  test(`header + adds an ungrouped task at the top of ${column} and Return continues there`, async () => {
+    await add("Earlier", column);
+    await tap(button("Save"));
+    const scope = document.querySelector(`[data-column-id="${column}"]`);
+    assert.equal(await tap(button(`Add task at top of ${scope.querySelector("h2").textContent}`, scope)), true);
+    assert.equal(document.activeElement, input());
+    assert.equal(scope.querySelector("[data-card-id]"), input().closest("[data-card-id]"));
+    assert.equal(savedCards().find((card) => card.isDraft).group, null);
+    await type("Newest");
+    await key("Enter");
+    assert.equal(scope.querySelector("[data-card-id]"), input().closest("[data-card-id]"));
+    await tap(document.querySelector("h1"));
+    assert.deepEqual([...scope.querySelectorAll("[data-card-id]")].map((node) => node.textContent.includes("Newest") ? "Newest" : "Earlier"), ["Newest", "Earlier"]);
+    assert.equal(savedCards().find((card) => card.title === "Newest").group, null);
+    assert.equal(savedCards().some((card) => card.isDraft), false);
+  });
+}
 for (const method of ["Return", "blur", "stopwatch"]) {
   test(`whitespace-only draft + ${method} leaves no task`, async () => {
     await add("   ");
