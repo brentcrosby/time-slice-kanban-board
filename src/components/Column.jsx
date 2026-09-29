@@ -277,33 +277,35 @@ export function Column({
         ))}
         {dropIndex !== null && dropIndex >= cards.length ? renderDropIndicator("end") : null}
       </div>
-      <div className="flex items-stretch gap-2">
+      <div data-add-task-control className="relative w-full rounded-xl border" style={{ backgroundColor: palette.card, borderColor: palette.border }}>
         <button
           type="button"
           onClick={() => onAddCard(null)}
-          className="interactive-surface flex min-w-0 flex-1 items-center justify-center gap-1 rounded-xl border px-2 py-3 text-sm font-medium"
-          style={{ backgroundColor: palette.card, borderColor: palette.border, color: palette.subtext }}
+          className="interactive-surface flex min-h-12 w-full items-center justify-center gap-1 rounded-xl px-2 py-3 text-sm font-medium"
+          style={{ color: palette.subtext }}
         >
           <span className="text-lg leading-none">+</span>
           <span>Add task</span>
         </button>
-        {CARD_GROUP_ORDER.map((id) => {
-          const group = CARD_GROUPS[id];
-          const colors = group.colors[isDark ? "dark" : "light"];
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => onAddCard(id)}
-              aria-label={`Add ${group.label} task`}
-              title={`Add ${group.label} task`}
-              className="interactive-button flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full border text-xs font-semibold"
-              style={{ backgroundColor: colors.badgeBg, borderColor: colors.cardBorder, color: colors.badgeText }}
-            >
-              {id}
-            </button>
-          );
-        })}
+        <div className="absolute right-1.5 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1">
+          {CARD_GROUP_ORDER.map((id) => {
+            const group = CARD_GROUPS[id];
+            const colors = group.colors[isDark ? "dark" : "light"];
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onAddCard(id)}
+                aria-label={`Add ${group.label} task`}
+                title={`Add ${group.label} task`}
+                className="interactive-button flex h-6 w-6 items-center justify-center rounded-md border text-[10px] font-semibold"
+                style={{ backgroundColor: colors.badgeBg, borderColor: colors.cardBorder, color: colors.badgeText }}
+              >
+                {id}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
