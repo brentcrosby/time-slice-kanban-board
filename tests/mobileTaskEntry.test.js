@@ -151,6 +151,20 @@ test("Return follows a title group shortcut, including clearing the group", asyn
   await tap(button("Save"));
   assert.equal(savedCards().at(-1).group, null);
 });
+test("Shift-click selects the full range from the last ordinary task click across columns", async () => {
+  for (const [title, column] of [["First", "todo"], ["Middle", "doing"], ["Last", "done"]]) {
+    await add(title, column);
+    await tap(button("Save"));
+  }
+  const taskCard = (title) => cards().find((node) => node.textContent.includes(title));
+  await act(async () => taskCard("First").dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })));
+  assert.equal(document.querySelector('[data-task-selection]'), null, "an ordinary click sets the anchor without selecting a task");
+  await act(async () => taskCard("Last").dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, shiftKey: true })));
+  assert.match(document.querySelector('[data-task-selection] [role="status"]').textContent, /3 selected/);
+  assert.equal(taskCard("First").getAttribute("aria-label").includes(", selected"), true);
+  assert.equal(taskCard("Middle").getAttribute("aria-label").includes(", selected"), true);
+  assert.equal(taskCard("Last").getAttribute("aria-label").includes(", selected"), true);
+});
 for (const column of ["todo", "doing", "done"]) {
   test(`header + adds an ungrouped task at the top of ${column} and Return continues there`, async () => {
     await add("Earlier", column);

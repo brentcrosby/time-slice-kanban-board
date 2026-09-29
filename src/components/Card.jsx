@@ -58,6 +58,7 @@ export function Card({
   onChangeSubtasks,
   onToggleFlag,
   onSelect,
+  onSetSelectionAnchor,
   selected = false,
   selectionActive = false,
   isCut = false,
@@ -450,7 +451,7 @@ export function Card({
           event.preventDefault();
           event.stopPropagation();
           onSelect?.(event);
-        }
+        } else onSetSelectionAnchor?.(card.id);
       }}
       onKeyDown={(event) => {
         if (event.target === event.currentTarget && (event.key === " " || event.key === "Enter")) {
