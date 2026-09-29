@@ -4,6 +4,7 @@ import { CARD_GROUP_ORDER, CARD_GROUPS } from "../constants/groups";
 import { summarizeGroupTasks } from "../utils/groupChips";
 import { Archive, MoreHorizontal, Plus } from "lucide-react";
 import { AddTaskButton } from "./AddTaskButton";
+import { ColumnChip } from "./ColumnChip";
 
 export function Column({
   column,
@@ -138,12 +139,9 @@ export function Column({
           <h2 className="flex-shrink-0 text-base font-semibold tracking-tight md:text-sm" style={{ color: palette.text }}>
             {column.name}
           </h2>
-          <span
-            className="flex-shrink-0 rounded-full px-2 py-0.5 text-sm md:text-xs"
-            style={{ backgroundColor: palette.badge, color: palette.subtext }}
-          >
+          <ColumnChip backgroundColor={palette.badge} color={palette.subtext}>
             {cards.length}
-          </span>
+          </ColumnChip>
           <div className="relative min-w-0 flex-1">
             <div
               ref={chipsRef}
@@ -156,13 +154,9 @@ export function Column({
               }}
             >
               {totalSecs > 0 ? (
-                <span
-                  className="flex-shrink-0 rounded-full px-2 py-0.5 text-sm tabular-nums md:text-xs"
-                  title="Total planned time"
-                  style={{ backgroundColor: palette.badge, color: palette.text }}
-                >
+                <ColumnChip backgroundColor={palette.badge} color={palette.text} title="Total planned time">
                   {secsToHHMM(totalSecs)}
-                </span>
+                </ColumnChip>
               ) : null}
               {groupSummaries.map(({ id, totalSeconds, untimedCount }) => {
                 const group = CARD_GROUPS[id];
@@ -174,21 +168,18 @@ export function Column({
                 const untimedLabel = `${untimedCount} untimed ${untimedCount === 1 ? "task" : "tasks"}`;
                 const chipLabel = `${group.label}: ${totalSeconds > 0 ? `${secsToHHMM(totalSeconds)} planned time` : "no planned time"}${untimedCount > 0 ? `, ${untimedLabel}` : ""}`;
                 return (
-                  <span
+                  <ColumnChip
                     key={id}
-                    className="flex-shrink-0 rounded-full px-2 py-px text-sm tabular-nums md:text-xs"
                     title={chipLabel}
-                    aria-label={chipLabel}
-                    style={{
-                      backgroundColor: pillBg,
-                      color: pillText,
-                      border: `1px solid ${pillBorder}`,
-                    }}
+                    ariaLabel={chipLabel}
+                    backgroundColor={pillBg}
+                    color={pillText}
+                    borderColor={pillBorder}
                   >
                     {totalSeconds > 0 ? secsToHHMM(totalSeconds) : null}
                     {totalSeconds > 0 && untimedCount > 0 ? " · " : null}
                     {untimedCount > 0 ? untimedCount : null}
-                  </span>
+                  </ColumnChip>
                 );
               })}
             </div>
