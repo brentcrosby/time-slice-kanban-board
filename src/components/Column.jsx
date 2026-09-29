@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { secsToHHMM } from "../utils/time";
-import { CARD_GROUP_ORDER, CARD_GROUPS, CARD_GROUP_OPTIONS } from "../constants/groups";
+import { CARD_GROUP_ORDER, CARD_GROUPS } from "../constants/groups";
 import { summarizeGroupTasks } from "../utils/groupChips";
 import { Archive, MoreHorizontal, Plus } from "lucide-react";
+import { AddTaskButton } from "./AddTaskButton";
 
 export function Column({
   column,
@@ -20,10 +21,6 @@ export function Column({
   const [dropIndex, setDropIndex] = useState(null);
   const chipsRef = useRef(null);
   const archiveMenuRef = useRef(null);
-  const addMenuRef = useRef(null);
-  const addMenuPanelRef = useRef(null);
-  const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [addMenuLayout, setAddMenuLayout] = useState({ placement: "down", maxHeight: null });
   const [chipFadeState, setChipFadeState] = useState({ canScroll: false, atStart: true, atEnd: true });
   const cardCount = totalCount != null ? totalCount : cards.length;
   const hasCards = cardCount > 0;
@@ -32,52 +29,10 @@ export function Column({
     const handlePointerDown = (event) => {
       const menu = archiveMenuRef.current;
       if (menu?.open && !menu.contains(event.target)) menu.open = false;
-      if (!addMenuRef.current?.contains(event.target)) setAddMenuOpen(false);
-    };
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape" && addMenuRef.current?.contains(event.target)) {
-        addMenuRef.current.querySelector('[aria-expanded="true"]')?.focus();
-        setAddMenuOpen(false);
-      }
     };
     document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, []);
-
-  useLayoutEffect(() => {
-    if (!addMenuOpen) return;
-    const updatePlacement = () => {
-      const control = addMenuRef.current;
-      const menu = addMenuPanelRef.current;
-      if (!control || !menu) return;
-      const viewport = window.visualViewport;
-      const viewportTop = viewport?.offsetTop ?? 0;
-      const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight);
-      const bounds = control.getBoundingClientRect();
-      const below = Math.max(0, viewportBottom - bounds.bottom - 8);
-      const above = Math.max(0, bounds.top - viewportTop - 8);
-      const menuHeight = menu.scrollHeight;
-      const placement = below >= menuHeight || (above < menuHeight && below >= above) ? "down" : "up";
-      const maxHeight = Math.floor(placement === "down" ? below : above);
-      setAddMenuLayout((current) => current.placement === placement && current.maxHeight === maxHeight
-        ? current : { placement, maxHeight });
-    };
-    updatePlacement();
-    window.addEventListener("resize", updatePlacement);
-    window.addEventListener("scroll", updatePlacement, true);
-    window.visualViewport?.addEventListener("resize", updatePlacement);
-    window.visualViewport?.addEventListener("scroll", updatePlacement);
-    return () => {
-      window.removeEventListener("resize", updatePlacement);
-      window.removeEventListener("scroll", updatePlacement, true);
-      window.visualViewport?.removeEventListener("resize", updatePlacement);
-      window.visualViewport?.removeEventListener("scroll", updatePlacement);
-    };
-  }, [addMenuOpen]);
 
   const findInsertIndex = (event) => {
     const list = event.currentTarget.querySelector("[data-list]");
@@ -323,53 +278,7 @@ export function Column({
         ))}
         {dropIndex !== null && dropIndex >= cards.length ? renderDropIndicator("end") : null}
       </div>
-      <div ref={addMenuRef} data-add-task-control className="relative w-full rounded-xl border" style={{ backgroundColor: palette.card, borderColor: palette.border }}>
-        <button
-          type="button"
-          onClick={() => { setAddMenuOpen(false); onAddCard(null); }}
-          className="interactive-surface flex min-h-12 w-full items-center justify-center gap-1 rounded-xl px-2 py-3 text-sm font-medium"
-          style={{ color: palette.subtext }}
-        >
-          <span className="text-lg leading-none">+</span>
-          <span>Add task</span>
-        </button>
-        <button
-          type="button"
-          aria-label="Add task group options"
-          aria-expanded={addMenuOpen}
-          aria-controls={`add-task-groups-${column.id}`}
-          onClick={() => setAddMenuOpen((open) => !open)}
-          className="interactive-button absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md hover:bg-black/10"
-          style={{ color: palette.subtext }}
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
-        {addMenuOpen && (
-          <div
-            ref={addMenuPanelRef}
-            id={`add-task-groups-${column.id}`}
-            className={`absolute right-0 z-20 w-44 overflow-y-auto rounded-xl border p-1.5 shadow-lg ${addMenuLayout.placement === "up" ? "bottom-full mb-2" : "top-full mt-2"}`}
-            style={{ backgroundColor: palette.surface, borderColor: palette.border, maxHeight: addMenuLayout.maxHeight ?? undefined }}
-          >
-            {CARD_GROUP_OPTIONS.map(({ value, label }) => {
-              const colors = CARD_GROUPS[value]?.colors?.[isDark ? "dark" : "light"];
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  aria-label={value ? `Add ${label} task` : "Add task without a group"}
-                  onClick={() => { setAddMenuOpen(false); onAddCard(value || null); }}
-                  className="interactive-button flex w-full items-center gap-2 rounded-lg px-3 py-3 text-left text-sm"
-                  style={{ color: palette.text }}
-                >
-                  <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-full border" style={{ backgroundColor: colors?.badgeBg || palette.badge, borderColor: colors?.badgeText || palette.border }} />
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <AddTaskButton columnId={column.id} onAddCard={onAddCard} palette={palette} isDark={isDark} />
     </section>
   );
 }
