@@ -155,7 +155,7 @@ export function SettingsModal({
         <section>
           <h4 className="text-sm font-semibold" style={{ color: palette.text }}>Due date reminders</h4>
           <p className="mt-1 text-xs" style={{ color: palette.subtext }}>
-            Get one notification at 8:00 a.m. in this device’s time zone when unfinished tasks are due today.
+            Get one morning notification, usually around 8:00 a.m. in this device’s time zone, when unfinished tasks are due today.
           </p>
           {!syncUser ? (
             <p className="mt-2 text-sm" style={{ color: palette.subtext }}>Sign in with Google to sync tasks before enabling reminders.</p>

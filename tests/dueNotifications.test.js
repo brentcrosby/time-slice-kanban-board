@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { allowedEndpoint, dueTasks, localClock, reminderPayload } from "../functions/reminder.js";
+import { allowedEndpoint, dueTasks, localClock, reminderPayload } from "../reminders/reminder.js";
 
 test("the local morning follows the subscriber's time zone and daylight savings", () => {
   assert.deepEqual(localClock(new Date("2026-09-29T15:00:00Z"), "America/Los_Angeles"), { date: "2026-09-29", hour: 8 });
