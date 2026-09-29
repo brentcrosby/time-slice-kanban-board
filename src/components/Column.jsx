@@ -244,12 +244,12 @@ export function Column({
             <button
               type="button"
               onClick={onAddCardAtTop}
-              className="interactive-button flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
+              className="interactive-button flex shrink-0 items-center justify-center rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors md:px-2 md:py-1 md:text-xs"
               style={{ borderColor: palette.border, color: palette.subtext, backgroundColor: palette.surface }}
               title={`Add task at top of ${column.name}`}
               aria-label={`Add task at top of ${column.name}`}
             >
-              <Plus className="h-4 w-4" />
+              <span className="flex h-5 items-center md:h-4"><Plus className="h-4 w-4" /></span>
             </button>
             <button
               type="button"
