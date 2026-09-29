@@ -614,7 +614,7 @@ export default function KanbanTimerBoard() {
       dueTime: payload.dueDate ? payload.dueTime || DEFAULT_DUE_TIME : null,
       dueTimeExplicit: Boolean(payload.dueDate && payload.dueTimeExplicit),
       isDraft,
-      draftPosition: isDraft && payload.position === "top" ? "top" : undefined,
+      ...(isDraft && payload.position === "top" ? { draftPosition: "top" } : {}),
     };
     const card = deriveCardFromSegments(baseCard, segments, {
       running: false,
