@@ -13,6 +13,7 @@ import { secsToHMS } from "../utils/time";
 import { CARD_GROUPS } from "../constants/groups";
 import { TASK_CONTENT_INSET } from "../constants/layout";
 import { formatDueDate, localDateKey } from "../utils/dueDates";
+import { parseTaskTitle } from "../utils/taskTitle";
 
 const adjustColorTone = (hex, factor) => {
   if (typeof hex !== "string" || !hex.startsWith("#")) return hex;
@@ -337,6 +338,10 @@ export function Card({
     }
     setTitleDraft(trimmed);
     if (card.isDraft || trimmed !== card.title) onRename(trimmed);
+    if (parseTaskTitle(trimmed).openSubtaskEditor) {
+      // Commit and focus the subtask input while the user's keyboard action is active.
+      flushSync(() => setSubtaskComposerOpen(true));
+    }
     return true;
   }, [card.title, card.isDraft, onDraftCancel, onRename, titleDraft]);
 
@@ -363,7 +368,7 @@ export function Card({
     if (event.key === "Enter") {
       event.preventDefault();
       const committedTitle = (titleInputRef.current?.value ?? titleDraft).trim();
-      if (handleTitleCommit() && card.isDraft) onDraftCommit(committedTitle);
+      if (handleTitleCommit() && card.isDraft && !parseTaskTitle(committedTitle).openSubtaskEditor) onDraftCommit(committedTitle);
     } else if (event.key === "Escape") {
       event.preventDefault();
       handleTitleCancel();
