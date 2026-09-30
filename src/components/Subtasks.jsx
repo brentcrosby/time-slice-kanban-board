@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, GripVertical, ListChecks, Plus } from "lucide-react";
 import { uid } from "../utils/misc";
 import { SubtaskActions } from "./SubtaskActions";
-import { StopwatchReadout } from "./StopwatchReadout";
+import { StopwatchControls } from "./StopwatchControls";
 
 const SUBTASK_TYPE = "application/x-subtask";
 
@@ -10,8 +10,10 @@ export function Subtasks({
   cardId,
   subtasks = [],
   onChange,
-  onToggleStopwatch,
+  onStartStopwatch,
+  onUpdateStopwatch,
   onMenuOpenChange,
+  onStopwatchEditingChange,
   adding,
   onAddingChange,
   palette,
@@ -236,12 +238,25 @@ export function Subtasks({
                     {subtask.title}
                   </button>
                 )}
-                {subtask.stopwatch && <StopwatchReadout elapsed={subtask.computedStopwatchElapsed ?? subtask.stopwatch.elapsedSec ?? 0} label={`${subtask.title} stopwatch`} palette={palette} color={subtextColor} compact />}
+                {subtask.stopwatch && <StopwatchControls
+                  running={subtask.stopwatch.running}
+                  elapsed={subtask.computedStopwatchElapsed ?? subtask.stopwatch.elapsedSec ?? 0}
+                  onStart={() => onStartStopwatch(subtask.id)}
+                  onPause={() => onUpdateStopwatch(subtask.id, "pause")}
+                  onReset={() => onUpdateStopwatch(subtask.id, "reset")}
+                  onRemove={() => onUpdateStopwatch(subtask.id, "remove")}
+                  onEdit={(seconds) => onUpdateStopwatch(subtask.id, "edit", seconds)}
+                  onEditingChange={onStopwatchEditingChange}
+                  label={`subtask ${subtask.title}`}
+                  color={subtextColor}
+                  palette={palette}
+                  compact
+                />}
                 <SubtaskActions
                   subtask={subtask}
                   onEdit={() => { setEditingId(subtask.id); setEditDraft(subtask.title); }}
                   onDelete={() => onChange((current) => current.filter((item) => item.id !== subtask.id))}
-                  onToggleStopwatch={() => onToggleStopwatch(subtask.id)}
+                  onStopwatch={() => subtask.stopwatch ? onUpdateStopwatch(subtask.id, "remove") : onStartStopwatch(subtask.id)}
                   onOpenChange={onMenuOpenChange}
                   palette={palette}
                   color={subtextColor}
