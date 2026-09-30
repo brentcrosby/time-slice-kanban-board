@@ -1,8 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Timer, Trash2 } from "lucide-react";
 import { MenuButton } from "./MenuButton";
 
-export function SubtaskActions({ subtask, onEdit, onDelete, onOpenChange, palette, color }) {
+export function SubtaskActions({ subtask, onEdit, onDelete, onStartStopwatch, showStopwatchAction, onOpenChange, palette, color }) {
   const [open, setOpen] = useState(false);
   const [up, setUp] = useState(false);
   const containerRef = useRef(null);
@@ -46,6 +46,7 @@ export function SubtaskActions({ subtask, onEdit, onDelete, onOpenChange, palett
       {open && (
         <div ref={menuRef} role="dialog" aria-label={`Options for subtask ${subtask.title}`} className={`absolute right-0 z-40 w-44 rounded-xl border p-1.5 shadow-xl ${up ? "bottom-full mb-2" : "top-full mt-2"}`} style={{ backgroundColor: palette.surface, borderColor: palette.border, color: palette.text }}>
           <button type="button" className={itemClass} onClick={act(onEdit)}><Pencil size={16} />Edit subtask</button>
+          {showStopwatchAction && <button type="button" className={itemClass} onClick={act(onStartStopwatch)}><Timer size={16} />Start stopwatch</button>}
           <button type="button" className={itemClass} style={{ color: palette.dangerText }} onClick={act(onDelete)}><Trash2 size={16} />Delete subtask</button>
         </div>
       )}

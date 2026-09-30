@@ -12,6 +12,7 @@ export function Subtasks({
   onChange,
   onStartStopwatch,
   onUpdateStopwatch,
+  showStopwatchButton = true,
   onMenuOpenChange,
   onStopwatchEditingChange,
   adding,
@@ -251,18 +252,20 @@ export function Subtasks({
                   color={subtextColor}
                   palette={palette}
                   compact
-                /> : <button
+                /> : showStopwatchButton ? <button
                   type="button"
                   className="interactive-button shrink-0 rounded-md p-2 hover:bg-black/10 md:p-1"
                   style={{ color: subtextColor }}
                   title={`Start subtask ${subtask.title} stopwatch`}
                   aria-label={`Start subtask ${subtask.title} stopwatch`}
                   onClick={() => onStartStopwatch(subtask.id)}
-                ><Timer size={16} /></button>}
+                ><Timer size={16} /></button> : null}
                 <SubtaskActions
                   subtask={subtask}
                   onEdit={() => { setEditingId(subtask.id); setEditDraft(subtask.title); }}
                   onDelete={() => onChange((current) => current.filter((item) => item.id !== subtask.id))}
+                  onStartStopwatch={() => onStartStopwatch(subtask.id)}
+                  showStopwatchAction={!showStopwatchButton && !subtask.stopwatch}
                   onOpenChange={onMenuOpenChange}
                   palette={palette}
                   color={subtextColor}

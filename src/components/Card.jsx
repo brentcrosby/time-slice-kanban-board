@@ -43,6 +43,7 @@ export function Card({
   card,
   colId,
   pinnedControls = [],
+  showSubtaskStopwatchButton = true,
   onMove,
   onStart,
   onPause,
@@ -687,6 +688,7 @@ export function Card({
         onChange={onChangeSubtasks}
         onStartStopwatch={onStartSubtaskStopwatch}
         onUpdateStopwatch={onUpdateSubtaskStopwatch}
+        showStopwatchButton={showSubtaskStopwatchButton}
         onMenuOpenChange={setSubtaskMenuOpen}
         onStopwatchEditingChange={setFeatureEditing}
         palette={palette}

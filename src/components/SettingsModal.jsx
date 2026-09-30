@@ -18,6 +18,8 @@ export function SettingsModal({
   onRequestClearAll,
   pinnedControls,
   setPinnedControls,
+  showSubtaskStopwatchButton,
+  setShowSubtaskStopwatchButton,
 }) {
   return (
     <Modal onClose={onClose} title="Settings" palette={palette}>
@@ -31,6 +33,15 @@ export function SettingsModal({
               {label}
             </label>)}
           </div>
+        </section>
+
+        <section>
+          <h4 className="text-sm font-semibold" style={{ color: palette.text }}>Subtask controls</h4>
+          <label className="mt-3 inline-flex items-center gap-2 text-sm" style={{ color: palette.text }}>
+            <input type="checkbox" checked={showSubtaskStopwatchButton} onChange={(event) => setShowSubtaskStopwatchButton(event.target.checked)} />
+            Show subtask stopwatch button
+          </label>
+          <p className="mt-1 text-xs" style={{ color: palette.subtext }}>When off, start it from the subtask menu. Active stopwatch controls stay visible. Saved on this device.</p>
         </section>
 
         <section>
