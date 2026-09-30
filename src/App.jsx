@@ -29,7 +29,7 @@ import { useTaskSelection } from "./hooks/useTaskSelection";
 import { usePullToRefresh } from "./hooks/usePullToRefresh";
 import { TaskSelectionToolbar } from "./components/TaskSelectionToolbar";
 import { moveTasks, pauseTask, promoteNewlyFlagged } from "./utils/taskActions";
-import { elapsedStopwatch, materializeSubtaskStopwatches } from "./utils/subtaskStopwatch";
+import { editSubtaskStopwatchTotal, elapsedStopwatch, hasSubtaskStopwatch, linkParentStopwatch, materializeSubtaskStopwatches, pauseSubtaskStopwatches } from "./utils/subtaskStopwatch";
 
 const HISTORY_LIMIT = 100;
 const BREAK_DURATION_SEC = 600;
@@ -704,7 +704,7 @@ export default function KanbanTimerBoard() {
   };
 
   const startStopwatch = (colId, card) => {
-    if (card.segments?.length) return;
+    if (card.segments?.length && !hasSubtaskStopwatch(card)) return;
     const now = Date.now();
     const targetCol = colId === "todo" ? "doing" : colId;
     updateCardsState((prev) => {
@@ -712,15 +712,13 @@ export default function KanbanTimerBoard() {
       const cardIndex = source.findIndex((item) => item.id === card.id);
       if (cardIndex === -1) return prev;
       const current = source[cardIndex];
-      if (current.segments?.length || current.stopwatch?.running) return prev;
-      const started = {
-        ...current,
-        stopwatch: {
-          elapsedSec: current.stopwatch?.elapsedSec || 0,
-          running: true,
-          lastStartTs: now,
-        },
-      };
+      if (current.segments?.length && !hasSubtaskStopwatch(current)) return prev;
+      const linked = linkParentStopwatch(current, now);
+      if (hasSubtaskStopwatch(linked) && linked.subtasks.some((subtask) => subtask.stopwatch.running)) return prev;
+      if (!hasSubtaskStopwatch(linked) && linked.stopwatch?.running) return prev;
+      const started = hasSubtaskStopwatch(linked)
+        ? { ...linked, subtasks: linked.subtasks.map((subtask) => subtask.stopwatch ? { ...subtask, stopwatch: { ...subtask.stopwatch, running: true, lastStartTs: now } } : subtask) }
+        : { ...linked, stopwatch: { elapsedSec: linked.stopwatch?.elapsedSec || 0, running: true, lastStartTs: now } };
 
       if (targetCol === colId) {
         source[cardIndex] = started;
@@ -735,13 +733,14 @@ export default function KanbanTimerBoard() {
   };
 
   const pauseStopwatch = (colId, card) => {
-    if (!card.stopwatch?.running || !card.stopwatch.lastStartTs) return;
     const now = Date.now();
     updateCard(colId, card.id, (current) => {
-      const stopwatch = current.stopwatch;
+      const linked = linkParentStopwatch(current, now);
+      if (hasSubtaskStopwatch(linked)) return { ...linked, subtasks: pauseSubtaskStopwatches(linked.subtasks, now) };
+      const stopwatch = linked.stopwatch;
       if (!stopwatch?.running || !stopwatch.lastStartTs) return current;
       return {
-        ...current,
+        ...linked,
         stopwatch: {
           elapsedSec: (stopwatch.elapsedSec || 0) + (now - stopwatch.lastStartTs) / 1000,
           running: false,
@@ -754,6 +753,8 @@ export default function KanbanTimerBoard() {
   const editStopwatchElapsed = (colId, cardId, elapsedSec) => {
     const now = Date.now();
     updateCard(colId, cardId, (current) => {
+      const linked = linkParentStopwatch(current, now);
+      if (hasSubtaskStopwatch(linked)) return { ...linked, subtasks: editSubtaskStopwatchTotal(linked.subtasks, elapsedSec, now) };
       if (!current.stopwatch) return current;
       return {
         ...current,
@@ -767,14 +768,15 @@ export default function KanbanTimerBoard() {
   };
 
   const resetStopwatch = (colId, cardId) => {
-    updateCard(colId, cardId, (current) => ({
-      ...current,
-      stopwatch: { elapsedSec: 0, running: false, lastStartTs: null },
-    }));
+    updateCard(colId, cardId, (current) => hasSubtaskStopwatch(current)
+      ? { ...current, stopwatch: null, subtasks: current.subtasks.map((subtask) => subtask.stopwatch ? { ...subtask, stopwatch: { elapsedSec: 0, running: false, lastStartTs: null } } : subtask) }
+      : { ...current, stopwatch: { elapsedSec: 0, running: false, lastStartTs: null } });
   };
 
   const clearStopwatch = (colId, cardId) => {
-    updateCard(colId, cardId, { stopwatch: null });
+    updateCard(colId, cardId, (current) => hasSubtaskStopwatch(current)
+      ? { ...current, stopwatch: null, subtasks: current.subtasks.map((subtask) => subtask.stopwatch ? { ...subtask, stopwatch: null } : subtask) }
+      : { ...current, stopwatch: null });
   };
 
   const updateSubtasks = (colId, cardId, updater) => {
@@ -795,7 +797,7 @@ export default function KanbanTimerBoard() {
     );
   };
 
-  const toggleSubtaskStopwatch = (colId, cardId, subtaskId) => {
+  const startSubtaskStopwatch = (colId, cardId, subtaskId) => {
     const now = Date.now();
     const targetCol = colId === "todo" ? "doing" : colId;
     updateCardsState((prev) => {
@@ -805,21 +807,32 @@ export default function KanbanTimerBoard() {
       const current = source[cardIndex];
       const subtask = current.subtasks?.find((item) => item.id === subtaskId);
       if (!subtask) return prev;
-      const running = Boolean(subtask.stopwatch?.running);
+      if (subtask.stopwatch?.running) return prev;
+      const parentElapsed = current.stopwatch ? elapsedStopwatch(current.stopwatch, now) : 0;
       const subtasks = current.subtasks.map((item) => item.id === subtaskId ? {
         ...item,
-        stopwatch: running
-          ? { elapsedSec: elapsedStopwatch(item.stopwatch, now), running: false, lastStartTs: null }
-          : { elapsedSec: item.stopwatch?.elapsedSec || 0, running: true, lastStartTs: now },
+        stopwatch: { elapsedSec: (item.stopwatch?.elapsedSec || 0) + parentElapsed, running: true, lastStartTs: now },
       } : item);
-      const updated = { ...current, subtasks };
-      if (running || targetCol === colId) {
+      const updated = { ...current, stopwatch: null, subtasks };
+      if (targetCol === colId) {
         source[cardIndex] = updated;
         return { ...prev, [colId]: source };
       }
       source.splice(cardIndex, 1);
       return { ...prev, [colId]: source, [targetCol]: [...(prev[targetCol] || []), updated] };
     }, { track: true });
+  };
+
+  const updateSubtaskStopwatch = (colId, cardId, subtaskId, action, seconds = 0) => {
+    const now = Date.now();
+    updateSubtasks(colId, cardId, (subtasks) => subtasks.map((subtask) => {
+      if (subtask.id !== subtaskId || !subtask.stopwatch) return subtask;
+      if (action === "remove") return { ...subtask, stopwatch: null };
+      if (action === "pause") return { ...subtask, stopwatch: { elapsedSec: elapsedStopwatch(subtask.stopwatch, now), running: false, lastStartTs: null } };
+      if (action === "reset") return { ...subtask, stopwatch: { elapsedSec: 0, running: false, lastStartTs: null } };
+      if (action === "edit") return { ...subtask, stopwatch: { ...subtask.stopwatch, elapsedSec: Math.max(0, Math.floor(seconds)), lastStartTs: subtask.stopwatch.running ? now : null } };
+      return subtask;
+    }));
   };
 
   const applyTitleShortcuts = useCallback(
@@ -1330,7 +1343,8 @@ export default function KanbanTimerBoard() {
                     onEditStopwatchElapsed={(elapsedSec) => editStopwatchElapsed(col.id, card.id, elapsedSec)}
                     onUpdateProgress={(arr) => setCardProgress(col.id, card, arr)}
                     onChangeSubtasks={(updater) => updateSubtasks(col.id, card.id, updater)}
-                    onToggleSubtaskStopwatch={(subtaskId) => toggleSubtaskStopwatch(col.id, card.id, subtaskId)}
+                    onStartSubtaskStopwatch={(subtaskId) => startSubtaskStopwatch(col.id, card.id, subtaskId)}
+                    onUpdateSubtaskStopwatch={(subtaskId, action, seconds) => updateSubtaskStopwatch(col.id, card.id, subtaskId, action, seconds)}
                     onRename={(nextTitle) => applyTitleShortcuts(col.id, card.id, nextTitle)}
                     onDraftCommit={(title) => {
                       const nextGroup = parseTaskTitle(title).groupId ?? card.group;

@@ -337,15 +337,44 @@ test("subtask menu stopwatches add into the task total and pause on completion",
     await tap(button("Start stopwatch", firstMenu));
     assert.equal(savedCards()[0].subtasks[0].stopwatch.running, true);
     assert.ok(document.querySelector('[data-column-id="doing"] [data-card-title]'), "starting a subtask clock moves a To Do task to Doing");
+    assert.equal([...document.querySelectorAll('[data-card-id] button[aria-label="Pause stopwatch"]')].length, 1, "one task stopwatch controls the linked total");
     now += 5000;
-    await tap(button("Options for subtask Research"));
-    await tap(button("Pause stopwatch", document.querySelector('[role="dialog"][aria-label="Options for subtask Research"]')));
+    await tap(button("Pause subtask Research stopwatch", document.querySelector('[data-subtask-id]')));
     assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 5);
     await tap(button("Options for subtask Write"));
     await tap(button("Start stopwatch", document.querySelector('[role="dialog"][aria-label="Options for subtask Write"]')));
     now += 3000;
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 120)); });
-    assert.equal(document.querySelector('[title="Total subtask stopwatch time"]').textContent, "0:08");
+    assert.equal(button("Edit elapsed time, 0:08").textContent, "0:08");
+    await tap(button("Pause stopwatch", document.querySelector('[data-card-id]')));
+    assert.equal(savedCards()[0].subtasks[1].stopwatch.running, false);
+    assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 5);
+    await tap(button("Resume stopwatch", document.querySelector('[data-card-id]')));
+    assert.ok(savedCards()[0].subtasks.every((subtask) => subtask.stopwatch.running));
+    now += 2000;
+    await tap(button("Pause stopwatch", document.querySelector('[data-card-id]')));
+    assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 7);
+    assert.equal(savedCards()[0].subtasks[1].stopwatch.elapsedSec, 5);
+    await tap(button("Edit elapsed time, 0:12"));
+    await act(async () => {
+      const field = document.querySelector('input[aria-label="Edit elapsed time"]');
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(field, "0:20");
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => document.querySelector('input[aria-label="Edit elapsed time"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+    assert.equal(savedCards()[0].subtasks.reduce((sum, subtask) => sum + subtask.stopwatch.elapsedSec, 0), 20);
+    await tap(button("Edit elapsed time, 0:20"));
+    await act(async () => {
+      const field = document.querySelector('input[aria-label="Edit elapsed time"]');
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(field, "0:06");
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => document.querySelector('input[aria-label="Edit elapsed time"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+    assert.equal(savedCards()[0].subtasks.reduce((sum, subtask) => sum + subtask.stopwatch.elapsedSec, 0), 6);
+    await tap(button("Reset stopwatch", document.querySelector('[data-card-id]')));
+    assert.ok(savedCards()[0].subtasks.every((subtask) => subtask.stopwatch.elapsedSec === 0 && !subtask.stopwatch.running));
+    await tap(button("Resume subtask Write stopwatch", [...document.querySelectorAll('[data-subtask-id]')][1]));
+    now += 3000;
     await tap(button("Options for Project"));
     await tap(button("Move to"));
     await tap(button("Move to Done"));
@@ -366,6 +395,22 @@ test("subtask menu edits and deletes the selected subtask", async () => {
   });
   await act(async () => document.querySelector('input[aria-label="New subtask"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
   await tap(button("Options for subtask Draft"));
+  await tap(button("Start stopwatch", document.querySelector('[role="dialog"][aria-label="Options for subtask Draft"]')));
+  const row = document.querySelector('[data-subtask-id]');
+  await tap([...row.querySelectorAll('button[aria-label]')].find((item) => item.getAttribute("aria-label").startsWith("subtask Draft elapsed time")));
+  await act(async () => {
+    const field = document.querySelector('input[aria-label="Edit subtask Draft elapsed time"]');
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(field, "1:30");
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => document.querySelector('input[aria-label="Edit subtask Draft elapsed time"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+  assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 90);
+  await tap(button("Reset subtask Draft stopwatch", row));
+  assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 0);
+  await tap(button("Remove subtask Draft stopwatch", row));
+  assert.equal(savedCards()[0].subtasks[0].stopwatch, null);
+  assert.equal(button("Remove stopwatch", document.querySelector('[data-card-id]')), undefined, "linked parent stopwatch disappears after the last subtask clock is removed");
+  await tap(button("Options for subtask Draft"));
   await tap(button("Edit subtask", document.querySelector('[role="dialog"][aria-label="Options for subtask Draft"]')));
   const editField = document.querySelector('input[aria-label="Edit subtask"]');
   assert.equal(document.activeElement, editField);
@@ -378,6 +423,32 @@ test("subtask menu edits and deletes the selected subtask", async () => {
   await tap(button("Options for subtask Revised"));
   await tap(button("Delete subtask", document.querySelector('[role="dialog"][aria-label="Options for subtask Revised"]')));
   assert.deepEqual(savedCards()[0].subtasks, []);
+});
+test("starting a subtask clock carries existing task stopwatch time into the linked total", async () => {
+  await add("Project []");
+  await key("Enter");
+  await act(async () => {
+    const field = document.querySelector('input[aria-label="New subtask"]');
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(field, "Research");
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => document.querySelector('input[aria-label="New subtask"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+  const realNow = Date.now;
+  let now = realNow();
+  Date.now = () => now;
+  try {
+    await tap(button("Start stopwatch", document.querySelector('[data-card-id]')));
+    now += 10000;
+    await tap(button("Options for subtask Research"));
+    await tap(button("Start stopwatch", document.querySelector('[role="dialog"][aria-label="Options for subtask Research"]')));
+    const card = savedCards()[0];
+    assert.equal(card.stopwatch, null);
+    assert.equal(card.subtasks[0].stopwatch.elapsedSec, 10);
+    await tap(button("Pause stopwatch", document.querySelector('[data-card-id]')));
+    assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 10);
+  } finally {
+    Date.now = realNow;
+  }
 });
 test("title shortcuts highlight the exact text and show the saved values on hover", async () => {
   await add("Study 25m g2 due tomorrow at 11am");

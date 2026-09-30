@@ -1,4 +1,4 @@
-import { pauseSubtaskStopwatches } from "./subtaskStopwatch";
+import { linkParentStopwatch, pauseSubtaskStopwatches } from "./subtaskStopwatch";
 
 export const TASK_COLUMNS = ["todo", "doing", "done"];
 
@@ -22,20 +22,21 @@ export function promoteNewlyFlagged(previous, next) {
 
 // Freeze elapsed time before completing, archiving, or copying a running task.
 export function pauseTask(card, now = Date.now()) {
-  const next = { ...card, running: false, lastStartTs: null, subtasks: pauseSubtaskStopwatches(card.subtasks, now) };
-  if (card.running && card.lastStartTs != null && card.segments?.length) {
-    const active = card.activeSegmentIndex ?? 0;
-    next.segments = card.segments.map((segment, index) => index === active ? {
+  const linked = linkParentStopwatch(card, now);
+  const next = { ...linked, running: false, lastStartTs: null, subtasks: pauseSubtaskStopwatches(linked.subtasks, now) };
+  if (linked.running && linked.lastStartTs != null && linked.segments?.length) {
+    const active = linked.activeSegmentIndex ?? 0;
+    next.segments = linked.segments.map((segment, index) => index === active ? {
       ...segment,
-      remainingSec: Math.max(0, (card.remainingSecAtStart ?? segment.remainingSec) - Math.max(0, now - card.lastStartTs) / 1000),
+      remainingSec: Math.max(0, (linked.remainingSecAtStart ?? segment.remainingSec) - Math.max(0, now - linked.lastStartTs) / 1000),
     } : { ...segment });
     next.remainingSec = next.segments.reduce((sum, segment) => sum + segment.remainingSec, 0);
     next.remainingSecAtStart = next.segments[active]?.remainingSec ?? 0;
   }
-  if (card.stopwatch) {
+  if (linked.stopwatch) {
     next.stopwatch = {
-      ...card.stopwatch,
-      elapsedSec: (card.stopwatch.elapsedSec || 0) + (card.stopwatch.running && card.stopwatch.lastStartTs != null ? Math.max(0, now - card.stopwatch.lastStartTs) / 1000 : 0),
+      ...linked.stopwatch,
+      elapsedSec: (linked.stopwatch.elapsedSec || 0) + (linked.stopwatch.running && linked.stopwatch.lastStartTs != null ? Math.max(0, now - linked.stopwatch.lastStartTs) / 1000 : 0),
       running: false,
       lastStartTs: null,
     };

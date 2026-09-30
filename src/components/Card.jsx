@@ -4,7 +4,6 @@ import { CalendarDays, Flag, Check, Play, Pause, RotateCcw, VolumeX, Timer, List
 import { CardActions } from "./CardActions";
 import { TaskTitleInput } from "./TaskTitleInput";
 import { StopwatchControls } from "./StopwatchControls";
-import { StopwatchReadout } from "./StopwatchReadout";
 import { SegmentLimitEditor } from "./SegmentLimitEditor";
 import { Subtasks } from "./Subtasks";
 import { MIN_SEGMENT_SEC } from "../constants";
@@ -59,7 +58,8 @@ export function Card({
   onEditStopwatchElapsed,
   onUpdateProgress,
   onChangeSubtasks,
-  onToggleSubtaskStopwatch,
+  onStartSubtaskStopwatch,
+  onUpdateSubtaskStopwatch,
   onToggleFlag,
   onSelect,
   onSetSelectionAnchor,
@@ -90,9 +90,10 @@ export function Card({
   const [subtaskComposerOpen, setSubtaskComposerOpen] = useState(false);
   const [subtaskMenuOpen, setSubtaskMenuOpen] = useState(false);
   const hasTimer = Boolean((card.segments?.length || 0) > 0 || card.durationSec > 0 || card.remainingSec > 0);
-  const hasStopwatch = Boolean(card.stopwatch);
-  const stopwatchRunning = Boolean(card.stopwatch?.running);
-  const stopwatchElapsed = card.computedStopwatchElapsed ?? card.stopwatch?.elapsedSec ?? 0;
+  const hasLinkedStopwatch = card.subtasks?.some((subtask) => subtask.stopwatch);
+  const hasStopwatch = Boolean(card.stopwatch || hasLinkedStopwatch);
+  const stopwatchRunning = hasLinkedStopwatch ? card.subtasks.some((subtask) => subtask.stopwatch?.running) : Boolean(card.stopwatch?.running);
+  const stopwatchElapsed = hasLinkedStopwatch ? card.computedSubtaskStopwatchElapsed ?? 0 : card.computedStopwatchElapsed ?? card.stopwatch?.elapsedSec ?? 0;
   const segments = hasTimer
     ? (card.segments && card.segments.length
       ? card.segments
@@ -534,7 +535,6 @@ export function Card({
         <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
         {isChiming && <button type="button" data-card-controls className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" style={{ color: cardSubtextColor }} title="Mute chime" aria-label="Mute chime" onClick={onStopChime}><VolumeX size={16} /></button>}
         {hasStopwatch && <StopwatchControls running={stopwatchRunning} elapsed={stopwatchElapsed} onStart={onStartStopwatch} onPause={onPauseStopwatch} onReset={onResetStopwatch} onRemove={onClearStopwatch} onEdit={onEditStopwatchElapsed} color={cardSubtextColor} palette={palette} onEditingChange={setFeatureEditing} />}
-        {card.computedSubtaskStopwatchElapsed != null && <StopwatchReadout elapsed={card.computedSubtaskStopwatchElapsed} label="Total subtask stopwatch time" palette={palette} color={cardSubtextColor} />}
         {hasTimer && <div data-card-controls className="flex items-center gap-1" style={{ color: cardSubtextColor }}>
           <button type="button" className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" title={card.running ? "Pause timer" : "Start timer"} aria-label={card.running ? "Pause timer" : "Start timer"} onClick={card.running ? onPause : onStart}>{card.running ? <Pause size={16} /> : <Play size={16} />}</button>
           <button type="button" className="interactive-button rounded-md p-2 hover:bg-black/10 md:p-1" title="Reset timer" aria-label="Reset timer" onClick={onReset}><RotateCcw size={16} /></button>
@@ -685,8 +685,10 @@ export function Card({
         adding={subtaskComposerOpen}
         onAddingChange={setSubtaskComposerOpen}
         onChange={onChangeSubtasks}
-        onToggleStopwatch={onToggleSubtaskStopwatch}
+        onStartStopwatch={onStartSubtaskStopwatch}
+        onUpdateStopwatch={onUpdateSubtaskStopwatch}
         onMenuOpenChange={setSubtaskMenuOpen}
+        onStopwatchEditingChange={setFeatureEditing}
         palette={palette}
         textColor={cardTextColor}
         subtextColor={cardSubtextColor}
