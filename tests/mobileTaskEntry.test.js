@@ -447,6 +447,27 @@ test("starting a subtask clock carries existing task stopwatch time into the lin
     Date.now = realNow;
   }
 });
+test("settings toggle moves the subtask start button between the row and menu", async () => {
+  await add("Project []");
+  await key("Enter");
+  await act(async () => {
+    const field = document.querySelector('input[aria-label="New subtask"]');
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(field, "Research");
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => document.querySelector('input[aria-label="New subtask"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+  assert.ok(button("Start subtask Research stopwatch", document.querySelector('[data-subtask-id]')));
+  await tap(document.querySelector('button[title="Settings"]'));
+  const checkbox = [...document.querySelectorAll('[role="dialog"][aria-label="Settings"] label')].find((label) => label.textContent.includes("Show subtask stopwatch button")).querySelector('input[type="checkbox"]');
+  assert.equal(checkbox.checked, true);
+  await tap(checkbox);
+  assert.equal(localStorage.getItem("tasky:subtask-stopwatch-button"), "false");
+  await tap(document.querySelector('[role="dialog"][aria-label="Settings"] button'));
+  assert.equal(button("Start subtask Research stopwatch", document.querySelector('[data-subtask-id]')), undefined);
+  await tap(button("Options for subtask Research"));
+  await tap(button("Start stopwatch", document.querySelector('[role="dialog"][aria-label="Options for subtask Research"]')));
+  assert.ok(button("Pause subtask Research stopwatch", document.querySelector('[data-subtask-id]')), "active controls stay visible when the shortcut is off");
+});
 test("title shortcuts highlight the exact text and show the saved values on hover", async () => {
   await add("Study 25m g2 due tomorrow at 11am");
   const shortcuts = [...document.querySelectorAll("[data-title-shortcut]")];

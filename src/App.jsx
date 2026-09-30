@@ -20,7 +20,7 @@ import {
   upgradeLegacyCard,
 } from "./utils/segments";
 import { ensureAudioContext, playChime } from "./utils/audio";
-import { clearState, loadSound, loadState, loadTheme, saveSound, saveState, saveTheme, loadPinnedControls, savePinnedControls } from "./utils/storage";
+import { clearState, loadSound, loadState, loadTheme, saveSound, saveState, saveTheme, loadPinnedControls, savePinnedControls, loadSubtaskStopwatchButton, saveSubtaskStopwatchButton } from "./utils/storage";
 import { DEFAULT_DUE_TIME, applyDueDate, flagDueTasks, setManualFlag } from "./utils/dueDates";
 import { parseTaskTitle } from "./utils/taskTitle";
 import { useTaskSync } from "./hooks/useTaskSync";
@@ -83,6 +83,8 @@ export default function KanbanTimerBoard() {
   const [sound, setSound] = useState(loadSound());
   const [pinnedControls, setPinnedControls] = useState(loadPinnedControls);
   useEffect(() => savePinnedControls(pinnedControls), [pinnedControls]);
+  const [showSubtaskStopwatchButton, setShowSubtaskStopwatchButton] = useState(loadSubtaskStopwatchButton);
+  useEffect(() => saveSubtaskStopwatchButton(showSubtaskStopwatchButton), [showSubtaskStopwatchButton]);
   const [autoMoveEnabled, setAutoMoveEnabled] = useState(() => initialStoredState?.autoMoveEnabled ?? true);
   const [syncRevision, setSyncRevision] = useState(() => boardRevision(initialStoredState));
   const [syncSetupOpen, setSyncSetupOpen] = useState(false);
@@ -1322,6 +1324,7 @@ export default function KanbanTimerBoard() {
                     card={card}
                     colId={col.id}
                     pinnedControls={pinnedControls}
+                    showSubtaskStopwatchButton={showSubtaskStopwatchButton}
                     onMove={(destination, position) => updateCardsState((prev) => moveTasks(prev, [card.id], destination, position === "top" ? 0 : null), { track: true })}
                     selected={selection.selectedIds.has(card.id)}
                     selectionActive={selection.selected.length > 0}
@@ -1463,6 +1466,8 @@ export default function KanbanTimerBoard() {
           setSound={setSound}
           pinnedControls={pinnedControls}
           setPinnedControls={setPinnedControls}
+          showSubtaskStopwatchButton={showSubtaskStopwatchButton}
+          setShowSubtaskStopwatchButton={setShowSubtaskStopwatchButton}
           autoMoveEnabled={autoMoveEnabled}
           setAutoMoveEnabled={setAutoMoveEnabled}
           onTest={() => playChime(audioRef, { type: sound.type, volume: sound.volume })}

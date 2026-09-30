@@ -13,6 +13,18 @@ export function savePinnedControls(controls) {
   catch { /* Preferences still work for this session. */ }
 }
 
+const SUBTASK_STOPWATCH_BUTTON_KEY = "tasky:subtask-stopwatch-button";
+
+export function loadSubtaskStopwatchButton() {
+  try { return localStorage.getItem(SUBTASK_STOPWATCH_BUTTON_KEY) !== "false"; }
+  catch { return true; }
+}
+
+export function saveSubtaskStopwatchButton(visible) {
+  try { localStorage.setItem(SUBTASK_STOPWATCH_BUTTON_KEY, String(visible)); }
+  catch { /* Preferences still work for this session. */ }
+}
+
 const SYNC_BASELINE_KEY = "kanban-timer-board:sync-baseline:v1";
 
 export function loadSyncBaseline(uid) {
