@@ -1,8 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Pencil, Timer, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { MenuButton } from "./MenuButton";
 
-export function SubtaskActions({ subtask, onEdit, onDelete, onStopwatch, onOpenChange, palette, color }) {
+export function SubtaskActions({ subtask, onEdit, onDelete, onOpenChange, palette, color }) {
   const [open, setOpen] = useState(false);
   const [up, setUp] = useState(false);
   const containerRef = useRef(null);
@@ -39,7 +39,6 @@ export function SubtaskActions({ subtask, onEdit, onDelete, onStopwatch, onOpenC
 
   const act = (callback) => () => { setOpen(false); callback(); };
   const itemClass = "header-action-button flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm";
-  const stopwatchLabel = subtask.stopwatch ? "Remove stopwatch" : "Start stopwatch";
 
   return (
     <div ref={containerRef} className={`relative shrink-0 ${open ? "z-40" : ""}`}>
@@ -47,7 +46,6 @@ export function SubtaskActions({ subtask, onEdit, onDelete, onStopwatch, onOpenC
       {open && (
         <div ref={menuRef} role="dialog" aria-label={`Options for subtask ${subtask.title}`} className={`absolute right-0 z-40 w-44 rounded-xl border p-1.5 shadow-xl ${up ? "bottom-full mb-2" : "top-full mt-2"}`} style={{ backgroundColor: palette.surface, borderColor: palette.border, color: palette.text }}>
           <button type="button" className={itemClass} onClick={act(onEdit)}><Pencil size={16} />Edit subtask</button>
-          <button type="button" className={itemClass} onClick={act(onStopwatch)}><Timer size={16} />{stopwatchLabel}</button>
           <button type="button" className={itemClass} style={{ color: palette.dangerText }} onClick={act(onDelete)}><Trash2 size={16} />Delete subtask</button>
         </div>
       )}

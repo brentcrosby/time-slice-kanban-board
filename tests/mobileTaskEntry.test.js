@@ -333,16 +333,15 @@ test("subtask menu stopwatches add into the task total and pause on completion",
   try {
     await tap(button("Options for subtask Research"));
     const firstMenu = document.querySelector('[role="dialog"][aria-label="Options for subtask Research"]');
-    assert.deepEqual([...firstMenu.querySelectorAll("button")].map((item) => item.textContent), ["Edit subtask", "Start stopwatch", "Delete subtask"]);
-    await tap(button("Start stopwatch", firstMenu));
+    assert.deepEqual([...firstMenu.querySelectorAll("button")].map((item) => item.textContent), ["Edit subtask", "Delete subtask"]);
+    await tap(button("Start subtask Research stopwatch", document.querySelector('[data-subtask-id]')));
     assert.equal(savedCards()[0].subtasks[0].stopwatch.running, true);
     assert.ok(document.querySelector('[data-column-id="doing"] [data-card-title]'), "starting a subtask clock moves a To Do task to Doing");
     assert.equal([...document.querySelectorAll('[data-card-id] button[aria-label="Pause stopwatch"]')].length, 1, "one task stopwatch controls the linked total");
     now += 5000;
     await tap(button("Pause subtask Research stopwatch", document.querySelector('[data-subtask-id]')));
     assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 5);
-    await tap(button("Options for subtask Write"));
-    await tap(button("Start stopwatch", document.querySelector('[role="dialog"][aria-label="Options for subtask Write"]')));
+    await tap(button("Start subtask Write stopwatch", [...document.querySelectorAll('[data-subtask-id]')][1]));
     now += 3000;
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 120)); });
     assert.equal(button("Edit elapsed time, 0:08").textContent, "0:08");
@@ -394,8 +393,7 @@ test("subtask menu edits and deletes the selected subtask", async () => {
     field.dispatchEvent(new Event("input", { bubbles: true }));
   });
   await act(async () => document.querySelector('input[aria-label="New subtask"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
-  await tap(button("Options for subtask Draft"));
-  await tap(button("Start stopwatch", document.querySelector('[role="dialog"][aria-label="Options for subtask Draft"]')));
+  await tap(button("Start subtask Draft stopwatch", document.querySelector('[data-subtask-id]')));
   const row = document.querySelector('[data-subtask-id]');
   await tap([...row.querySelectorAll('button[aria-label]')].find((item) => item.getAttribute("aria-label").startsWith("subtask Draft elapsed time")));
   await act(async () => {
@@ -439,8 +437,7 @@ test("starting a subtask clock carries existing task stopwatch time into the lin
   try {
     await tap(button("Start stopwatch", document.querySelector('[data-card-id]')));
     now += 10000;
-    await tap(button("Options for subtask Research"));
-    await tap(button("Start stopwatch", document.querySelector('[role="dialog"][aria-label="Options for subtask Research"]')));
+    await tap(button("Start subtask Research stopwatch", document.querySelector('[data-subtask-id]')));
     const card = savedCards()[0];
     assert.equal(card.stopwatch, null);
     assert.equal(card.subtasks[0].stopwatch.elapsedSec, 10);
