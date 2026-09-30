@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, GripVertical, ListChecks, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, ListChecks, Plus, Timer } from "lucide-react";
 import { uid } from "../utils/misc";
 import { SubtaskActions } from "./SubtaskActions";
 import { StopwatchControls } from "./StopwatchControls";
@@ -238,7 +238,7 @@ export function Subtasks({
                     {subtask.title}
                   </button>
                 )}
-                {subtask.stopwatch && <StopwatchControls
+                {subtask.stopwatch ? <StopwatchControls
                   running={subtask.stopwatch.running}
                   elapsed={subtask.computedStopwatchElapsed ?? subtask.stopwatch.elapsedSec ?? 0}
                   onStart={() => onStartStopwatch(subtask.id)}
@@ -251,12 +251,18 @@ export function Subtasks({
                   color={subtextColor}
                   palette={palette}
                   compact
-                />}
+                /> : <button
+                  type="button"
+                  className="interactive-button shrink-0 rounded-md p-2 hover:bg-black/10 md:p-1"
+                  style={{ color: subtextColor }}
+                  title={`Start subtask ${subtask.title} stopwatch`}
+                  aria-label={`Start subtask ${subtask.title} stopwatch`}
+                  onClick={() => onStartStopwatch(subtask.id)}
+                ><Timer size={16} /></button>}
                 <SubtaskActions
                   subtask={subtask}
                   onEdit={() => { setEditingId(subtask.id); setEditDraft(subtask.title); }}
                   onDelete={() => onChange((current) => current.filter((item) => item.id !== subtask.id))}
-                  onStopwatch={() => subtask.stopwatch ? onUpdateStopwatch(subtask.id, "remove") : onStartStopwatch(subtask.id)}
                   onOpenChange={onMenuOpenChange}
                   palette={palette}
                   color={subtextColor}
