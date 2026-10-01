@@ -3,7 +3,7 @@ import { ArchiveRestore, CheckSquare, Clock3, RotateCcw, Flag } from "lucide-rea
 import { Modal } from "./Modal";
 import { CARD_GROUPS } from "../constants/groups";
 import { formatDueDate } from "../utils/dueDates";
-import { groupArchivedCardsByDay } from "../utils/archiveGroups";
+import { archivedTaskLoggedSeconds, groupArchivedCardsByDay } from "../utils/archiveGroups";
 
 const formatStopwatch = (seconds) => {
   const total = Math.max(0, Math.floor(seconds || 0));
@@ -25,6 +25,8 @@ function ArchivedTask({ card, onRestore, palette, isDark }) {
     : null;
   const subtasks = card.subtasks || [];
   const completedSubtasks = subtasks.filter((subtask) => subtask.completed).length;
+  const loggedSeconds = archivedTaskLoggedSeconds(card);
+  const hasStopwatch = Boolean(card.stopwatch || subtasks.some((subtask) => subtask.stopwatch));
 
   return (
     <article
@@ -49,7 +51,7 @@ function ArchivedTask({ card, onRestore, palette, isDark }) {
             {card.notes}
           </p>
         ) : null}
-        {(subtasks.length > 0 || card.durationSec > 0 || card.stopwatch) ? (
+        {(subtasks.length > 0 || card.durationSec > 0 || hasStopwatch) ? (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" style={{ color: groupColors?.cardSubtext || palette.subtext }}>
             {subtasks.length > 0 ? (
               <span className="inline-flex items-center gap-1">
@@ -63,10 +65,10 @@ function ArchivedTask({ card, onRestore, palette, isDark }) {
                 {formatStopwatch(card.durationSec)} planned
               </span>
             ) : null}
-            {card.stopwatch ? (
+            {hasStopwatch ? (
               <span className="inline-flex items-center gap-1">
                 <RotateCcw className="h-3.5 w-3.5" />
-                {formatStopwatch(card.stopwatch.elapsedSec)} tracked
+                {formatStopwatch(loggedSeconds)} tracked
               </span>
             ) : null}
           </div>
@@ -94,11 +96,17 @@ export function ArchiveModal({ archivedCards, onRestore, onClose, palette, isDar
       {archivedCards.length ? (
         <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
           {archiveGroups.map((group) => (
-            <section key={group.key} aria-label={group.label}>
-              <div className="mb-2 flex items-center gap-3" aria-hidden="true">
-                <div className="h-px flex-1" style={{ backgroundColor: palette.border }} />
-                <h4 className="shrink-0 text-xs font-semibold" style={{ color: palette.subtext }}>{group.label}</h4>
-                <div className="h-px flex-1" style={{ backgroundColor: palette.border }} />
+            <section key={group.key} aria-label={`${group.label}: ${group.cards.length} ${group.cards.length === 1 ? "task" : "tasks"} completed, ${formatStopwatch(group.loggedSeconds)} logged`}>
+              <div className="mb-2 flex items-center gap-2" style={{ color: palette.subtext }}>
+                <div aria-hidden="true" className="h-px min-w-2 flex-1" style={{ backgroundColor: palette.border }} />
+                <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 text-center text-xs">
+                  <h4 className="font-semibold">{group.label}</h4>
+                  <span aria-hidden="true">·</span>
+                  <span>{group.cards.length} {group.cards.length === 1 ? "task" : "tasks"} completed</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{formatStopwatch(group.loggedSeconds)} logged</span>
+                </div>
+                <div aria-hidden="true" className="h-px min-w-2 flex-1" style={{ backgroundColor: palette.border }} />
               </div>
               <div className="space-y-2">
                 {group.cards.map((card) => (

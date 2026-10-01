@@ -1,8 +1,14 @@
 function archiveTimestamp(card) {
-  for (const value of [card.archivedAt, card.completedAt]) {
+  for (const value of [card.completedAt, card.archivedAt]) {
     if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
   }
   return null;
+}
+
+export function archivedTaskLoggedSeconds(card) {
+  const stopwatchSeconds = (stopwatch) => Math.max(0, Number(stopwatch?.elapsedSec) || 0);
+  return stopwatchSeconds(card.stopwatch)
+    + (card.subtasks || []).reduce((total, subtask) => total + stopwatchSeconds(subtask.stopwatch), 0);
 }
 
 function localDayKey(date) {
@@ -25,8 +31,10 @@ export function groupArchivedCardsByDay(cards, now = new Date()) {
   for (const card of cards) {
     const timestamp = archiveTimestamp(card);
     const key = timestamp == null ? "unavailable" : localDayKey(new Date(timestamp));
-    if (!groups.has(key)) groups.set(key, { key, label: key === "unavailable" ? "Date unavailable" : dayLabel(key, now), cards: [] });
-    groups.get(key).cards.push(card);
+    if (!groups.has(key)) groups.set(key, { key, label: key === "unavailable" ? "Date unavailable" : dayLabel(key, now), cards: [], loggedSeconds: 0 });
+    const group = groups.get(key);
+    group.cards.push(card);
+    group.loggedSeconds += archivedTaskLoggedSeconds(card);
   }
 
   return [...groups.values()].sort((left, right) => {
