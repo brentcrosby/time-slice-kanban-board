@@ -30,6 +30,7 @@ In the repository's Settings → Secrets and variables → Actions → Variables
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
 - `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY`
+- `VITE_VAPID_PUBLIC_KEY` (only when due date reminders are set up)
 
 The Pages workflow injects these public Firebase web configuration values into the build. Re-run the workflow (or push a commit) after adding them. Firebase web config is not a server secret; the security boundary is Google Authentication plus the Firestore rules.
 
@@ -38,6 +39,19 @@ On GitHub Pages, mobile Google sign-in uses a popup because the app and Firebase
 ## Optional Firebase Hosting
 
 `https://tasky-6eec8.web.app` remains configured but is not the routine publishing destination, so it may lag behind GitHub Pages. If Firebase Hosting is deliberately needed again, build for the root path and deploy Hosting separately. Firebase Authentication, App Check, Firestore, and their security rules continue to operate for the GitHub Pages app without deploying Firebase Hosting. Deploy Firestore rules separately only when those rules change.
+
+## Morning due date notifications
+
+Tasky can send one summary around 8:00 a.m. in each subscribed device's last saved time zone for unfinished tasks due that day. This requires a signed-in, synced account; tasks stored only in a browser cannot be checked while the app is closed. The notification includes task titles, which may appear on the device's lock screen. On iPhone, open Tasky in Safari, choose **Share → Add to Home Screen**, launch the Home Screen app, then enable reminders in Tasky's Settings and allow notifications. Other supported browsers can enable them directly. Turning reminders off removes this device's subscription.
+
+The sender runs on the public repository's standard GitHub Actions runner, using the existing Firestore database. It does not require Firebase Blaze or a billing account. GitHub's scheduled runs can be delayed or dropped, and public repository schedules automatically disable after 60 days without repository activity. Check the **Morning due reminders** workflow if notifications stop. Several runs between 8 and 10 a.m. provide a fallback for delayed jobs, but exact delivery time cannot be guaranteed.
+
+1. Generate a VAPID key pair with `npx web-push generate-vapid-keys`. Keep the **private** key out of git. Set the GitHub repository variable `VITE_VAPID_PUBLIC_KEY` to the public key. Set GitHub Actions secrets `TASKY_VAPID_PUBLIC_KEY` and `TASKY_VAPID_PRIVATE_KEY` to the matching keys.
+2. In the Tasky Google Cloud project (`tasky-6eec8`), create a dedicated service account for the reminder sender with the **Cloud Datastore User** role. Generate its JSON key and save the entire JSON as the GitHub Actions secret `TASKY_FIREBASE_SERVICE_ACCOUNT_JSON`. Never commit or paste the JSON into an issue or pull request. The sender checks the key's project ID before accessing Firestore.
+3. Sign into the Firebase CLI for the Tasky project and run `npx firebase-tools deploy --only firestore:rules --project tasky-6eec8` from the repository root. This publishes the account-scoped subscription rules; GitHub Pages deployment does not deploy Firestore rules.
+4. Merge the reminder PR. The Pages workflow will build with the public key. Sign in, enable reminders in Settings, and allow notifications on each desired device. The scheduled workflow runs from `main` only.
+
+If the VAPID key pair changes later, devices must disable and re-enable reminders to subscribe with the new key. If reminders stop after changing devices or time zones, open Tasky while signed in so the subscription refreshes.
 
 ## Data behavior
 
