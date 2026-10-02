@@ -93,7 +93,7 @@ export function Card({
   const hasTimer = Boolean((card.segments?.length || 0) > 0 || card.durationSec > 0 || card.remainingSec > 0);
   const hasLinkedStopwatch = card.subtasks?.some((subtask) => subtask.stopwatch);
   const hasStopwatch = Boolean(card.stopwatch || hasLinkedStopwatch);
-  const stopwatchRunning = hasLinkedStopwatch ? card.subtasks.some((subtask) => subtask.stopwatch?.running) : Boolean(card.stopwatch?.running);
+  const stopwatchRunning = Boolean(card.stopwatch?.running || card.subtasks?.some((subtask) => subtask.stopwatch?.running));
   const stopwatchElapsed = hasLinkedStopwatch ? card.computedSubtaskStopwatchElapsed ?? 0 : card.computedStopwatchElapsed ?? card.stopwatch?.elapsedSec ?? 0;
   const segments = hasTimer
     ? (card.segments && card.segments.length

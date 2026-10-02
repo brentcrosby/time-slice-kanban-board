@@ -1,4 +1,4 @@
-import { linkParentStopwatch, pauseSubtaskStopwatches } from "./subtaskStopwatch";
+import { pauseStopwatch, pauseSubtaskStopwatches } from "./subtaskStopwatch.js";
 
 export const TASK_COLUMNS = ["todo", "doing", "done"];
 
@@ -22,25 +22,17 @@ export function promoteNewlyFlagged(previous, next) {
 
 // Freeze elapsed time before completing, archiving, or copying a running task.
 export function pauseTask(card, now = Date.now()) {
-  const linked = linkParentStopwatch(card, now);
-  const next = { ...linked, running: false, lastStartTs: null, subtasks: pauseSubtaskStopwatches(linked.subtasks, now) };
-  if (linked.running && linked.lastStartTs != null && linked.segments?.length) {
-    const active = linked.activeSegmentIndex ?? 0;
-    next.segments = linked.segments.map((segment, index) => index === active ? {
+  const next = { ...card, running: false, lastStartTs: null, subtasks: pauseSubtaskStopwatches(card.subtasks, now) };
+  if (card.running && card.lastStartTs != null && card.segments?.length) {
+    const active = card.activeSegmentIndex ?? 0;
+    next.segments = card.segments.map((segment, index) => index === active ? {
       ...segment,
-      remainingSec: Math.max(0, (linked.remainingSecAtStart ?? segment.remainingSec) - Math.max(0, now - linked.lastStartTs) / 1000),
+      remainingSec: Math.max(0, (card.remainingSecAtStart ?? segment.remainingSec) - Math.max(0, now - card.lastStartTs) / 1000),
     } : { ...segment });
     next.remainingSec = next.segments.reduce((sum, segment) => sum + segment.remainingSec, 0);
     next.remainingSecAtStart = next.segments[active]?.remainingSec ?? 0;
   }
-  if (linked.stopwatch) {
-    next.stopwatch = {
-      ...linked.stopwatch,
-      elapsedSec: (linked.stopwatch.elapsedSec || 0) + (linked.stopwatch.running && linked.stopwatch.lastStartTs != null ? Math.max(0, now - linked.stopwatch.lastStartTs) / 1000 : 0),
-      running: false,
-      lastStartTs: null,
-    };
-  }
+  if (card.stopwatch) next.stopwatch = pauseStopwatch(card.stopwatch, now);
   return next;
 }
 
