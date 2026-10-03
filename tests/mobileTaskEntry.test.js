@@ -114,7 +114,7 @@ test("Return can add several tasks in sequence, then leaving removes only the em
   await key("Enter");
   await type("Second");
   await key("Enter");
-  assert.deepEqual(savedCards().map((card) => card.title), ["First", "Second", ""]);
+  assert.deepEqual(savedCards().map((card) => card.title), ["First", "Second"]);
   assert.equal(document.activeElement, input());
   await tap(document.querySelector("h1"));
   assert.deepEqual(savedCards().map((card) => card.title), ["First", "Second"]);
@@ -127,13 +127,13 @@ for (const [label, group, column] of [["Red", "g1", "todo"], ["Blue", "g2", "doi
     assert.deepEqual([...scope.querySelectorAll('[data-add-task-control] [id^="add-task-groups-"] button')].map((node) => node.textContent.trim()), ["No group", "Red", "Blue", "Yellow"]);
     assert.equal(await tap(button(group ? `Add ${label} task` : "Add task without a group", scope)), true);
     assert.equal(document.activeElement, input());
-    assert.equal(savedCards()[0].group, group);
+    assert.equal(savedCards().length, 0);
     await type("First");
     await key("Enter");
     assert.equal(document.activeElement, input());
     await type("Second");
     await key("Enter");
-    assert.deepEqual(savedCards().map((card) => [card.title, card.group]), [["First", group], ["Second", group], ["", group]]);
+    assert.deepEqual(savedCards().map((card) => [card.title, card.group]), [["First", group], ["Second", group]]);
     await tap(document.querySelector("h1"));
     assert.deepEqual(savedCards().map((card) => [card.title, card.group]), [["First", group], ["Second", group]]);
   });
@@ -167,10 +167,10 @@ test("Return follows a title group shortcut, including clearing the group", asyn
   await tap(button("Add Red task", scope));
   await type("First g2");
   await key("Enter");
-  assert.deepEqual(savedCards().map((card) => card.group), ["g2", "g2"]);
+  assert.deepEqual(savedCards().map((card) => card.group), ["g2"]);
   await type("Second g0");
   await key("Enter");
-  assert.deepEqual(savedCards().map((card) => card.group), ["g2", null, null]);
+  assert.deepEqual(savedCards().map((card) => card.group), ["g2", null]);
   await tap(document.querySelector("h1"));
   await add("Plain task");
   await tap(button("Save"));
@@ -198,7 +198,7 @@ for (const column of ["todo", "doing", "done"]) {
     assert.equal(await tap(button(`Add task at top of ${scope.querySelector("h2").textContent}`, scope)), true);
     assert.equal(document.activeElement, input());
     assert.equal(scope.querySelector("[data-card-id]"), input().closest("[data-card-id]"));
-    assert.equal(savedCards().find((card) => card.isDraft).group, null);
+    assert.equal(savedCards().some((card) => card.isDraft), false, "the empty editor is never persisted");
     await type("Newest");
     await key("Enter");
     assert.equal(scope.querySelector("[data-card-id]"), input().closest("[data-card-id]"));
@@ -208,6 +208,36 @@ for (const column of ["todo", "doing", "done"]) {
     assert.equal(savedCards().some((card) => card.isDraft), false);
   });
 }
+for (const position of ["top", "bottom"]) {
+  test(`${position} empty draft is discarded when the app is interrupted`, async () => {
+    if (position === "bottom") await add();
+    else {
+      const scope = document.querySelector('[data-column-id="doing"]');
+      await tap(button(`Add task at top of ${scope.querySelector("h2").textContent}`, scope));
+    }
+    assert.ok(input());
+    assert.equal(savedCards().length, 0);
+    await act(async () => window.dispatchEvent(new Event("pagehide")));
+    assert.equal(cards().length, 0);
+    assert.equal(savedCards().length, 0);
+  });
+}
+
+test("reopening after an abandoned draft does not restore an empty task", async () => {
+  await add();
+  assert.equal(savedCards().length, 0);
+  await act(async () => root.unmount());
+  root = createRoot(document.getElementById("root"));
+  await act(async () => root.render(React.createElement(App)));
+  assert.equal(cards().length, 0);
+});
+
+test("interruption commits a named draft", async () => {
+  await add("Finish report");
+  await act(async () => window.dispatchEvent(new Event("pagehide")));
+  assert.equal(savedCards()[0].title, "Finish report");
+  assert.equal(savedCards()[0].isDraft, false);
+});
 for (const method of ["Return", "blur", "stopwatch"]) {
   test(`whitespace-only draft + ${method} leaves no task`, async () => {
     await add("   ");
@@ -349,19 +379,20 @@ test("subtask menu stopwatches add into the task total and pause on completion",
     assert.equal(savedCards()[0].subtasks[1].stopwatch.running, false);
     assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 5);
     await tap(button("Resume stopwatch", document.querySelector('[data-card-id]')));
-    assert.ok(savedCards()[0].subtasks.every((subtask) => subtask.stopwatch.running));
+    assert.equal(savedCards()[0].stopwatch.running, true);
+    assert.ok(savedCards()[0].subtasks.every((subtask) => !subtask.stopwatch.running));
     now += 2000;
     await tap(button("Pause stopwatch", document.querySelector('[data-card-id]')));
-    assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 7);
-    assert.equal(savedCards()[0].subtasks[1].stopwatch.elapsedSec, 5);
-    await tap(button("Edit elapsed time, 0:12"));
+    assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 5);
+    assert.equal(savedCards()[0].subtasks[1].stopwatch.elapsedSec, 3);
+    await tap(button("Edit elapsed time, 0:10"));
     await act(async () => {
       const field = document.querySelector('input[aria-label="Edit elapsed time"]');
       Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(field, "0:20");
       field.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await act(async () => document.querySelector('input[aria-label="Edit elapsed time"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
-    assert.equal(savedCards()[0].subtasks.reduce((sum, subtask) => sum + subtask.stopwatch.elapsedSec, 0), 20);
+    assert.equal(savedCards()[0].stopwatch.elapsedSec + savedCards()[0].subtasks.reduce((sum, subtask) => sum + subtask.stopwatch.elapsedSec, 0), 20);
     await tap(button("Edit elapsed time, 0:20"));
     await act(async () => {
       const field = document.querySelector('input[aria-label="Edit elapsed time"]');
@@ -407,7 +438,7 @@ test("subtask menu edits and deletes the selected subtask", async () => {
   assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 0);
   await tap(button("Remove subtask Draft stopwatch", row));
   assert.equal(savedCards()[0].subtasks[0].stopwatch, null);
-  assert.equal(button("Remove stopwatch", document.querySelector('[data-card-id]')), undefined, "linked parent stopwatch disappears after the last subtask clock is removed");
+  assert.ok(button("Remove stopwatch", document.querySelector('[data-card-id]')), "the task stopwatch remains after removing the subtask clock");
   await tap(button("Options for subtask Draft"));
   await tap(button("Edit subtask", document.querySelector('[role="dialog"][aria-label="Options for subtask Draft"]')));
   const editField = document.querySelector('input[aria-label="Edit subtask"]');
@@ -439,10 +470,12 @@ test("starting a subtask clock carries existing task stopwatch time into the lin
     now += 10000;
     await tap(button("Start subtask Research stopwatch", document.querySelector('[data-subtask-id]')));
     const card = savedCards()[0];
-    assert.equal(card.stopwatch, null);
-    assert.equal(card.subtasks[0].stopwatch.elapsedSec, 10);
+    assert.equal(card.stopwatch.elapsedSec, 10);
+    assert.equal(card.stopwatch.running, false);
+    assert.equal(card.subtasks[0].stopwatch.elapsedSec, 0);
     await tap(button("Pause stopwatch", document.querySelector('[data-card-id]')));
-    assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 10);
+    assert.equal(savedCards()[0].subtasks[0].stopwatch.elapsedSec, 0);
+    assert.equal(savedCards()[0].stopwatch.elapsedSec, 10);
   } finally {
     Date.now = realNow;
   }
@@ -482,6 +515,8 @@ test("title shortcuts highlight the exact text and show the saved values on hove
   assert.equal(savedCards()[0].title, "Study");
   assert.equal(savedCards()[0].durationSec, 1500);
   assert.equal(savedCards()[0].dueTime, "11:00");
+  await type("Next task");
+  await tap(button("Save"));
   assert.equal(savedCards()[1].group, "g2");
 });
 test("preview keeps character positions after a due phrase and explains segmented timers", async () => {

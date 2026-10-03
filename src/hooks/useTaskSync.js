@@ -2,8 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
 import { doc, onSnapshot, runTransaction, serverTimestamp } from "firebase/firestore";
 import { auth, firebaseConfigured, firestore } from "../utils/firebase";
-import { boardFingerprint, boardRevision, incomingSyncAction, initialSyncAction, mergeBoards } from "../utils/boardSync";
+import { boardFingerprint, boardRevision, incomingSyncAction, initialSyncAction, mergeBoards, savedBoard } from "../utils/boardSync";
 import { loadSyncBaseline, saveSyncBaseline } from "../utils/storage";
+
+const IMPORT_INTENT_KEY = "tasky:sign-in-import";
+
+const takeRedirectImportIntent = () => {
+  try {
+    const requested = window.sessionStorage.getItem(IMPORT_INTENT_KEY) === "true";
+    window.sessionStorage.removeItem(IMPORT_INTENT_KEY);
+    return requested;
+  } catch { return false; }
+};
 
 export function useTaskSync(localState, onApplyState, onRevisionChange) {
   const [user, setUser] = useState(null);
@@ -23,6 +33,7 @@ export function useTaskSync(localState, onApplyState, onRevisionChange) {
   const revisionChangeRef = useRef(onRevisionChange);
   const writingRef = useRef(false);
   const unsubscribeRef = useRef(null);
+  const canImportRef = useRef(false);
 
   localStateRef.current = localState;
   applyRef.current = onApplyState;
@@ -41,12 +52,32 @@ export function useTaskSync(localState, onApplyState, onRevisionChange) {
   }, []);
 
   const markReady = useCallback(() => {
+    canImportRef.current = false;
     readyRef.current = true;
     setSyncGeneration((generation) => generation + 1);
     setStatus("synced");
   }, []);
 
+  const handleConflict = useCallback((uid, remote) => {
+    if (canImportRef.current) {
+      pendingRemoteRef.current = remote;
+      conflictRef.current = true;
+      setConflict(true);
+      setStatus("needs-choice");
+      return;
+    }
+    // Import is only an onboarding choice. During normal use, the account
+    // board wins a concurrent update instead of reopening the import dialog.
+    rememberBaseline(uid, remote);
+    applyRef.current(remote);
+    pendingRemoteRef.current = null;
+    conflictRef.current = false;
+    setConflict(false);
+    markReady();
+  }, [rememberBaseline, markReady]);
+
   const writeBoard = useCallback(async (uid, state) => {
+    state = savedBoard(state);
     const fingerprint = boardFingerprint(state);
     const expectedFingerprint = baselineRef.current;
     if (writingRef.current) return;
@@ -71,10 +102,7 @@ export function useTaskSync(localState, onApplyState, onRevisionChange) {
       });
       if (result.remote !== undefined) {
         if (result.remote) {
-          pendingRemoteRef.current = result.remote;
-          conflictRef.current = true;
-          setConflict(true);
-          setStatus("needs-choice");
+          handleConflict(uid, result.remote);
         } else {
           setError("The cloud board was removed while syncing. Your device copy is safe; reload to retry.");
           setStatus("error");
@@ -96,11 +124,12 @@ export function useTaskSync(localState, onApplyState, onRevisionChange) {
         setSyncGeneration((generation) => generation + 1);
       }
     }
-  }, [rememberBaseline]);
+  }, [rememberBaseline, handleConflict]);
 
   useEffect(() => {
     if (!auth) return undefined;
     return onAuthStateChanged(auth, (nextUser) => {
+      if (nextUser) canImportRef.current = takeRedirectImportIntent() || canImportRef.current;
       unsubscribeRef.current?.();
       unsubscribeRef.current = null;
       readyRef.current = false;
@@ -149,7 +178,7 @@ export function useTaskSync(localState, onApplyState, onRevisionChange) {
           }
 
           const remote = snapshot.data()?.state;
-          const action = initialSyncAction(localStateRef.current, remote, baselineRef.current, baselineRevisionRef.current);
+          const action = initialSyncAction(localStateRef.current, remote, baselineRef.current, baselineRevisionRef.current, canImportRef.current);
           if (action === "same") {
             rememberBaseline(user.uid, remote);
             markReady();
@@ -167,10 +196,7 @@ export function useTaskSync(localState, onApplyState, onRevisionChange) {
             markReady();
             return;
           }
-          pendingRemoteRef.current = remote;
-          conflictRef.current = true;
-          setConflict(true);
-          setStatus("needs-choice");
+          handleConflict(user.uid, remote);
           return;
         }
 
@@ -192,10 +218,7 @@ export function useTaskSync(localState, onApplyState, onRevisionChange) {
           applyRef.current(remote);
           setStatus("synced");
         } else {
-          pendingRemoteRef.current = remote;
-          conflictRef.current = true;
-          setConflict(true);
-          setStatus("needs-choice");
+          handleConflict(user.uid, remote);
         }
       },
       (snapshotError) => {
@@ -208,7 +231,7 @@ export function useTaskSync(localState, onApplyState, onRevisionChange) {
       unsubscribe();
       if (unsubscribeRef.current === unsubscribe) unsubscribeRef.current = null;
     };
-  }, [user, markReady, rememberBaseline, writeBoard]);
+  }, [user, markReady, rememberBaseline, writeBoard, handleConflict]);
 
   useEffect(() => {
     if (!user || !firestore || !readyRef.current || conflict) return undefined;
@@ -226,16 +249,20 @@ export function useTaskSync(localState, onApplyState, onRevisionChange) {
   const signIn = useCallback(async () => {
     if (!auth) return;
     setError("");
+    canImportRef.current = true;
     try {
       const provider = new GoogleAuthProvider();
       const mobileDevice = window.matchMedia("(max-width: 767px), (pointer: coarse)").matches;
       const authHelperIsSameOrigin = window.location.hostname === import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
       if (mobileDevice && authHelperIsSameOrigin) {
+        try { window.sessionStorage.setItem(IMPORT_INTENT_KEY, "true"); } catch { /* Account board is the safe default. */ }
         await signInWithRedirect(auth, provider);
       } else {
         await signInWithPopup(auth, provider);
       }
     } catch (signInError) {
+      canImportRef.current = false;
+      takeRedirectImportIntent();
       setError(signInError.message || "Google sign-in failed.");
       setStatus("error");
     }
@@ -247,6 +274,7 @@ export function useTaskSync(localState, onApplyState, onRevisionChange) {
     readyRef.current = false;
     try {
       await signOut(auth);
+      canImportRef.current = false;
       setError("");
       return true;
     } catch (signOutError) {

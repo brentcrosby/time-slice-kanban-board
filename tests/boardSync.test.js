@@ -1,12 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { boardFingerprint, incomingSyncAction, initialSyncAction, mergeBoards } from "../src/utils/boardSync.js";
+import { boardFingerprint, incomingSyncAction, initialSyncAction, mergeBoards, savedBoard } from "../src/utils/boardSync.js";
 
 const board = (todo = [], doing = [], done = []) => ({
   cardsByCol: { todo, doing, done },
   autoMoveEnabled: true,
 });
 const task = (id, title) => ({ id, title, subtasks: [] });
+
+test("restored sessions use the account board even with divergent device changes or a missing baseline", () => {
+  const local = { ...board([task("a", "Device copy")]), syncRevision: 12 };
+  const remote = { ...board([task("a", "Account copy")]), syncRevision: 10 };
+  assert.equal(initialSyncAction(local, remote, null, 0, false), "remote");
+  assert.equal(initialSyncAction(local, remote, boardFingerprint(remote), 10, false), "remote");
+  assert.equal(initialSyncAction(local, remote, null, 0, true), "conflict");
+});
+
+test("saved boards exclude transient drafts and legacy blank titles in every column and archive", () => {
+  const valid = task("valid", "Keep me");
+  const invalid = [{ id: "draft", title: "", isDraft: true }, { id: "blank", title: "  " }, { id: "missing" }];
+  const state = { ...board([valid, ...invalid], invalid, invalid), archivedCards: [valid, ...invalid], syncRevision: 7 };
+  const saved = savedBoard(state);
+  assert.deepEqual(saved.cardsByCol, { todo: [valid], doing: [], done: [] });
+  assert.deepEqual(saved.archivedCards, [valid]);
+  assert.equal(saved.syncRevision, 7);
+  assert.equal(state.cardsByCol.todo.length, 4, "the active editor is not mutated");
+});
 
 test("field order does not create a false conflict on reload", () => {
   const local = board([task("a", "Write")]);
