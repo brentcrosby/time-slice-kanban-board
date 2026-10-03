@@ -167,7 +167,7 @@ export function Subtasks({
               {dropIndex === index ? indicator(`before-${subtask.id}`) : null}
               <div
                 data-subtask-id={subtask.id}
-                className="group/subtask flex min-w-0 items-center gap-1 rounded-md py-0.5"
+                className="group/subtask flex min-w-0 flex-wrap items-center gap-1 rounded-md py-0.5"
                 style={{ opacity: draggingId === subtask.id ? 0.45 : 1 }}
               >
                 <button
@@ -221,7 +221,7 @@ export function Subtasks({
                       }
                     }}
                     onBlur={commitEdit}
-                    className="min-w-0 flex-1 rounded-md border px-2 py-1 text-base outline-none focus-visible:outline focus-visible:outline-2 md:text-xs"
+                    className="min-w-24 flex-1 rounded-md border px-2 py-1 text-base outline-none focus-visible:outline focus-visible:outline-2 md:text-xs"
                     style={inputStyle}
                     aria-label="Edit subtask"
                   />
@@ -232,44 +232,46 @@ export function Subtasks({
                       setEditingId(subtask.id);
                       setEditDraft(subtask.title);
                     }}
-                    className="interactive-button min-w-0 flex-1 break-words rounded-md px-1 py-1 text-left text-sm transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:text-xs"
+                    className="interactive-button min-w-24 flex-1 break-words rounded-md px-1 py-1 text-left text-sm transition-colors hover:bg-black/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30 md:text-xs"
                     style={{ color: subtask.completed ? subtextColor : textColor, textDecoration: subtask.completed ? "line-through" : "none" }}
                     title="Click to rename"
                   >
                     {subtask.title}
                   </button>
                 )}
-                {subtask.stopwatch ? <StopwatchControls
-                  running={subtask.stopwatch.running}
-                  elapsed={subtask.computedStopwatchElapsed ?? subtask.stopwatch.elapsedSec ?? 0}
-                  onStart={() => onStartStopwatch(subtask.id)}
-                  onPause={() => onUpdateStopwatch(subtask.id, "pause")}
-                  onReset={() => onUpdateStopwatch(subtask.id, "reset")}
-                  onRemove={() => onUpdateStopwatch(subtask.id, "remove")}
-                  onEdit={(seconds) => onUpdateStopwatch(subtask.id, "edit", seconds)}
-                  onEditingChange={onStopwatchEditingChange}
-                  label={`subtask ${subtask.title}`}
-                  color={subtextColor}
-                  palette={palette}
-                  compact
-                /> : showStopwatchButton ? <button
-                  type="button"
-                  className="interactive-button shrink-0 rounded-md p-2 hover:bg-black/10 md:p-1"
-                  style={{ color: subtextColor }}
-                  title={`Start subtask ${subtask.title} stopwatch`}
-                  aria-label={`Start subtask ${subtask.title} stopwatch`}
-                  onClick={() => onStartStopwatch(subtask.id)}
-                ><Timer size={16} /></button> : null}
-                <SubtaskActions
-                  subtask={subtask}
-                  onEdit={() => { setEditingId(subtask.id); setEditDraft(subtask.title); }}
-                  onDelete={() => onChange((current) => current.filter((item) => item.id !== subtask.id))}
-                  onStartStopwatch={() => onStartStopwatch(subtask.id)}
-                  showStopwatchAction={!showStopwatchButton && !subtask.stopwatch}
-                  onOpenChange={onMenuOpenChange}
-                  palette={palette}
-                  color={subtextColor}
-                />
+                <div className="ml-auto flex shrink-0 items-center gap-1">
+                  {subtask.stopwatch ? <StopwatchControls
+                    running={subtask.stopwatch.running}
+                    elapsed={subtask.computedStopwatchElapsed ?? subtask.stopwatch.elapsedSec ?? 0}
+                    onStart={() => onStartStopwatch(subtask.id)}
+                    onPause={() => onUpdateStopwatch(subtask.id, "pause")}
+                    onReset={() => onUpdateStopwatch(subtask.id, "reset")}
+                    onRemove={() => onUpdateStopwatch(subtask.id, "remove")}
+                    onEdit={(seconds) => onUpdateStopwatch(subtask.id, "edit", seconds)}
+                    onEditingChange={onStopwatchEditingChange}
+                    label={`subtask ${subtask.title}`}
+                    color={subtextColor}
+                    palette={palette}
+                    compact
+                  /> : showStopwatchButton ? <button
+                    type="button"
+                    className="interactive-button shrink-0 rounded-md p-2 hover:bg-black/10 md:p-1"
+                    style={{ color: subtextColor }}
+                    title={`Start subtask ${subtask.title} stopwatch`}
+                    aria-label={`Start subtask ${subtask.title} stopwatch`}
+                    onClick={() => onStartStopwatch(subtask.id)}
+                  ><Timer size={16} /></button> : null}
+                  <SubtaskActions
+                    subtask={subtask}
+                    onEdit={() => { setEditingId(subtask.id); setEditDraft(subtask.title); }}
+                    onDelete={() => onChange((current) => current.filter((item) => item.id !== subtask.id))}
+                    onStartStopwatch={() => onStartStopwatch(subtask.id)}
+                    showStopwatchAction={!showStopwatchButton && !subtask.stopwatch}
+                    onOpenChange={onMenuOpenChange}
+                    palette={palette}
+                    color={subtextColor}
+                  />
+                </div>
               </div>
             </React.Fragment>
           ))}
