@@ -84,6 +84,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
   };
 
   const submit = () => {
+    if (!title.trim()) return;
     let durations = [];
 
     if (timingMode === "segments") {
@@ -116,7 +117,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
     } else if (timingMode === "none" && parsedTitle.durationSec != null) {
       durations = [clamp(parsedTitle.durationSec, MIN_SEGMENT_SEC, MAX_SEGMENT_SEC)];
     }
-    const cleanTitle = parsedTitle.cleanTitle;
+    const cleanTitle = parsedTitle.cleanTitle?.trim() || title.trim();
     const autoGroup = parsedTitle.groupId;
     const resolvedGroup = groupTouched ? groupId : autoGroup ?? groupId;
     const normalizedCandidate = resolvedGroup ? resolvedGroup.toLowerCase() : "";
@@ -318,7 +319,8 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
           </button>
           <button
             onClick={submit}
-            className="interactive-button rounded-xl px-3 py-2 text-sm font-medium"
+            disabled={!title.trim()}
+            className="interactive-button rounded-xl px-3 py-2 text-sm font-medium disabled:opacity-50"
             style={{ backgroundColor: palette.text, color: palette.bg }}
           >
             Save

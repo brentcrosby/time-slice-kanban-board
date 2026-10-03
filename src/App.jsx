@@ -24,7 +24,7 @@ import { clearState, loadSound, loadState, loadTheme, saveSound, saveState, save
 import { DEFAULT_DUE_TIME, applyDueDate, flagDueTasks, setManualFlag } from "./utils/dueDates";
 import { parseTaskTitle } from "./utils/taskTitle";
 import { useTaskSync } from "./hooks/useTaskSync";
-import { boardFingerprint, boardRevision } from "./utils/boardSync";
+import { boardFingerprint, boardRevision, savedBoard } from "./utils/boardSync";
 import { useTaskSelection } from "./hooks/useTaskSelection";
 import { usePullToRefresh } from "./hooks/usePullToRefresh";
 import { TaskSelectionToolbar } from "./components/TaskSelectionToolbar";
@@ -37,7 +37,7 @@ const BREAK_DURATION_SEC = 600;
 const cloneBoardState = (state) => JSON.parse(JSON.stringify(state));
 
 export default function KanbanTimerBoard() {
-  const initialStoredStateRef = useRef(loadState());
+  const initialStoredStateRef = useRef(savedBoard(loadState()));
   const initialStoredState = initialStoredStateRef.current;
 
   const [columns] = useState(DEFAULT_COLUMNS);
@@ -105,7 +105,7 @@ export default function KanbanTimerBoard() {
   useEffect(() => saveTheme(themePreference), [themePreference]);
   useEffect(() => saveSound(sound), [sound]);
 
-  const boardState = useMemo(() => ({ cardsByCol, archivedCards, autoMoveEnabled }), [cardsByCol, archivedCards, autoMoveEnabled]);
+  const boardState = useMemo(() => savedBoard({ cardsByCol, archivedCards, autoMoveEnabled }), [cardsByCol, archivedCards, autoMoveEnabled]);
   const localSyncState = useMemo(() => ({ ...boardState, syncRevision }), [boardState, syncRevision]);
   const observedBoardRef = useRef(boardFingerprint(boardState));
   const applyingRemoteRef = useRef(null);
@@ -122,6 +122,7 @@ export default function KanbanTimerBoard() {
   }, [boardState]);
   const applySyncedState = useCallback((state) => {
     if (!state || typeof state !== "object") return;
+    state = savedBoard(state);
     const nextCardsByCol = {};
     DEFAULT_COLUMNS.forEach((column) => {
       const cards = state.cardsByCol?.[column.id];
@@ -599,9 +600,10 @@ export default function KanbanTimerBoard() {
     const rawGroup = payload.group;
     const normalizedGroup = rawGroup === "" ? null : rawGroup ?? null;
     const isDraft = Boolean(payload.isDraft);
+    if (!isDraft && !rawTitle) return null;
     const baseCard = {
       id,
-      title: isDraft ? rawTitle : rawTitle || "Untitled",
+      title: rawTitle,
       notes: rawNotes,
       subtasks: [],
       group: normalizedGroup,
@@ -808,7 +810,8 @@ export default function KanbanTimerBoard() {
   const applyTitleShortcuts = useCallback(
     (colId, cardId, rawTitle) => {
       const parsed = parseTaskTitle(rawTitle);
-      const cleanTitle = parsed.cleanTitle?.trim() || "Untitled";
+      const cleanTitle = parsed.cleanTitle?.trim() || rawTitle.trim();
+      if (!cleanTitle) return;
       const durations =
         parsed.segments && parsed.segments.length > 1
           ? parsed.segments

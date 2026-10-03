@@ -350,6 +350,21 @@ export function Card({
     return true;
   }, [card.title, card.isDraft, onDraftCancel, onRename, titleDraft]);
 
+  useEffect(() => {
+    const finishBeforeLeaving = () => {
+      if (titleEditActiveRef.current) handleTitleCommit();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") finishBeforeLeaving();
+    };
+    window.addEventListener("pagehide", finishBeforeLeaving);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("pagehide", finishBeforeLeaving);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [handleTitleCommit]);
+
   const handleTitleCancel = useCallback(() => {
     if (!titleEditActiveRef.current) return;
     titleEditActiveRef.current = false;

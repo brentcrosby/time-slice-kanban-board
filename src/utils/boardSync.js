@@ -1,5 +1,15 @@
 export const BOARD_COLUMNS = ["todo", "doing", "done"];
 
+// Editors may keep an empty draft in memory, but it must never become a saved task.
+export const savedBoard = (state) => {
+  const isSavedTask = (card) => card && !card.isDraft && typeof card.title === "string" && card.title.trim().length > 0;
+  return {
+    ...state,
+    cardsByCol: Object.fromEntries(BOARD_COLUMNS.map((column) => [column, (state?.cardsByCol?.[column] || []).filter(isSavedTask)])),
+    archivedCards: (state?.archivedCards || []).filter(isSavedTask),
+  };
+};
+
 // Firestore does not preserve object key insertion order. Compare the board's
 // contents, not the incidental order in which its fields were serialized.
 export const boardFingerprint = (state) => JSON.stringify({
@@ -20,10 +30,12 @@ export const hasTasks = (state) =>
 export const boardRevision = (state) => Number.isSafeInteger(state?.syncRevision) && state.syncRevision >= 0
   ? state.syncRevision : 0;
 
-export const initialSyncAction = (local, remote, baseline, baselineRevision = 0) => {
+export const initialSyncAction = (local, remote, baseline, baselineRevision = 0, allowImport = true) => {
   const localFingerprint = boardFingerprint(local);
   const remoteFingerprint = boardFingerprint(remote);
   if (localFingerprint === remoteFingerprint) return "same";
+  // An automatically restored session always opens the account board.
+  if (!allowImport) return "remote";
   const localRevision = boardRevision(local);
   const remoteRevision = boardRevision(remote);
   const localChangedSinceSync = localFingerprint !== baseline && localRevision > baselineRevision;
