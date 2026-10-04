@@ -1,4 +1,5 @@
 import { pauseStopwatch, pauseSubtaskStopwatches } from "./subtaskStopwatch.js";
+import { trackCardWork } from "./workActivity.js";
 
 export const TASK_COLUMNS = ["todo", "doing", "done"];
 
@@ -33,7 +34,7 @@ export function pauseTask(card, now = Date.now()) {
     next.remainingSecAtStart = next.segments[active]?.remainingSec ?? 0;
   }
   if (card.stopwatch) next.stopwatch = pauseStopwatch(card.stopwatch, now);
-  return next;
+  return trackCardWork(card, next, now);
 }
 
 export function taskInColumn(card, fromColumn, toColumn, now = Date.now()) {
@@ -60,6 +61,7 @@ export function moveTasks(board, ids, destination, index = null, now = Date.now(
 
 export function copyTask(card, destination, newId, now = Date.now()) {
   const copy = JSON.parse(JSON.stringify(pauseTask(card, now)));
+  delete copy.workLog;
   return {
     ...copy, id: newId, createdAt: now, isDraft: false,
     completedAt: destination === "done" ? now : null, archivedAt: null,
