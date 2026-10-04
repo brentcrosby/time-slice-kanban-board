@@ -106,13 +106,15 @@ export function ArchiveModal({ archivedCards, activeCards = [], onRestore, onClo
       {view === "activity" ? <DailyActivity cards={[...activeCards, ...archivedCards]} palette={palette} /> : completedCards.length ? (
         <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
           {archiveGroups.map((group) => (
-            <section key={group.key} aria-label={`${group.label}: ${group.cards.length} ${group.cards.length === 1 ? "task" : "tasks"} completed`}>
+            <section key={group.key} aria-label={`${group.label}: ${group.cards.length} ${group.cards.length === 1 ? "task" : "tasks"} completed, ${formatStopwatch(group.loggedSeconds)} total task time`}>
               <div className="mb-2 flex items-center gap-2" style={{ color: palette.subtext }}>
                 <div aria-hidden="true" className="h-px min-w-2 flex-1" style={{ backgroundColor: palette.border }} />
                 <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 text-center text-xs">
                   <h4 className="font-semibold">{group.label}</h4>
                   <span aria-hidden="true">·</span>
                   <span>{group.cards.length} {group.cards.length === 1 ? "task" : "tasks"} completed</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{formatStopwatch(group.loggedSeconds)} total task time</span>
                 </div>
                 <div aria-hidden="true" className="h-px min-w-2 flex-1" style={{ backgroundColor: palette.border }} />
               </div>

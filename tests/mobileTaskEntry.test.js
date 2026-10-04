@@ -619,3 +619,31 @@ test("daily activity records unfinished overlapping tasks, corrections, deletion
     assert.equal(document.querySelector('[data-testid="daily-work-total"]').textContent, "2h 0m", "history survives reload");
   } finally { Date.now = realNow; }
 });
+
+
+test("manually setting a Done task stopwatch logs past work and preserves completed totals", async () => {
+  const realNow = Date.now;
+  const now = new Date(2026, 9, 4, 11, 30).getTime();
+  Date.now = () => now;
+  try {
+    await add("Read Bible", "done");
+    await tap(button("Save"));
+    await tap(button("Start stopwatch", cards()[0]));
+    await tap(button("Pause stopwatch", cards()[0]));
+    await tap(button("Edit elapsed time, 0:00", cards()[0]));
+    await act(async () => {
+      const field = document.querySelector('input[aria-label="Edit elapsed time"]');
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(field, "10:00");
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => document.querySelector('input[aria-label="Edit elapsed time"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+    assert.deepEqual(savedCards()[0].workLog.sessions, [{ clock: "main", start: now - 600000, end: now }]);
+    await tap(document.querySelector('summary[aria-label="Archive options"]'));
+    await tap(button("Archive completed tasks"));
+    await tap(button("View archive"));
+    assert.equal(document.querySelector('[data-testid="daily-work-total"]').textContent, "10m");
+    assert.match(document.querySelector('section[aria-label="Daily activity"]').textContent, /Read Bible/);
+    await tap(button("Completed tasks (1)"));
+    assert.match(document.querySelector('[role="dialog"]').textContent, /10:00 total task time/);
+  } finally { Date.now = realNow; }
+});

@@ -120,3 +120,60 @@ test("undo preserves work after the snapshot and keeps history when undo removes
   assert.equal(removed.archivedCards[0].activityOnly, true);
   assert.equal(today(removed.archivedCards).seconds, 3600);
 });
+
+test("adding elapsed time to a new Done task records a session ending now", () => {
+  const task = { id: "bible", title: "Read Bible", completedAt: base };
+  const edited = correctWorkTime(task, editTaskStopwatchTotal(task, 600, base), base);
+  assert.deepEqual(edited.workLog.sessions, [{ clock: "main", start: base - 600000, end: base }]);
+  assert.equal(today([edited], base).seconds, 600);
+  assert.equal(today([edited], base).tasks[0].completed, true);
+  assert.deepEqual(correctWorkTime(edited, editTaskStopwatchTotal(edited, 600, base), base).workLog, edited.workLog);
+});
+
+test("additions extend the latest paused session backward without changing its end", () => {
+  const task = { ...card("a", base, base + hour), stopwatch: { elapsedSec: 7200 },
+    workLog: { since: base, sessions: [{ clock: "main", start: base, end: base + hour }, { clock: "main", start: base + 2 * hour, end: base + 3 * hour }] } };
+  const edited = correctWorkTime(task, editTaskStopwatchTotal(task, 7800, base + 5 * hour), base + 5 * hour);
+  assert.deepEqual(edited.workLog.sessions.map((s) => [s.start, s.end]), [[base, base + hour], [base + 2 * hour - 600000, base + 3 * hour]]);
+  const reduced = correctWorkTime(edited, editTaskStopwatchTotal(edited, 7200, base + 5 * hour), base + 5 * hour);
+  assert.equal(reduced.workLog.sessions[1].end, base + 3 * hour - 600000);
+  assert.equal(today([reduced]).seconds, 7200);
+});
+
+test("retroactive additions still respect overlap and local midnight", () => {
+  const now = new Date(2026, 9, 4, 0, 5).getTime();
+  const task = { id: "a", title: "Reading" };
+  const edited = correctWorkTime(task, editTaskStopwatchTotal(task, 600, now), now);
+  const other = card("b", now - 120000, now);
+  const days = dailyActivity([edited, other], now);
+  assert.equal(days[0].seconds, 300);
+  assert.equal(days[1].seconds, 300);
+});
+
+test("running additions extend the open session and subtask additions stay scoped", () => {
+  const started = trackCardWork(null, resumeTaskStopwatch({ id: "a", title: "Work" }, base), base);
+  const edited = correctWorkTime(started, editTaskStopwatchTotal(started, 4200, base + hour), base + hour);
+  assert.deepEqual(edited.workLog.sessions, [{ clock: "main", start: base - 600000, end: null }]);
+  assert.equal(today([edited], base + 2 * hour).seconds, 7800);
+  const withSub = { ...pauseTask(edited, base + 2 * hour), subtasks: [{ id: "s", stopwatch: { elapsedSec: 0 } }] };
+  const subEdited = correctWorkTime(withSub, { ...withSub, subtasks: [{ id: "s", stopwatch: { elapsedSec: 600 } }] }, base + 3 * hour, "sub:s");
+  assert.deepEqual(subEdited.workLog.sessions.at(-1), { clock: "sub:s", start: base + 3 * hour - 600000, end: base + 3 * hour });
+  assert.deepEqual(subEdited.workLog.sessions[0], withSub.workLog.sessions[0]);
+});
+
+test("an active stopwatch rolls into a new day at midnight without stopping or losing seconds", () => {
+  const midnight = new Date(2026, 9, 5, 0, 0).getTime();
+  const started = trackCardWork(null, resumeTaskStopwatch({ id: "a", title: "Late work" }, midnight - 60000), midnight - 60000);
+  const atMidnight = dailyActivity([started], midnight);
+  assert.equal(atMidnight[0].seconds, 0);
+  assert.equal(atMidnight[1].seconds, 60);
+  const afterMidnight = dailyActivity([started], midnight + 120000);
+  assert.deepEqual(afterMidnight[0].intervals, [[midnight, midnight + 120000]]);
+  assert.deepEqual(afterMidnight[1].intervals, [[midnight - 60000, midnight]]);
+  assert.equal(afterMidnight[0].seconds, 120);
+  assert.equal(afterMidnight[0].tasks[0].running, true);
+  assert.equal(afterMidnight[1].tasks[0].running, false);
+  assert.equal(started.stopwatch.running, true);
+  assert.equal(started.workLog.sessions.length, 1, "daily slices do not interrupt the underlying session");
+  assert.equal(pauseTask(started, midnight + 120000).stopwatch.elapsedSec, 180);
+});
