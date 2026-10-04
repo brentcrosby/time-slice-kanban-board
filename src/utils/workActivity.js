@@ -31,14 +31,28 @@ export function trackCardWork(before, after, now = Date.now()) {
 }
 
 // Main edits affect the task total (including transferred subtask time).
-// Subtask edits affect only that subtask. Trim newest sessions first.
+// Subtask edits affect only that subtask. Extend the latest session backward
+// for additions; trim newest session ends first for deductions.
 export function correctWorkTime(before, after, now = Date.now(), clockId = null) {
-  if (!before.workLog) return after;
   const total = (card) => [...clocks(card)].reduce((sum, [id, clock]) =>
     sum + (clockId == null || id === clockId ? elapsed(clock, now) : 0), 0);
-  let deduction = Math.max(0, total(before) - total(after)) * 1000;
-  if (!deduction) return after;
-  const sessions = before.workLog.sessions.map((session) => ({ ...session, end: session.end ?? now }));
+  const difference = (total(after) - total(before)) * 1000;
+  if (!Number.isFinite(difference) || difference === 0) return after;
+  const log = before.workLog || { since: now, sessions: [] };
+  if (difference > 0) {
+    const sessions = log.sessions.map((session) => ({ ...session }));
+    const latest = sessions.map((session, index) => ({ session, index }))
+      .filter(({ session }) => clockId == null || session.clock === clockId)
+      .sort((a, b) => (b.session.end ?? now) - (a.session.end ?? now) || b.index - a.index)[0]?.session;
+    if (latest) latest.start -= difference;
+    else sessions.push({ clock: clockId ?? "main", start: now - difference, end: now });
+    return trackCardWork(null, { ...after, workLog: {
+      ...log, since: Math.min(log.since, ...sessions.map((session) => session.start)), sessions,
+    } }, now);
+  }
+  if (!before.workLog) return after;
+  let deduction = -difference;
+  const sessions = log.sessions.map((session) => ({ ...session, end: session.end ?? now }));
   const latestFirst = sessions.map((session, index) => ({ session, index }))
     .sort((a, b) => b.session.end - a.session.end || b.index - a.index);
   for (const { session } of latestFirst) {

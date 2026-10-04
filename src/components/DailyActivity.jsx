@@ -74,7 +74,7 @@ export function DailyActivity({ cards, palette }) {
       </div> : <p className="py-4 text-center text-sm" style={{ color: palette.subtext }}>Start any task or subtask stopwatch to record your day.</p>}
       <details className="border-t pt-3 text-xs leading-relaxed" style={{ borderColor: palette.border, color: palette.subtext }}>
         <summary className="cursor-pointer">How time is counted</summary>
-        <p className="mt-2">Activity starts with this update; earlier stopwatch totals have no session history. Reducing elapsed time removes the most recent recorded time. Resetting or removing a stopwatch keeps recorded activity. Adding time manually changes the stopwatch only.</p>
+        <p className="mt-2">Activity starts with this update; earlier stopwatch totals have no session history. Reducing elapsed time trims the latest session’s end. Adding time extends the latest session’s start backward; without a previous session, it ends now. Resetting or removing a stopwatch keeps recorded activity.</p>
       </details>
     </section>
   );
