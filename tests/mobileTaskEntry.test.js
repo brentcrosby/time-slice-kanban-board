@@ -561,3 +561,61 @@ test("flagging a task places it at the top of its current column", async () => {
     .map((node) => node.querySelector('[data-card-title]')?.textContent);
   assert.deepEqual(titles, ["Priority", "First"]);
 });
+
+test("daily activity records unfinished overlapping tasks, corrections, deletion, and completion", async () => {
+  const realNow = Date.now;
+  let now = new Date(2026, 9, 4, 9).getTime();
+  Date.now = () => now;
+  const closeArchive = async () => act(async () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  try {
+    await add("Research");
+    await tap(button("Save"));
+    await tap(button("Start stopwatch", cards()[0]));
+    now += 3600000;
+    await add("Writing");
+    await tap(button("Save"));
+    await tap(button("Start stopwatch", cards()[1]));
+    now += 3600000;
+    await tap(button("Pause stopwatch", cards()[0]));
+    now += 3600000;
+    await tap(button("Pause stopwatch", cards()[1]));
+    await tap(button("View archive"));
+    assert.equal(document.querySelector('[data-testid="daily-work-total"]').textContent, "3h 0m");
+    assert.equal(document.querySelectorAll('section[aria-label="Daily activity"] article').length, 2);
+    const session = [...document.querySelectorAll('section[aria-label="Daily activity"] button')].find((node) => node.getAttribute("aria-label")?.startsWith("Research:"));
+    await tap(session);
+    assert.match(document.querySelector('section[aria-label="Daily activity"] [role="status"]').textContent, /Research:.*2h 0m/);
+    await closeArchive();
+    await tap(button("Edit elapsed time, 2:00:00", cards()[1]));
+    await act(async () => {
+      const field = document.querySelector('input[aria-label="Edit elapsed time"]');
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(field, "0:30:00");
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => document.querySelector('input[aria-label="Edit elapsed time"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+    await tap(button("View archive"));
+    assert.equal(document.querySelector('[data-testid="daily-work-total"]').textContent, "2h 0m", "Writing's remaining 30 minutes overlap Research");
+    await closeArchive();
+    await tap(button("Options for Writing"));
+    await tap(button("Delete task"));
+    await tap(button("Options for Research"));
+    await tap(button("Move to"));
+    await tap(button("Move to Done"));
+    await tap(document.querySelector('summary[aria-label="Archive options"]'));
+    await tap(button("Archive completed tasks"));
+    await tap(button("View archive"));
+    assert.equal(document.querySelector('[data-testid="daily-work-total"]').textContent, "2h 0m");
+    assert.match(document.querySelector('section[aria-label="Daily activity"]').textContent, /Deleted task/);
+    await tap(button("Completed tasks (1)"));
+    assert.match(document.querySelector('[role="dialog"]').textContent, /Research/);
+    assert.doesNotMatch(document.querySelector('[role="dialog"]').textContent, /Writing/);
+    const stored = JSON.parse(localStorage.getItem("kanban-timer-board:v1"));
+    assert.equal(stored.archivedCards.length, 2);
+    assert.equal(stored.archivedCards.filter((card) => !card.activityOnly).length, 1);
+    await act(async () => root.unmount());
+    root = createRoot(document.getElementById("root"));
+    await act(async () => root.render(React.createElement(App)));
+    await tap(button("View archive"));
+    assert.equal(document.querySelector('[data-testid="daily-work-total"]').textContent, "2h 0m", "history survives reload");
+  } finally { Date.now = realNow; }
+});

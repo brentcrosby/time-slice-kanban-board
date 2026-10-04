@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { DailyActivity } from "./DailyActivity";
 import { ArchiveRestore, CheckSquare, Clock3, RotateCcw, Flag } from "lucide-react";
 import { Modal } from "./Modal";
 import { CARD_GROUPS } from "../constants/groups";
@@ -68,7 +69,7 @@ function ArchivedTask({ card, onRestore, palette, isDark }) {
             {hasStopwatch ? (
               <span className="inline-flex items-center gap-1">
                 <RotateCcw className="h-3.5 w-3.5" />
-                {formatStopwatch(loggedSeconds)} tracked
+                {formatStopwatch(loggedSeconds)} total stopwatch time
               </span>
             ) : null}
           </div>
@@ -89,22 +90,29 @@ function ArchivedTask({ card, onRestore, palette, isDark }) {
   );
 }
 
-export function ArchiveModal({ archivedCards, onRestore, onClose, palette, isDark }) {
-  const archiveGroups = groupArchivedCardsByDay(archivedCards);
+export function ArchiveModal({ archivedCards, activeCards = [], onRestore, onClose, palette, isDark }) {
+  const [view, setView] = useState("activity");
+  const completedCards = archivedCards.filter((card) => !card.activityOnly);
+  const archiveGroups = groupArchivedCardsByDay(completedCards);
   return (
-    <Modal title={`Archived tasks (${archivedCards.length})`} onClose={onClose} palette={palette}>
-      {archivedCards.length ? (
+    <Modal title="Archive & activity" onClose={onClose} palette={palette}>
+      <div className="mb-4 flex gap-2" aria-label="Archive view">
+        {[['activity', 'Daily activity'], ['completed', `Completed tasks (${completedCards.length})`]].map(([id, label]) => (
+          <button key={id} type="button" aria-pressed={view === id} onClick={() => setView(id)}
+            className="interactive-button flex-1 rounded-lg border px-2 py-2 text-sm"
+            style={{ borderColor: view === id ? palette.subtext : palette.border, backgroundColor: view === id ? palette.card : 'transparent', color: palette.text, fontWeight: view === id ? 600 : 400 }}>{label}</button>
+        ))}
+      </div>
+      {view === "activity" ? <DailyActivity cards={[...activeCards, ...archivedCards]} palette={palette} /> : completedCards.length ? (
         <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
           {archiveGroups.map((group) => (
-            <section key={group.key} aria-label={`${group.label}: ${group.cards.length} ${group.cards.length === 1 ? "task" : "tasks"} completed, ${formatStopwatch(group.loggedSeconds)} logged`}>
+            <section key={group.key} aria-label={`${group.label}: ${group.cards.length} ${group.cards.length === 1 ? "task" : "tasks"} completed`}>
               <div className="mb-2 flex items-center gap-2" style={{ color: palette.subtext }}>
                 <div aria-hidden="true" className="h-px min-w-2 flex-1" style={{ backgroundColor: palette.border }} />
                 <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 text-center text-xs">
                   <h4 className="font-semibold">{group.label}</h4>
                   <span aria-hidden="true">·</span>
                   <span>{group.cards.length} {group.cards.length === 1 ? "task" : "tasks"} completed</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{formatStopwatch(group.loggedSeconds)} logged</span>
                 </div>
                 <div aria-hidden="true" className="h-px min-w-2 flex-1" style={{ backgroundColor: palette.border }} />
               </div>

@@ -10,6 +10,8 @@ import { SettingsModal } from "./components/SettingsModal";
 import { ArchiveModal } from "./components/ArchiveModal";
 import { DEFAULT_COLUMNS, MIN_SEGMENT_SEC } from "./constants";
 import { THEME_COLORS } from "./constants/themeColors";
+import { initializeWorkBoard, useWorkTrackedBoard } from "./hooks/useWorkTrackedBoard";
+import { correctWorkTime } from "./utils/workActivity";
 import { useNowTicker } from "./hooks/useNowTicker";
 import { clamp, uid } from "./utils/misc";
 import {
@@ -17,7 +19,6 @@ import {
   deriveCardFromSegments,
   findNextActiveSegment,
   sanitizeSegmentDuration,
-  upgradeLegacyCard,
 } from "./utils/segments";
 import { ensureAudioContext, playChime } from "./utils/audio";
 import { clearState, loadSound, loadState, loadTheme, saveSound, saveState, saveTheme, loadPinnedControls, savePinnedControls, loadSubtaskStopwatchButton, saveSubtaskStopwatchButton } from "./utils/storage";
@@ -41,14 +42,7 @@ export default function KanbanTimerBoard() {
   const initialStoredState = initialStoredStateRef.current;
 
   const [columns] = useState(DEFAULT_COLUMNS);
-  const [cardsByCol, setCardsByCol] = useState(() => {
-    const stored = initialStoredState?.cardsByCol || {};
-    const initial = {};
-    DEFAULT_COLUMNS.forEach((col) => {
-      initial[col.id] = (stored[col.id] || []).map(upgradeLegacyCard);
-    });
-    return initial;
-  });
+  const { cardsByCol, archivedCards, setCardsByCol, setArchivedCards, replaceBoard, restoreSnapshot } = useWorkTrackedBoard(initialStoredState);
   useEffect(() => {
     const checkDueDates = () => setCardsByCol((current) => flagDueTasks(current));
     checkDueDates();
@@ -61,9 +55,6 @@ export default function KanbanTimerBoard() {
       document.removeEventListener("visibilitychange", checkDueDates);
     };
   }, [cardsByCol]);
-  const [archivedCards, setArchivedCards] = useState(() =>
-    (Array.isArray(initialStoredState?.archivedCards) ? initialStoredState.archivedCards : []).map(upgradeLegacyCard)
-  );
   const historyRef = useRef([]);
   const futureRef = useRef([]);
 
@@ -123,18 +114,10 @@ export default function KanbanTimerBoard() {
   const applySyncedState = useCallback((state) => {
     if (!state || typeof state !== "object") return;
     state = savedBoard(state);
-    const nextCardsByCol = {};
-    DEFAULT_COLUMNS.forEach((column) => {
-      const cards = state.cardsByCol?.[column.id];
-      nextCardsByCol[column.id] = Array.isArray(cards) ? cards.map(upgradeLegacyCard) : [];
-    });
-    const nextArchivedCards = Array.isArray(state.archivedCards) ? state.archivedCards.map(upgradeLegacyCard) : [];
+    const nextBoard = initializeWorkBoard(state);
     const nextAutoMove = typeof state.autoMoveEnabled === "boolean" ? state.autoMoveEnabled : true;
-    applyingRemoteRef.current = boardFingerprint({
-      cardsByCol: nextCardsByCol, archivedCards: nextArchivedCards, autoMoveEnabled: nextAutoMove,
-    });
-    setCardsByCol(nextCardsByCol);
-    setArchivedCards(nextArchivedCards);
+    applyingRemoteRef.current = boardFingerprint({ ...nextBoard, autoMoveEnabled: nextAutoMove });
+    replaceBoard(nextBoard);
     setAutoMoveEnabled(nextAutoMove);
     setSyncRevision(boardRevision(state));
     historyRef.current = [];
@@ -147,8 +130,7 @@ export default function KanbanTimerBoard() {
     const signedOut = await taskSync.signOut();
     if (signedOut && removeLocalTasks) {
       clearState();
-      setCardsByCol(Object.fromEntries(DEFAULT_COLUMNS.map((column) => [column.id, []])));
-      setArchivedCards([]);
+      replaceBoard({ cardsByCol: Object.fromEntries(DEFAULT_COLUMNS.map((column) => [column.id, []])), archivedCards: [] });
       setAutoMoveEnabled(true);
       setSyncRevision(0);
       historyRef.current = [];
@@ -183,8 +165,7 @@ export default function KanbanTimerBoard() {
     const snapshot = historyRef.current.pop();
     futureRef.current.push(cloneBoardState({ cardsByCol, archivedCards }));
     if (futureRef.current.length > HISTORY_LIMIT) futureRef.current.shift();
-    setCardsByCol(snapshot.cardsByCol);
-    setArchivedCards(snapshot.archivedCards || []);
+    restoreSnapshot(snapshot);
   }, [cardsByCol, archivedCards]);
 
   const redo = useCallback(() => {
@@ -192,8 +173,7 @@ export default function KanbanTimerBoard() {
     const snapshot = futureRef.current.pop();
     historyRef.current.push(cloneBoardState({ cardsByCol, archivedCards }));
     if (historyRef.current.length > HISTORY_LIMIT) historyRef.current.shift();
-    setCardsByCol(snapshot.cardsByCol);
-    setArchivedCards(snapshot.archivedCards || []);
+    restoreSnapshot(snapshot);
   }, [cardsByCol, archivedCards]);
 
   useEffect(() => {
@@ -735,7 +715,7 @@ export default function KanbanTimerBoard() {
 
   const editStopwatchElapsed = (colId, cardId, elapsedSec) => {
     const now = Date.now();
-    updateCard(colId, cardId, (current) => editTaskStopwatchTotal(current, elapsedSec, now));
+    updateCard(colId, cardId, (current) => correctWorkTime(current, editTaskStopwatchTotal(current, elapsedSec, now), now));
   };
 
   const resetStopwatch = (colId, cardId) => {
@@ -798,11 +778,19 @@ export default function KanbanTimerBoard() {
       });
       return;
     }
+    if (action === "edit") {
+      updateCard(colId, cardId, (current) => correctWorkTime(current, {
+        ...current,
+        subtasks: (current.subtasks || []).map((subtask) => subtask.id === subtaskId && subtask.stopwatch
+          ? { ...subtask, stopwatch: { ...subtask.stopwatch, elapsedSec: Math.max(0, Math.floor(seconds)), lastStartTs: subtask.stopwatch.running ? now : null } }
+          : subtask),
+      }, now, `sub:${subtaskId}`));
+      return;
+    }
     updateSubtasks(colId, cardId, (subtasks) => subtasks.map((subtask) => {
       if (subtask.id !== subtaskId || !subtask.stopwatch) return subtask;
       if (action === "pause") return { ...subtask, stopwatch: { elapsedSec: elapsedStopwatch(subtask.stopwatch, now), running: false, lastStartTs: null } };
       if (action === "reset") return { ...subtask, stopwatch: { elapsedSec: 0, running: false, lastStartTs: null } };
-      if (action === "edit") return { ...subtask, stopwatch: { ...subtask.stopwatch, elapsedSec: Math.max(0, Math.floor(seconds)), lastStartTs: subtask.stopwatch.running ? now : null } };
       return subtask;
     }));
   };
@@ -1362,6 +1350,7 @@ export default function KanbanTimerBoard() {
       {archiveOpen && (
         <ArchiveModal
           archivedCards={archivedCards}
+          activeCards={Object.values(cardsByCol).flat()}
           onRestore={restoreArchivedTask}
           onClose={() => setArchiveOpen(false)}
           palette={palette}
