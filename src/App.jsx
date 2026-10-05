@@ -21,7 +21,7 @@ import {
   sanitizeSegmentDuration,
 } from "./utils/segments";
 import { ensureAudioContext, playChime } from "./utils/audio";
-import { clearState, loadSound, loadState, loadTheme, saveSound, saveState, saveTheme, loadPinnedControls, savePinnedControls, loadSubtaskStopwatchButton, saveSubtaskStopwatchButton } from "./utils/storage";
+import { clearState, loadSound, loadState, loadTheme, saveSound, saveState, saveTheme, loadPinnedControls, savePinnedControls, loadSubtaskStopwatchButton, saveSubtaskStopwatchButton, loadAutoStartStopwatchOnDrop, saveAutoStartStopwatchOnDrop } from "./utils/storage";
 import { DEFAULT_DUE_TIME, applyDueDate, flagDueTasks, setManualFlag } from "./utils/dueDates";
 import { parseTaskTitle } from "./utils/taskTitle";
 import { useTaskSync } from "./hooks/useTaskSync";
@@ -29,7 +29,7 @@ import { boardFingerprint, boardRevision, savedBoard } from "./utils/boardSync";
 import { useTaskSelection } from "./hooks/useTaskSelection";
 import { usePullToRefresh } from "./hooks/usePullToRefresh";
 import { TaskSelectionToolbar } from "./components/TaskSelectionToolbar";
-import { moveTasks, pauseTask, promoteNewlyFlagged } from "./utils/taskActions";
+import { dropTasks, moveTasks, pauseTask, promoteNewlyFlagged } from "./utils/taskActions";
 import { editTaskStopwatchTotal, elapsedStopwatch, hasSubtaskStopwatch, materializeSubtaskStopwatches, pauseTaskStopwatches, resumeSubtaskStopwatch, resumeTaskStopwatch, transferSubtaskTimeToParent } from "./utils/subtaskStopwatch";
 
 const HISTORY_LIMIT = 100;
@@ -76,6 +76,8 @@ export default function KanbanTimerBoard() {
   useEffect(() => savePinnedControls(pinnedControls), [pinnedControls]);
   const [showSubtaskStopwatchButton, setShowSubtaskStopwatchButton] = useState(loadSubtaskStopwatchButton);
   useEffect(() => saveSubtaskStopwatchButton(showSubtaskStopwatchButton), [showSubtaskStopwatchButton]);
+  const [autoStartStopwatchOnDrop, setAutoStartStopwatchOnDrop] = useState(loadAutoStartStopwatchOnDrop);
+  useEffect(() => saveAutoStartStopwatchOnDrop(autoStartStopwatchOnDrop), [autoStartStopwatchOnDrop]);
   const [autoMoveEnabled, setAutoMoveEnabled] = useState(() => initialStoredState?.autoMoveEnabled ?? true);
   const [syncRevision, setSyncRevision] = useState(() => boardRevision(initialStoredState));
   const [syncSetupOpen, setSyncSetupOpen] = useState(false);
@@ -899,10 +901,13 @@ export default function KanbanTimerBoard() {
     removeChimeSources(removedIds);
   };
 
-  const moveCard = (fromCol, toCol, cardId, index = null) => {
+  const dropCard = (fromCol, toCol, cardId, index = null) => {
+    const ids = selection.selectedIds.has(cardId) ? [...selection.selectedIds] : [cardId];
+    const now = Date.now();
     updateCardsState((prev) => (prev[fromCol] || []).some((card) => card.id === cardId)
-      ? moveTasks(prev, [cardId], toCol, index) : prev, { track: true });
-    if (toCol === "done") removeChimeSources([cardId]);
+      ? dropTasks(prev, ids, toCol, index, autoStartStopwatchOnDrop, now) : prev, { track: true });
+    if (toCol === "done") removeChimeSources(ids);
+    selection.setDestination(toCol);
   };
 
   const startTimer = (colId, card) => {
@@ -1271,8 +1276,7 @@ export default function KanbanTimerBoard() {
                 column={col}
                 cards={visibleCards}
                 totalCount={totalCount}
-                onDropCard={(cardId, fromCol, insertIndex) => selection.selectedIds.has(cardId)
-                  ? selection.move(col.id, insertIndex) : moveCard(fromCol, col.id, cardId, insertIndex)}
+                onDropCard={(cardId, fromCol, insertIndex) => dropCard(fromCol, col.id, cardId, insertIndex)}
                 onAddCard={(group) => flushSync(() => startDraftCard(col.id, group))}
                 onAddCardAtTop={() => flushSync(() => startDraftCard(col.id, null, "top"))}
                 onClearColumn={() => setConfirmColumnClear({ colId: col.id, name: col.name })}
@@ -1428,6 +1432,8 @@ export default function KanbanTimerBoard() {
           setPinnedControls={setPinnedControls}
           showSubtaskStopwatchButton={showSubtaskStopwatchButton}
           setShowSubtaskStopwatchButton={setShowSubtaskStopwatchButton}
+          autoStartStopwatchOnDrop={autoStartStopwatchOnDrop}
+          setAutoStartStopwatchOnDrop={setAutoStartStopwatchOnDrop}
           autoMoveEnabled={autoMoveEnabled}
           setAutoMoveEnabled={setAutoMoveEnabled}
           onTest={() => playChime(audioRef, { type: sound.type, volume: sound.volume })}
