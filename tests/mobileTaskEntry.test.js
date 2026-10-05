@@ -647,3 +647,37 @@ test("manually setting a Done task stopwatch logs past work and preserves comple
     assert.match(document.querySelector('[role="dialog"]').textContent, /10:00 total task time/);
   } finally { Date.now = realNow; }
 });
+
+test("Doing drop toggle persists and starts a new stopwatch with activity history", async () => {
+  const realNow = Date.now;
+  const now = new Date(2026, 9, 5, 9).getTime();
+  Date.now = () => now;
+  const drop = async (id, fromCol, toCol) => {
+    const event = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "dataTransfer", { value: { types: ["application/x-card"], getData: () => JSON.stringify({ cardId: id, fromCol }) } });
+    await act(async () => document.querySelector(`[data-column-id="${toCol}"]`).dispatchEvent(event));
+  };
+  try {
+    await add("Reading", "todo");
+    await tap(button("Save"));
+    const id = savedCards()[0].id;
+    await drop(id, "todo", "doing");
+    assert.ok(!savedCards()[0].stopwatch, "off by default");
+    await drop(id, "doing", "todo");
+    await tap(document.querySelector('button[title="Settings"]'));
+    const checkbox = [...document.querySelectorAll('[aria-label="Settings"] label')]
+      .find((label) => label.textContent.includes("Start unstarted stopwatches")).querySelector("input");
+    await tap(checkbox);
+    assert.equal(localStorage.getItem("tasky:auto-start-stopwatch-on-drop"), "true");
+    await tap(button("Close"));
+    await act(async () => root.unmount());
+    root = createRoot(document.getElementById("root"));
+    await act(async () => root.render(React.createElement(App)));
+    await drop(id, "todo", "doing");
+    assert.equal(savedCards()[0].stopwatch.running, true);
+    assert.equal(savedCards()[0].stopwatch.lastStartTs, now);
+    assert.deepEqual(savedCards()[0].workLog.sessions, [{ clock: "main", start: now, end: null }]);
+    await drop(id, "doing", "doing");
+    assert.equal(savedCards()[0].workLog.sessions.length, 1);
+  } finally { Date.now = realNow; }
+});

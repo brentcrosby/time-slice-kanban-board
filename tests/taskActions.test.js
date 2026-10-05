@@ -76,3 +76,28 @@ test("sync and merge preserve flags and archive dates, including undated legacy 
   assert.deepEqual(merged.archivedCards, [{ id: "legacy" }, card]);
   assert.notEqual(boardFingerprint(state), boardFingerprint({ ...state, archivedCards: [{ ...card, flagged: false }] }));
 });
+
+test("drop auto-start applies only to fresh stopwatches entering Doing", async () => {
+  const { dropTasks } = await import("../src/utils/taskActions.js");
+  const board = { todo: [
+    { id: "fresh", title: "Fresh" },
+    { id: "zero", stopwatch: { elapsedSec: 0, running: false } },
+    { id: "paused", stopwatch: { elapsedSec: 30, running: false } },
+    { id: "running", stopwatch: { elapsedSec: 0, running: true, lastStartTs: 1000 } },
+    { id: "sub", subtasks: [{ id: "s", stopwatch: { elapsedSec: 20, running: false } }] },
+    { id: "sub-running", subtasks: [{ id: "s", stopwatch: { elapsedSec: 0, running: true, lastStartTs: 2000 } }] },
+    { id: "timer", durationSec: 1500 },
+    { id: "draft", isDraft: true },
+  ], doing: [{ id: "reorder", stopwatch: { elapsedSec: 0, running: false } }], done: [] };
+  const ids = [...board.todo.map((card) => card.id), "reorder"];
+  const dropped = dropTasks(board, ids, "doing", 0, true, 2000);
+  assert.equal(dropped.doing.find((card) => card.id === "fresh").stopwatch.lastStartTs, 2000);
+  assert.equal(dropped.doing.find((card) => card.id === "zero").stopwatch.running, true);
+  for (const id of ["paused", "sub", "sub-running", "timer", "draft", "reorder"]) {
+    assert.notEqual(dropped.doing.find((card) => card.id === id).stopwatch?.running, true, id);
+  }
+  assert.equal(dropped.doing.find((card) => card.id === "running").stopwatch.lastStartTs, 1000);
+  assert.equal(dropTasks(board, ["fresh"], "doing", 0, false, 2000).doing[0].stopwatch, undefined);
+  assert.equal(dropTasks(board, ["fresh"], "done", 0, true, 2000).done[0].stopwatch, undefined);
+  assert.equal(board.todo[0].stopwatch, undefined, "source board is not mutated");
+});

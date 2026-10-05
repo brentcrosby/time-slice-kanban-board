@@ -1,4 +1,4 @@
-import { pauseStopwatch, pauseSubtaskStopwatches } from "./subtaskStopwatch.js";
+import { elapsedStopwatch, pauseStopwatch, pauseSubtaskStopwatches, resumeTaskStopwatch } from "./subtaskStopwatch.js";
 import { trackCardWork } from "./workActivity.js";
 
 export const TASK_COLUMNS = ["todo", "doing", "done"];
@@ -57,6 +57,23 @@ export function moveTasks(board, ids, destination, index = null, now = Date.now(
   const removedBefore = original.slice(0, insertion).filter((card) => selected.has(card.id)).length;
   next[destination].splice(insertion - removedBefore, 0, ...moving);
   return next;
+}
+
+// Only a drop into Doing starts a fresh clock; reorders and menu moves do not.
+export function dropTasks(board, ids, destination, index = null, autoStart = false, now = Date.now()) {
+  const selected = new Set(ids);
+  const next = moveTasks(board, selected, destination, index, now);
+  if (!autoStart || destination !== "doing" || next === board) return next;
+  const alreadyDoing = new Set((board.doing || []).map((card) => card.id));
+  return { ...next, doing: next.doing.map((card) => {
+    if (!selected.has(card.id) || alreadyDoing.has(card.id) || card.isDraft || card.running) return card;
+    // Untimed tasks have an unstarted stopwatch shortcut. Countdown-only tasks
+    // retain their own timer behavior, and linked subtask time is never resumed.
+    if (!card.stopwatch && card.durationSec > 0) return card;
+    const clocks = [card.stopwatch, ...(card.subtasks || []).map((subtask) => subtask.stopwatch)];
+    if (clocks.some((clock) => clock?.running || elapsedStopwatch(clock, now) > 0)) return card;
+    return resumeTaskStopwatch(card, now);
+  }) };
 }
 
 export function copyTask(card, destination, newId, now = Date.now()) {

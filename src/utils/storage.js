@@ -25,6 +25,18 @@ export function saveSubtaskStopwatchButton(visible) {
   catch { /* Preferences still work for this session. */ }
 }
 
+const AUTO_START_ON_DROP_KEY = "tasky:auto-start-stopwatch-on-drop";
+
+export function loadAutoStartStopwatchOnDrop() {
+  try { return localStorage.getItem(AUTO_START_ON_DROP_KEY) === "true"; }
+  catch { return false; }
+}
+
+export function saveAutoStartStopwatchOnDrop(enabled) {
+  try { localStorage.setItem(AUTO_START_ON_DROP_KEY, String(enabled)); }
+  catch { /* Preferences still work for this session. */ }
+}
+
 const SYNC_BASELINE_KEY = "kanban-timer-board:sync-baseline:v1";
 
 export function loadSyncBaseline(uid) {

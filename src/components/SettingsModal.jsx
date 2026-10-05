@@ -9,6 +9,8 @@ export function SettingsModal({
   setThemePreference,
   sound,
   setSound,
+  autoStartStopwatchOnDrop,
+  setAutoStartStopwatchOnDrop,
   autoMoveEnabled,
   setAutoMoveEnabled,
   onTest,
@@ -175,6 +177,13 @@ export function SettingsModal({
             </label>
             <p className="text-xs" style={{ color: palette.subtext }}>
               When off, cards stay in their column after starting or finishing a timer. Starting a stopwatch in Do always moves the task to Doing.
+            </p>
+            <label className="inline-flex items-center gap-2 text-sm" style={{ color: palette.text }}>
+              <input type="checkbox" checked={autoStartStopwatchOnDrop} onChange={(event) => setAutoStartStopwatchOnDrop(event.target.checked)} />
+              Start unstarted stopwatches when dropped into Doing
+            </label>
+            <p className="text-xs" style={{ color: palette.subtext }}>
+              Starts a zero-time stopwatch when you drag a task into Doing, including selected tasks. Paused clocks with logged time stay paused. Saved on this device.
             </p>
             <button
               type="button"
