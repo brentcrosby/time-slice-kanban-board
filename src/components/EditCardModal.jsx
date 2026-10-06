@@ -179,7 +179,7 @@ export function EditCardModal({ card, onClose, onSave, palette }) {
             />
             {showTitlePlaceholder ? (
               <span
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 transform text-base md:text-sm transition-opacity duration-300 ease-in-out"
+                className="typing-preview pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 transform text-base md:text-sm transition-opacity duration-300 ease-in-out"
                 aria-hidden="true"
                 style={{ color: palette.subtext, opacity: titlePlaceholderVisible ? 0.6 : 0 }}
               >

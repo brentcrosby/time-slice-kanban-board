@@ -120,3 +120,16 @@ html[data-tasky-theme="dark"] body {
     filter: brightness(0.88);
   }
 }
+
+/* Keep editable text large enough to avoid iOS focus zoom, including landscape
+   phones/tablets where desktop utility sizes apply. Preserve pinch-to-zoom. */
+@media (max-width: 767px), (any-pointer: coarse) {
+  :root input:is(:not([type]), [type="text"], [type="search"], [type="email"],
+    [type="password"], [type="url"], [type="tel"], [type="number"],
+    [type="date"], [type="time"], [type="datetime-local"]),
+  :root textarea,
+  :root select,
+  :root .typing-preview {
+    font-size: max(16px, 1rem);
+  }
+}

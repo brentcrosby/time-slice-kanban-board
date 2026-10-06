@@ -25,7 +25,7 @@ export const TaskTitleInput = forwardRef(function TaskTitleInput({ value, onChan
     <div>
       <div className="relative rounded-md" style={{ backgroundColor: palette.surface }}>
         <div ref={overlayRef} aria-hidden="true" className="pointer-events-none absolute inset-px overflow-hidden rounded-md">
-          <div className="w-max min-w-full whitespace-pre px-2 py-1 text-base font-semibold md:text-sm" style={{ color, transform: `translateX(-${scrollLeft}px)` }}>{parts}</div>
+          <div className="typing-preview w-max min-w-full whitespace-pre px-2 py-1 text-base font-semibold md:text-sm" style={{ color, transform: `translateX(-${scrollLeft}px)` }}>{parts}</div>
         </div>
         <input
           ref={ref}
