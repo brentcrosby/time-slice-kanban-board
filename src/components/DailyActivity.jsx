@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
-import { dailyActivity } from "../utils/workActivity";
+import { dailyActivity, dayKey } from "../utils/workActivity";
 
 export const formatWorkTime = (seconds) => {
   const total = Math.max(0, Math.floor(seconds || 0));
@@ -12,11 +12,16 @@ const formatDay = (timestamp) => new Intl.DateTimeFormat(undefined, { dateStyle:
 const formatTime = (timestamp) => new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(timestamp);
 const BAR_COLORS = ["#2563eb", "#a855f7", "#0d9488", "#d97706"];
 
-function SessionTrack({ intervals, day, color, label, palette, onSelect }) {
+function SessionTrack({ intervals, day, color, label, palette, onSelect, now = null }) {
   const span = day.end - day.start;
   return (
     <div className="relative h-9 overflow-hidden rounded-md border" style={{ borderColor: palette.border, backgroundColor: palette.surface }}>
       {[0.25, 0.5, 0.75].map((fraction) => <span key={fraction} aria-hidden="true" className="absolute inset-y-0 border-l" style={{ left: `${fraction * 100}%`, borderColor: palette.border }} />)}
+      {now != null && now >= day.start && now < day.end && <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 z-10 border-l-2"
+        style={{ left: `${(now - day.start) / span * 100}%`, borderColor: palette.text, boxShadow: `0 0 0 1px ${palette.surface}` }}
+      />}
       {intervals.map(([start, end], index) => {
         const description = `${label}: ${formatTime(start)}–${formatTime(end)} · ${formatWorkTime((end - start) / 1000)}`;
         return <button key={`${start}-${index}`} type="button" title={description} aria-label={description}
@@ -29,7 +34,12 @@ function SessionTrack({ intervals, day, color, label, palette, onSelect }) {
 }
 
 export function DailyActivity({ cards, palette }) {
-  const days = dailyActivity(cards);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(interval);
+  }, []);
+  const days = dailyActivity(cards, now);
   const [selectedKey, setSelectedKey] = useState(null);
   const [selectedSession, setSelectedSession] = useState("");
   const selectedIndex = Math.max(0, days.findIndex((day) => day.key === selectedKey));
@@ -57,10 +67,13 @@ export function DailyActivity({ cards, palette }) {
           <h4 className="text-sm font-semibold">Your day</h4>
           <p className="mt-1 text-xs" style={{ color: palette.subtext }}>Tap a session to see its times. All times are local.</p>
         </div>
+        {day.key === dayKey(new Date(now)) && <div className="text-right text-xs tabular-nums" style={{ color: palette.subtext }}>
+          Now · <time dateTime={new Date(now).toISOString()}>{formatTime(now)}</time>
+        </div>}
         <div className="flex justify-between text-xs tabular-nums" style={{ color: palette.subtext }}>
           {[0, 0.25, 0.5, 0.75, 1].map((fraction) => <span key={fraction}>{formatTime(day.start + (day.end - day.start) * fraction)}</span>)}
         </div>
-        <SessionTrack intervals={day.intervals} day={day} color={palette.subtext} label="Total work" palette={palette} onSelect={setSelectedSession} />
+        <SessionTrack intervals={day.intervals} day={day} color={palette.subtext} label="Total work" palette={palette} onSelect={setSelectedSession} now={day.key === dayKey(new Date(now)) ? now : null} />
         {day.tasks.map((task, index) => <article key={task.id} className="space-y-1.5" aria-label={`${task.title}, ${formatWorkTime(task.seconds)} worked`}>
           <div className="flex items-start justify-between gap-3 text-sm">
             <div className="min-w-0"><h5 className="break-words font-medium">{task.title}</h5>
@@ -68,7 +81,7 @@ export function DailyActivity({ cards, palette }) {
             </div>
             <span className="shrink-0 tabular-nums" style={{ color: palette.subtext }}>{formatWorkTime(task.seconds)}</span>
           </div>
-          <SessionTrack intervals={task.intervals} day={day} color={BAR_COLORS[index % BAR_COLORS.length]} label={task.title} palette={palette} onSelect={setSelectedSession} />
+          <SessionTrack intervals={task.intervals} day={day} color={BAR_COLORS[index % BAR_COLORS.length]} label={task.title} palette={palette} onSelect={setSelectedSession} now={day.key === dayKey(new Date(now)) ? now : null} />
         </article>)}
         <p role="status" className="min-h-5 text-xs" style={{ color: palette.subtext }}>{selectedSession}</p>
       </div> : <p className="py-4 text-center text-sm" style={{ color: palette.subtext }}>Start any task or subtask stopwatch to record your day.</p>}

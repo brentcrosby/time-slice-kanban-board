@@ -581,6 +581,8 @@ test("daily activity records unfinished overlapping tasks, corrections, deletion
     await tap(button("Pause stopwatch", cards()[1]));
     await tap(button("View archive"));
     assert.equal(document.querySelector('[data-testid="daily-work-total"]').textContent, "3h 0m");
+    assert.equal(document.querySelector('section[aria-label="Daily activity"] time')?.dateTime, new Date(now).toISOString());
+    assert.equal(document.querySelectorAll('section[aria-label="Daily activity"] .z-10').length, 3, "now marker aligns across total and task time bars");
     assert.equal(document.querySelectorAll('section[aria-label="Daily activity"] article').length, 2);
     const session = [...document.querySelectorAll('section[aria-label="Daily activity"] button')].find((node) => node.getAttribute("aria-label")?.startsWith("Research:"));
     await tap(session);
