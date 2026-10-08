@@ -24,7 +24,7 @@ export function resumeSubtaskStopwatch(card, subtaskId, now = Date.now()) {
   if (!target || target.stopwatch?.running) return card;
   return {
     ...card,
-    stopwatch: pauseStopwatch(card.stopwatch, now),
+    stopwatch: pauseStopwatch(card.stopwatch, now) ?? null,
     subtasks: card.subtasks.map((subtask) => subtask.id === subtaskId ? {
       ...subtask,
       stopwatch: { elapsedSec: elapsedStopwatch(subtask.stopwatch, now), running: true, lastStartTs: now },
@@ -35,7 +35,7 @@ export function resumeSubtaskStopwatch(card, subtaskId, now = Date.now()) {
 export function pauseTaskStopwatches(card, now = Date.now()) {
   return {
     ...card,
-    stopwatch: pauseStopwatch(card.stopwatch, now),
+    stopwatch: pauseStopwatch(card.stopwatch, now) ?? null,
     subtasks: pauseSubtaskStopwatches(card.subtasks, now),
   };
 }

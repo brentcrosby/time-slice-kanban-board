@@ -43,6 +43,17 @@ test("starting a subtask freezes standalone task time and removing it preserves 
   assert.equal(materializeSubtaskStopwatches(activeSubtask, 10000).computedSubtaskStopwatchElapsed, 89);
 });
 
+test("starting and pausing a subtask without a main clock keeps the parent Firestore-safe", () => {
+  const card = { id: "task", title: "Work", subtasks: [{ id: "a", title: "First" }] };
+  const started = resumeSubtaskStopwatch(card, "a", 1000);
+  assert.equal(started.stopwatch, null);
+  assert.deepEqual(started.subtasks[0].stopwatch, { elapsedSec: 0, running: true, lastStartTs: 1000 });
+  const paused = pauseTaskStopwatches(started, 6000);
+  assert.equal(paused.stopwatch, null);
+  assert.equal(paused.subtasks[0].stopwatch.elapsedSec, 5);
+  assert.equal(pauseTaskStopwatches(card, 6000).stopwatch, null);
+});
+
 test("editing total accounts for parent time and subtask time", () => {
   const card = {
     stopwatch: { elapsedSec: 40, running: false, lastStartTs: null },
