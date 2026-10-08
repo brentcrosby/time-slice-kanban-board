@@ -1,13 +1,25 @@
 export const BOARD_COLUMNS = ["todo", "doing", "done"];
 
+// Firestore rejects undefined at any depth, including inside a saved task.
+// Keep arrays JSON-compatible and leave non-plain values (such as dates) intact.
+const withoutUndefined = (value) => {
+  if (Array.isArray(value)) return value.map((item) => item === undefined ? null : withoutUndefined(item));
+  if (value && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value)
+      .filter(([, item]) => item !== undefined)
+      .map(([key, item]) => [key, withoutUndefined(item)]));
+  }
+  return value;
+};
+
 // Editors may keep an empty draft in memory, but it must never become a saved task.
 export const savedBoard = (state) => {
   const isSavedTask = (card) => card && !card.isDraft && typeof card.title === "string" && card.title.trim().length > 0;
-  return {
+  return withoutUndefined({
     ...state,
     cardsByCol: Object.fromEntries(BOARD_COLUMNS.map((column) => [column, (state?.cardsByCol?.[column] || []).filter(isSavedTask)])),
     archivedCards: (state?.archivedCards || []).filter(isSavedTask),
-  };
+  });
 };
 
 // Firestore does not preserve object key insertion order. Compare the board's

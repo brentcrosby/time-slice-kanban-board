@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { boardFingerprint, incomingSyncAction, initialSyncAction, mergeBoards, savedBoard } from "../src/utils/boardSync.js";
+import { resumeSubtaskStopwatch } from "../src/utils/subtaskStopwatch.js";
 
 const board = (todo = [], doing = [], done = []) => ({
   cardsByCol: { todo, doing, done },
@@ -25,6 +26,16 @@ test("saved boards exclude transient drafts and legacy blank titles in every col
   assert.deepEqual(saved.archivedCards, [valid]);
   assert.equal(saved.syncRevision, 7);
   assert.equal(state.cardsByCol.todo.length, 4, "the active editor is not mutated");
+});
+
+test("starting a subtask creates a board that Firestore can save without undefined values", () => {
+  const started = resumeSubtaskStopwatch({ id: "task", title: "Work", subtasks: [{ id: "a", title: "First" }] }, "a", 1000);
+  const legacy = { ...started, optional: undefined, subtasks: [{ ...started.subtasks[0], optional: undefined }] };
+  const saved = savedBoard({ ...board([], [legacy]), archivedCards: [], unused: undefined });
+  assert.deepEqual(saved.cardsByCol.doing[0], { ...started, subtasks: started.subtasks });
+  assert.equal(Object.hasOwn(saved, "unused"), false);
+  assert.equal(Object.hasOwn(saved.cardsByCol.doing[0].subtasks[0], "optional"), false);
+  assert.equal(Object.hasOwn(legacy, "optional"), true, "the live task is not mutated");
 });
 
 test("field order does not create a false conflict on reload", () => {
