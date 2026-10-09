@@ -90,7 +90,7 @@ function ArchivedTask({ card, onRestore, palette, isDark }) {
   );
 }
 
-export function ArchiveModal({ archivedCards, activeCards = [], onRestore, onClose, palette, isDark }) {
+export function ArchiveModal({ archivedCards, activeCards = [], onRestore, onLogWork, onClose, palette, isDark }) {
   const [view, setView] = useState("activity");
   const completedCards = archivedCards.filter((card) => !card.activityOnly);
   const archiveGroups = groupArchivedCardsByDay(completedCards);
@@ -103,7 +103,7 @@ export function ArchiveModal({ archivedCards, activeCards = [], onRestore, onClo
             style={{ borderColor: view === id ? palette.subtext : palette.border, backgroundColor: view === id ? palette.card : 'transparent', color: palette.text, fontWeight: view === id ? 600 : 400 }}>{label}</button>
         ))}
       </div>
-      {view === "activity" ? <DailyActivity cards={[...activeCards, ...archivedCards]} palette={palette} /> : completedCards.length ? (
+      {view === "activity" ? <DailyActivity cards={[...activeCards, ...archivedCards]} palette={palette} onLogWork={onLogWork} /> : completedCards.length ? (
         <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
           {archiveGroups.map((group) => (
             <section key={group.key} aria-label={`${group.label}: ${group.cards.length} ${group.cards.length === 1 ? "task" : "tasks"} completed, ${formatStopwatch(group.loggedSeconds)} total task time`}>
