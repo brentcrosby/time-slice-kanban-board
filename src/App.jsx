@@ -12,6 +12,7 @@ import { DEFAULT_COLUMNS, MIN_SEGMENT_SEC } from "./constants";
 import { THEME_COLORS } from "./constants/themeColors";
 import { initializeWorkBoard, useWorkTrackedBoard } from "./hooks/useWorkTrackedBoard";
 import { correctWorkTime } from "./utils/workActivity";
+import { addWorkSession, createLoggedTask } from "./utils/manualWork";
 import { useNowTicker } from "./hooks/useNowTicker";
 import { clamp, uid } from "./utils/misc";
 import {
@@ -884,6 +885,23 @@ export default function KanbanTimerBoard() {
     setArchivedCards((prev) => prev.filter((item) => item.id !== cardId));
   };
 
+  const logPastWork = ({ taskId, title, start, end }) => {
+    const now = Date.now();
+    if (!taskId) {
+      const card = createLoggedTask(uid(), title, start, end, now);
+      setArchivedCards((previous) => [card, ...previous]);
+      return;
+    }
+    const column = Object.keys(cardsByCol).find((id) => cardsByCol[id].some((card) => card.id === taskId));
+    if (column) {
+      setCardsByCol((previous) => ({ ...previous, [column]: previous[column].map((card) =>
+        card.id === taskId ? addWorkSession(card, start, end, now) : card) }));
+    } else {
+      if (!archivedCards.some((card) => card.id === taskId)) throw new Error("This task is no longer available.");
+      setArchivedCards((previous) => previous.map((card) => card.id === taskId ? addWorkSession(card, start, end, now) : card));
+    }
+  };
+
   const clearColumn = (colId) => {
     let removedIds = [];
     updateCardsState(
@@ -1356,6 +1374,7 @@ export default function KanbanTimerBoard() {
           archivedCards={archivedCards}
           activeCards={Object.values(cardsByCol).flat()}
           onRestore={restoreArchivedTask}
+          onLogWork={logPastWork}
           onClose={() => setArchiveOpen(false)}
           palette={palette}
           isDark={isDark}

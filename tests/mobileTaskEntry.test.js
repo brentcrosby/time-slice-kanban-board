@@ -562,6 +562,58 @@ test("flagging a task places it at the top of its current column", async () => {
   assert.deepEqual(titles, ["Priority", "First"]);
 });
 
+test("archive logs past work as a completed task and adds sessions to existing unfinished tasks", async () => {
+  const realNow = Date.now;
+  const now = new Date(2026, 9, 9, 10).getTime();
+  Date.now = () => now;
+  const setField = async (field, value) => act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(field, value);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  try {
+    await add("Study");
+    await tap(button("Save"));
+    const studyId = savedCards().find((card) => card.title === "Study").id;
+    await tap(button("View archive"));
+    await tap(button("Log past work"));
+    let form = document.querySelector('form[aria-label="Log past work"]');
+    await setField(form.querySelector('input:not([type])'), "Morning run");
+    let fields = form.querySelectorAll('input[type="datetime-local"]');
+    await setField(fields[0], "2026-10-09T08:00");
+    await setField(fields[1], "2026-10-09T07:30");
+    await tap(button("Save work", form));
+    assert.match(form.querySelector('[role="alert"]').textContent, /End time must be after/);
+    await setField(fields[1], "2026-10-09T08:30");
+    await tap(button("Save work", form));
+    assert.equal(document.querySelector('[data-testid="daily-work-total"]').textContent, "30m");
+    let stored = JSON.parse(localStorage.getItem("kanban-timer-board:v1"));
+    const run = stored.archivedCards.find((card) => card.title === "Morning run");
+    assert.equal(run.stopwatch.elapsedSec, 1800);
+    assert.deepEqual(run.workLog.sessions, [{ clock: "main", start: new Date(2026, 9, 9, 8).getTime(), end: new Date(2026, 9, 9, 8, 30).getTime() }]);
+    assert.ok(run.completedAt);
+    await tap(button("Log past work"));
+    form = document.querySelector('form[aria-label="Log past work"]');
+    await act(async () => {
+      const select = form.querySelector("select");
+      select.value = studyId;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    assert.equal(form.querySelector('input:not([type])'), null);
+    fields = form.querySelectorAll('input[type="datetime-local"]');
+    await setField(fields[0], "2026-10-09T08:15");
+    await setField(fields[1], "2026-10-09T08:45");
+    await tap(button("Save work", form));
+    assert.equal(document.querySelector('[data-testid="daily-work-total"]').textContent, "45m", "manual overlaps count once");
+    stored = JSON.parse(localStorage.getItem("kanban-timer-board:v1"));
+    const study = Object.values(stored.cardsByCol).flat().find((card) => card.id === studyId);
+    assert.equal(study.stopwatch.elapsedSec, 1800);
+    assert.equal(Boolean(study.completedAt), false, "logging does not complete existing tasks");
+    await tap(button("Completed tasks (1)"));
+    assert.ok(document.querySelector('[role="dialog"]').textContent.includes("Morning run"));
+    assert.ok(document.querySelector('[role="dialog"]').textContent.includes("30:00 total stopwatch time"));
+  } finally { Date.now = realNow; }
+});
+
 test("daily activity records unfinished overlapping tasks, corrections, deletion, and completion", async () => {
   const realNow = Date.now;
   let now = new Date(2026, 9, 4, 9).getTime();

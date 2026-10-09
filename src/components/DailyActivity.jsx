@@ -1,13 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock3, Plus } from "lucide-react";
+import { WorkSessionForm } from "./WorkSessionForm";
 import { dailyActivity, dayKey } from "../utils/workActivity";
-
-export const formatWorkTime = (seconds) => {
-  const total = Math.max(0, Math.floor(seconds || 0));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  return `${hours ? `${hours}h ` : ""}${minutes}m${!hours && !minutes ? ` ${total % 60}s` : ""}`;
-};
+import { formatWorkTime } from "../utils/workTimeFormat";
 const formatDay = (timestamp) => new Intl.DateTimeFormat(undefined, { dateStyle: "full" }).format(timestamp);
 const formatTime = (timestamp) => new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(timestamp);
 const BAR_COLORS = ["#2563eb", "#a855f7", "#0d9488", "#d97706"];
@@ -33,7 +28,7 @@ function SessionTrack({ intervals, day, color, label, palette, onSelect, now = n
   );
 }
 
-export function DailyActivity({ cards, palette }) {
+export function DailyActivity({ cards, palette, onLogWork }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 15_000);
@@ -42,6 +37,7 @@ export function DailyActivity({ cards, palette }) {
   const days = dailyActivity(cards, now);
   const [selectedKey, setSelectedKey] = useState(null);
   const [selectedSession, setSelectedSession] = useState("");
+  const [loggingWork, setLoggingWork] = useState(false);
   const selectedIndex = Math.max(0, days.findIndex((day) => day.key === selectedKey));
   const day = days[selectedIndex];
   const chooseDay = (key) => { setSelectedKey(key); setSelectedSession(""); };
@@ -57,6 +53,16 @@ export function DailyActivity({ cards, palette }) {
         <button type="button" aria-label="Next day with activity" disabled={selectedIndex === 0}
           onClick={() => chooseDay(days[selectedIndex - 1].key)} className="interactive-button rounded-lg border p-2 disabled:opacity-30" style={{ borderColor: palette.border }}><ChevronRight className="h-4 w-4" /></button>
       </div>
+      {onLogWork && <button type="button" onClick={() => setLoggingWork((open) => !open)} aria-expanded={loggingWork}
+        className="interactive-button flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm" style={{ borderColor: palette.border }}>
+        <Plus className="h-4 w-4" />Log past work
+      </button>}
+      {loggingWork && <WorkSessionForm cards={cards} day={day} palette={palette} onCancel={() => setLoggingWork(false)} onSave={(session) => {
+        onLogWork(session);
+        chooseDay(dayKey(new Date(session.start)));
+        setNow(Date.now());
+        setLoggingWork(false);
+      }} />}
       <div className="rounded-xl border p-4" style={{ borderColor: palette.border, backgroundColor: palette.card }}>
         <div className="flex items-center gap-2 text-sm" style={{ color: palette.subtext }}><Clock3 className="h-4 w-4" />Time worked{day.tasks.some((task) => task.running) && <span className="ml-auto text-xs">● Running</span>}</div>
         <p className="mt-1 text-3xl font-semibold tabular-nums" data-testid="daily-work-total">{formatWorkTime(day.seconds)}</p>
@@ -84,10 +90,10 @@ export function DailyActivity({ cards, palette }) {
           <SessionTrack intervals={task.intervals} day={day} color={BAR_COLORS[index % BAR_COLORS.length]} label={task.title} palette={palette} onSelect={setSelectedSession} now={day.key === dayKey(new Date(now)) ? now : null} />
         </article>)}
         <p role="status" className="min-h-5 text-xs" style={{ color: palette.subtext }}>{selectedSession}</p>
-      </div> : <p className="py-4 text-center text-sm" style={{ color: palette.subtext }}>Start any task or subtask stopwatch to record your day.</p>}
+      </div> : <p className="py-4 text-center text-sm" style={{ color: palette.subtext }}>Start a stopwatch or log past work to record your day.</p>}
       <details className="border-t pt-3 text-xs leading-relaxed" style={{ borderColor: palette.border, color: palette.subtext }}>
         <summary className="cursor-pointer">How time is counted</summary>
-        <p className="mt-2">Activity starts with this update; earlier stopwatch totals have no session history. Reducing elapsed time trims the latest session’s end. Adding time extends the latest session’s start backward; without a previous session, it ends now. Resetting or removing a stopwatch keeps recorded activity.</p>
+        <p className="mt-2">Log past work to enter exact start and end times. Earlier stopwatch totals have no session history. Reducing elapsed time trims the latest session’s end. Adding time extends the latest session’s start backward; without a previous session, it ends now. Resetting or removing a stopwatch keeps recorded activity.</p>
       </details>
     </section>
   );
