@@ -11,6 +11,8 @@ export function SettingsModal({
   setSound,
   autoStartStopwatchOnDrop,
   setAutoStartStopwatchOnDrop,
+  autoArchiveDone,
+  setAutoArchiveDone,
   autoMoveEnabled,
   setAutoMoveEnabled,
   onTest,
@@ -184,6 +186,13 @@ export function SettingsModal({
             </label>
             <p className="text-xs" style={{ color: palette.subtext }}>
               Starts a zero-time stopwatch when you drag a task into Doing, including selected tasks. Paused clocks with logged time stay paused. Saved on this device.
+            </p>
+            <label className="inline-flex items-center gap-2 text-sm" style={{ color: palette.text }}>
+              <input type="checkbox" checked={autoArchiveDone} onChange={(event) => setAutoArchiveDone(event.target.checked)} />
+              Automatically archive Done tasks at midnight
+            </label>
+            <p className="text-xs" style={{ color: palette.subtext }}>
+              Moves previous days’ Done tasks to the archive at local midnight, or when you reopen Tasky. Restored tasks stay in Done until the next day. On by default. Saved on this device.
             </p>
             <button
               type="button"

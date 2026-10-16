@@ -13,6 +13,7 @@ import { THEME_COLORS } from "./constants/themeColors";
 import { initializeWorkBoard, useWorkTrackedBoard } from "./hooks/useWorkTrackedBoard";
 import { correctWorkTime } from "./utils/workActivity";
 import { addWorkSession, createLoggedTask } from "./utils/manualWork";
+import { loadAutoArchiveDone, saveAutoArchiveDone } from "./utils/storage";
 import { useNowTicker } from "./hooks/useNowTicker";
 import { clamp, uid } from "./utils/misc";
 import {
@@ -43,7 +44,9 @@ export default function KanbanTimerBoard() {
   const initialStoredState = initialStoredStateRef.current;
 
   const [columns] = useState(DEFAULT_COLUMNS);
-  const { cardsByCol, archivedCards, setCardsByCol, setArchivedCards, replaceBoard, restoreSnapshot } = useWorkTrackedBoard(initialStoredState);
+  const [autoArchiveDone, setAutoArchiveDone] = useState(loadAutoArchiveDone);
+  useEffect(() => saveAutoArchiveDone(autoArchiveDone), [autoArchiveDone]);
+  const { cardsByCol, archivedCards, setCardsByCol, setArchivedCards, replaceBoard, restoreSnapshot } = useWorkTrackedBoard(initialStoredState, autoArchiveDone);
   useEffect(() => {
     const checkDueDates = () => setCardsByCol((current) => flagDueTasks(current));
     checkDueDates();
@@ -881,7 +884,7 @@ export default function KanbanTimerBoard() {
     historyRef.current.push(cloneBoardState({ cardsByCol, archivedCards }));
     if (historyRef.current.length > HISTORY_LIMIT) historyRef.current.shift();
     futureRef.current = [];
-    setCardsByCol((prev) => ({ ...prev, done: [...(prev.done || []), { ...card, archivedAt: null }] }));
+    setCardsByCol((prev) => ({ ...prev, done: [...(prev.done || []), { ...card, archivedAt: null, doneSince: Date.now() }] }));
     setArchivedCards((prev) => prev.filter((item) => item.id !== cardId));
   };
 
@@ -1453,6 +1456,8 @@ export default function KanbanTimerBoard() {
           setShowSubtaskStopwatchButton={setShowSubtaskStopwatchButton}
           autoStartStopwatchOnDrop={autoStartStopwatchOnDrop}
           setAutoStartStopwatchOnDrop={setAutoStartStopwatchOnDrop}
+          autoArchiveDone={autoArchiveDone}
+          setAutoArchiveDone={setAutoArchiveDone}
           autoMoveEnabled={autoMoveEnabled}
           setAutoMoveEnabled={setAutoMoveEnabled}
           onTest={() => playChime(audioRef, { type: sound.type, volume: sound.volume })}

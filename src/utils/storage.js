@@ -39,6 +39,18 @@ export function saveAutoStartStopwatchOnDrop(enabled) {
 
 const SYNC_BASELINE_KEY = "kanban-timer-board:sync-baseline:v1";
 
+const AUTO_ARCHIVE_DONE_KEY = "tasky:auto-archive-done";
+
+export function loadAutoArchiveDone() {
+  try { return localStorage.getItem(AUTO_ARCHIVE_DONE_KEY) !== "false"; }
+  catch { return true; }
+}
+
+export function saveAutoArchiveDone(enabled) {
+  try { localStorage.setItem(AUTO_ARCHIVE_DONE_KEY, String(enabled)); }
+  catch { /* The preference still works for this session. */ }
+}
+
 export function loadSyncBaseline(uid) {
   try {
     const saved = JSON.parse(localStorage.getItem(SYNC_BASELINE_KEY));

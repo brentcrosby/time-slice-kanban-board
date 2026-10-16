@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { restoreWorkBoard, trackBoardWork, trackCardWork } from "../utils/workActivity";
 import { upgradeLegacyCard } from "../utils/segments";
+import { useDailyArchive } from "./useDailyArchive";
 
 export function initializeWorkBoard(state, now = Date.now()) {
   return {
@@ -11,8 +12,9 @@ export function initializeWorkBoard(state, now = Date.now()) {
   };
 }
 
-export function useWorkTrackedBoard(initialState) {
+export function useWorkTrackedBoard(initialState, autoArchiveDone = false) {
   const [board, replaceBoard] = useState(() => initializeWorkBoard(initialState));
+  useDailyArchive(autoArchiveDone, board.cardsByCol.done, replaceBoard);
   const setCardsByCol = useCallback((updater) => {
     const now = Date.now();
     replaceBoard((previous) => {
