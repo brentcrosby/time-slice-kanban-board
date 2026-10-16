@@ -735,3 +735,79 @@ test("Doing drop toggle persists and starts a new stopwatch with activity histor
     assert.equal(savedCards()[0].workLog.sessions.length, 1);
   } finally { Date.now = realNow; }
 });
+
+test("automatic archiving defaults on and fires at local midnight without a running timer", async () => {
+  const realNow = Date.now;
+  const realTimeout = window.setTimeout;
+  let now = new Date(2026, 9, 15, 23, 59, 30).getTime();
+  let atMidnight;
+  Date.now = () => now;
+  window.setTimeout = (callback, delay, ...args) => {
+    if (delay === 30_000) { atMidnight = callback; return -1; }
+    return realTimeout.call(window, callback, delay, ...args);
+  };
+  try {
+    await add("Finished today", "done");
+    await tap(button("Save"));
+    const completed = savedCards()[0];
+    assert.equal(localStorage.getItem("tasky:auto-archive-done"), "true");
+    assert.equal(typeof atMidnight, "function");
+    now += 30_000;
+    await act(async () => atMidnight());
+    assert.equal(savedCards().length, 0);
+    const stored = JSON.parse(localStorage.getItem("kanban-timer-board:v1"));
+    assert.equal(stored.archivedCards[0].id, completed.id);
+    assert.equal(stored.archivedCards[0].completedAt, completed.completedAt);
+    await tap(button("View archive"));
+    await tap(button("Completed tasks (1)"));
+    await tap(button(`Restore ${completed.title} to Done`));
+    assert.equal(savedCards().length, 1, "restored tasks are not immediately re-archived");
+    now += 24 * 3600_000;
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    assert.equal(savedCards().length, 0, "returning to a sleeping app catches up at the next day");
+    assert.equal(JSON.parse(localStorage.getItem("kanban-timer-board:v1")).archivedCards.length, 1);
+  } finally { Date.now = realNow; window.setTimeout = realTimeout; }
+});
+
+test("auto-archive can be disabled persistently, catches up on enabling and on reopen", async () => {
+  const realNow = Date.now;
+  let now = new Date(2026, 9, 15, 18).getTime();
+  Date.now = () => now;
+  const remount = async () => {
+    await act(async () => root.unmount());
+    root = createRoot(document.getElementById("root"));
+    await act(async () => root.render(React.createElement(App)));
+  };
+  const openToggle = async () => {
+    await tap(document.querySelector('button[title="Settings"]'));
+    return [...document.querySelectorAll('[aria-label="Settings"] label')]
+      .find((label) => label.textContent.includes("Automatically archive Done")).querySelector("input");
+  };
+  try {
+    await add("Yesterday's task", "done");
+    await tap(button("Save"));
+    const toggle = await openToggle();
+    assert.equal(toggle.checked, true);
+    await tap(toggle);
+    await tap(button("Close"));
+    now += 24 * 3600_000;
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    assert.equal(savedCards().length, 1, "disabled checks leave Done alone");
+    await remount();
+    assert.equal(savedCards().length, 1, "disabled preference survives reload");
+    const disabled = await openToggle();
+    assert.equal(disabled.checked, false);
+    await tap(disabled);
+    assert.equal(savedCards().length, 0, "enabling catches up on previous days");
+    await tap(button("Close"));
+    await add("Finished while offline", "done");
+    await tap(button("Save"));
+    await act(async () => root.unmount());
+    now += 2 * 24 * 3600_000;
+    root = createRoot(document.getElementById("root"));
+    await act(async () => root.render(React.createElement(App)));
+    assert.equal(savedCards().length, 0);
+    const stored = JSON.parse(localStorage.getItem("kanban-timer-board:v1"));
+    assert.equal(stored.archivedCards.length, 2, "startup catches up once without duplicates");
+  } finally { Date.now = realNow; }
+});
