@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { copyTask, moveTasks, pauseTask, selectionRange, TASK_COLUMNS } from "../utils/taskActions";
 import { uid } from "../utils/misc";
 import { setManualFlag } from "../utils/dueDates";
+import { CARD_GROUP_OPTIONS } from "../constants/groups";
 
 export function useTaskSelection({ board, orderedIds, updateBoard, removeChimes }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -73,6 +74,19 @@ export function useTaskSelection({ board, orderedIds, updateBoard, removeChimes 
     (prev[column] || []).map((card) => selectedIds.has(card.id) ? setManualFlag(card, !allFlagged) : card),
   ])), { track: true });
 
+  const setGroup = (group) => {
+    if (!selected.length || !CARD_GROUP_OPTIONS.some((option) => option.value === group)) return;
+    updateBoard((previous) => {
+      let changed = false;
+      const next = Object.fromEntries(TASK_COLUMNS.map((column) => [column, previous[column].map((card) => {
+        if (!selectedIds.has(card.id) || (card.group || "") === group) return card;
+        changed = true;
+        return { ...card, group: group || null };
+      })]));
+      return changed ? next : previous;
+    }, { track: true });
+  };
+
   const confirmDelete = () => {
     const ids = new Set(deleteIds);
     updateBoard((prev) => Object.fromEntries(TASK_COLUMNS.map((column) => [column, (prev[column] || []).filter((card) => !ids.has(card.id))])), { track: true });
@@ -116,7 +130,7 @@ export function useTaskSelection({ board, orderedIds, updateBoard, removeChimes 
     return () => document.removeEventListener("pointerdown", outside);
   }, []);
 
-  return { selectedIds, selected, destination, setDestination, select, setAnchor, move, copy, paste, duplicate, flag, allFlagged,
+  return { selectedIds, selected, destination, setDestination, select, setAnchor, move, copy, paste, duplicate, flag, allFlagged, setGroup,
     clipboard, deleteIds, confirmDelete, cancelDelete: () => setDeleteIds(null), requestDelete: () => setDeleteIds([...selectedIds]),
     clear: () => { setSelectedIds(new Set()); setClipboard(null); },
   };
