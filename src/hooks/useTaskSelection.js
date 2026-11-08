@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { copyTask, moveTasks, pauseTask, selectionRange, TASK_COLUMNS } from "../utils/taskActions";
 import { uid } from "../utils/misc";
-import { setManualFlag } from "../utils/dueDates";
+import { applyDueDate, DEFAULT_DUE_TIME, setManualFlag } from "../utils/dueDates";
 import { CARD_GROUP_OPTIONS } from "../constants/groups";
 
 export function useTaskSelection({ board, orderedIds, updateBoard, removeChimes }) {
@@ -95,6 +95,23 @@ export function useTaskSelection({ board, orderedIds, updateBoard, removeChimes 
     setSelectedIds(new Set());
   };
 
+  const setDueDate = (date, time = "") => {
+    if (!selected.length) return;
+    updateBoard((previous) => {
+      let changed = false;
+      const next = Object.fromEntries(TASK_COLUMNS.map((column) => [column, previous[column].map((card) => {
+        if (!selectedIds.has(card.id)) return card;
+        const dueDate = date || null;
+        const dueTime = dueDate ? time || DEFAULT_DUE_TIME : null;
+        const explicit = Boolean(dueDate && time);
+        if ((card.dueDate || null) === dueDate && (card.dueTime || null) === dueTime && Boolean(card.dueTimeExplicit) === explicit) return card;
+        changed = true;
+        return applyDueDate(card, dueDate, dueTime, explicit);
+      })]));
+      return changed ? next : previous;
+    }, { track: true });
+  };
+
   useEffect(() => {
     const handleKey = (event) => {
       if (event.defaultPrevented || document.querySelector('[aria-modal="true"]')) return;
@@ -130,7 +147,7 @@ export function useTaskSelection({ board, orderedIds, updateBoard, removeChimes 
     return () => document.removeEventListener("pointerdown", outside);
   }, []);
 
-  return { selectedIds, selected, destination, setDestination, select, setAnchor, move, copy, paste, duplicate, flag, allFlagged, setGroup,
+  return { selectedIds, selected, destination, setDestination, select, setAnchor, move, copy, paste, duplicate, flag, allFlagged, setGroup, setDueDate,
     clipboard, deleteIds, confirmDelete, cancelDelete: () => setDeleteIds(null), requestDelete: () => setDeleteIds([...selectedIds]),
     clear: () => { setSelectedIds(new Set()); setClipboard(null); },
   };

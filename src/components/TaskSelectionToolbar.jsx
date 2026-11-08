@@ -2,6 +2,7 @@ import React from "react";
 import { Copy, Scissors, ClipboardPaste, Flag, Trash2, X, ArrowRight, CopyPlus } from "lucide-react";
 import { Modal } from "./Modal";
 import { CARD_GROUP_OPTIONS } from "../constants/groups";
+import { BulkDueDateControls } from "./BulkDueDateControls";
 
 export function TaskSelectionToolbar({ selection, palette }) {
   const { selected, clipboard } = selection;
@@ -31,6 +32,7 @@ export function TaskSelectionToolbar({ selection, palette }) {
       <button className={buttonClass} style={style} disabled={!selected.length} onClick={selection.flag}><Flag size={14} />{selection.allFlagged ? "Unflag" : "Flag"}</button>
       <button className={buttonClass} style={{ ...style, color: palette.dangerText }} disabled={!selected.length} onClick={selection.requestDelete}><Trash2 size={14} />Delete</button>
       <button className="header-action-button ml-auto rounded-md p-1.5" onClick={selection.clear} title="Clear selection and clipboard" aria-label="Clear selection and clipboard"><X size={16} /></button>
+      {selected.length > 0 && <BulkDueDateControls key={selected.map((card) => card.id).sort().join(",")} selected={selected} onApply={selection.setDueDate} palette={palette} />}
       <p className="w-full text-xs" style={{ color: palette.subtext }}>
         {clipboard ? `${clipboard.cards.length} task${clipboard.cards.length === 1 ? "" : "s"} ${clipboard.mode === "cut" ? "ready to move when pasted" : "copied in Tasky"}. ` : ""}
         Cmd/Ctrl-click to toggle · Shift-click for a range · Escape to clear
