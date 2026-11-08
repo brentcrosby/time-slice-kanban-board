@@ -190,6 +190,40 @@ test("Shift-click selects the full range from the last ordinary task click acros
   assert.equal(taskCard("Middle").getAttribute("aria-label").includes(", selected"), true);
   assert.equal(taskCard("Last").getAttribute("aria-label").includes(", selected"), true);
 });
+test("bulk group changes apply across columns, retain selection, clear groups, and undo in one step", async () => {
+  for (const [title, column] of [["First g1", "todo"], ["Second g2", "doing"], ["Third g3", "done"], ["Untouched g1", "doing"]]) {
+    await add(title, column);
+    await tap(button("Save"));
+  }
+  for (const title of ["First", "Second", "Third"]) {
+    const card = cards().find((node) => node.querySelector('[data-card-title]')?.textContent === title);
+    await act(async () => card.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: true })));
+  }
+  const select = () => document.querySelector('select[aria-label="Group for selected tasks"]');
+  const change = async (value) => {
+    await tap(select());
+    await act(async () => {
+      select().value = value;
+      select().dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  };
+  const groups = () => Object.fromEntries(savedCards().map((card) => [card.title, card.group]));
+  assert.equal(select().value, "mixed");
+  for (const group of ["g1", "g2", "g3"]) {
+    await change(group);
+    assert.deepEqual(groups(), { First: group, Second: group, Third: group, Untouched: "g1" });
+    assert.equal(select().value, group);
+    assert.match(document.querySelector('[data-task-selection] [role="status"]').textContent, /3 selected/);
+  }
+  await change("");
+  assert.deepEqual(groups(), { First: null, Second: null, Third: null, Untouched: "g1" });
+  await act(async () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true })));
+  assert.deepEqual(groups(), { First: "g3", Second: "g3", Third: "g3", Untouched: "g1" });
+  const stored = JSON.parse(localStorage.getItem("kanban-timer-board:v1"));
+  assert.deepEqual(Object.fromEntries(Object.entries(stored.cardsByCol).map(([column, tasks]) => [column, tasks.map((card) => card.title)])),
+    { todo: ["First"], doing: ["Second", "Untouched"], done: ["Third"] });
+});
+
 for (const column of ["todo", "doing", "done"]) {
   test(`header + adds an ungrouped task at the top of ${column} and Return continues there`, async () => {
     await add("Earlier", column);
