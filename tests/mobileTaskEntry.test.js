@@ -224,6 +224,43 @@ test("bulk group changes apply across columns, retain selection, clear groups, a
     { todo: ["First"], doing: ["Second", "Untouched"], done: ["Third"] });
 });
 
+test("bulk due dates support mixed dates, optional times, clearing and undo across columns", async () => {
+  for (const [title, column] of [["Alpha g1 due 12/1/2099", "todo"], ["Beta g2 due 12/2/2099", "doing"], ["Untouched due 12/3/2099", "done"]]) {
+    await add(title, column);
+    await tap(button("Save"));
+  }
+  const original = savedCards();
+  for (const title of ["Alpha", "Beta"]) {
+    const card = cards().find((node) => node.querySelector('[data-card-title]')?.textContent === title);
+    await act(async () => card.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: true })));
+  }
+  const date = () => document.querySelector('input[aria-label="Due date for selected tasks"]');
+  const time = () => document.querySelector('input[aria-label="Due time for selected tasks"]');
+  const setField = async (field, value) => act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(field, value);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  const values = () => savedCards().filter((card) => card.title !== "Untouched").map((card) => [card.dueDate, card.dueTime, card.dueTimeExplicit]);
+  assert.match(document.querySelector('form[aria-label="Due dates for selected tasks"]').textContent, /different due dates/);
+  assert.equal(button("Apply due date").disabled, true);
+  await setField(date(), "2099-12-10");
+  await setField(time(), "09:30");
+  await tap(button("Apply due date"));
+  assert.deepEqual(values(), [["2099-12-10", "09:30", true], ["2099-12-10", "09:30", true]]);
+  assert.match(document.querySelector('[data-task-selection] [role="status"]').textContent, /2 selected/);
+  assert.deepEqual(savedCards().map((card) => [card.id, card.group]), original.map((card) => [card.id, card.group]));
+  assert.deepEqual(savedCards().find((card) => card.title === "Untouched"), original.find((card) => card.title === "Untouched"));
+  await setField(time(), "");
+  await tap(button("Apply due date"));
+  assert.deepEqual(values(), [["2099-12-10", "23:59", false], ["2099-12-10", "23:59", false]]);
+  await tap(button("Clear due dates"));
+  assert.deepEqual(values(), [[null, null, false], [null, null, false]]);
+  assert.equal(date().value, "");
+  await act(async () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true })));
+  assert.deepEqual(values(), [["2099-12-10", "23:59", false], ["2099-12-10", "23:59", false]]);
+  assert.equal(date().value, "2099-12-10");
+});
+
 for (const column of ["todo", "doing", "done"]) {
   test(`header + adds an ungrouped task at the top of ${column} and Return continues there`, async () => {
     await add("Earlier", column);
