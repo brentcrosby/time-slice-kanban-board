@@ -138,17 +138,20 @@ export function dailyActivity(cards, now = Date.now()) {
   for (const card of cards) {
     if (seen.has(card.id)) continue;
     seen.add(card.id);
-    for (const session of card.workLog?.sessions || []) {
+    for (const [index, session] of (card.workLog?.sessions || []).entries()) {
       let start = session.start;
       const end = Math.min(session.end ?? now, now);
       if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) continue;
+      const subtaskTitle = session.clock?.startsWith("sub:")
+        ? card.subtasks?.find((subtask) => `sub:${subtask.id}` === session.clock)?.title || "Subtask" : null;
       while (start < end) {
         const day = ensureDay(start);
         const slice = [start, Math.min(end, day.end)];
         if (!day.tasks.has(card.id)) day.tasks.set(card.id, { id: card.id, title: card.title, group: card.group,
-          completed: Boolean(card.completedAt), deleted: Boolean(card.activityOnly), running: false, intervals: [] });
+          completed: Boolean(card.completedAt), deleted: Boolean(card.activityOnly), running: false, intervals: [], sessions: [] });
         const task = day.tasks.get(card.id);
         task.intervals.push(slice);
+        task.sessions.push({ ...session, index, subtaskTitle });
         task.running ||= session.end == null && day.key === dayKey(new Date(now));
         day.intervals.push(slice);
         start = slice[1];

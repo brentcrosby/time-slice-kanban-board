@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Clock3, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock3, Pencil, Plus } from "lucide-react";
 import { WorkSessionForm } from "./WorkSessionForm";
 import { dailyActivity, dayKey } from "../utils/workActivity";
 import { formatWorkTime } from "../utils/workTimeFormat";
 const formatDay = (timestamp) => new Intl.DateTimeFormat(undefined, { dateStyle: "full" }).format(timestamp);
 const formatTime = (timestamp) => new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(timestamp);
+const formatEndpoint = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" });
 const BAR_COLORS = ["#2563eb", "#a855f7", "#0d9488", "#d97706"];
 
 function SessionTrack({ intervals, day, color, label, palette, onSelect, now = null }) {
@@ -22,13 +23,13 @@ function SessionTrack({ intervals, day, color, label, palette, onSelect, now = n
         return <button key={`${start}-${index}`} type="button" title={description} aria-label={description}
           className="absolute inset-y-1 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
           style={{ left: `${(start - day.start) / span * 100}%`, width: `${(end - start) / span * 100}%`, minWidth: 3, backgroundColor: color }}
-          onClick={() => onSelect(description)} />;
+          onClick={() => onSelect(description, start, end)} />;
       })}
     </div>
   );
 }
 
-export function DailyActivity({ cards, palette, onLogWork }) {
+export function DailyActivity({ cards, palette, onLogWork, onEditWork }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 15_000);
@@ -38,9 +39,17 @@ export function DailyActivity({ cards, palette, onLogWork }) {
   const [selectedKey, setSelectedKey] = useState(null);
   const [selectedSession, setSelectedSession] = useState("");
   const [loggingWork, setLoggingWork] = useState(false);
+  const [sessionPicker, setSessionPicker] = useState(null);
+  const [editing, setEditing] = useState(null);
   const selectedIndex = Math.max(0, days.findIndex((day) => day.key === selectedKey));
   const day = days[selectedIndex];
-  const chooseDay = (key) => { setSelectedKey(key); setSelectedSession(""); };
+  const chooseDay = (key) => { setSelectedKey(key); setSelectedSession(""); setSessionPicker(null); setEditing(null); };
+  const openSessions = (task, start = day.start, end = day.end) => {
+    const sessions = task.sessions.filter((session) => session.end != null && session.start < end && session.end > start);
+    setSessionPicker({ taskId: task.id, start, end });
+    setEditing(sessions.length === 1 ? sessions[0] : null);
+    setLoggingWork(false);
+  };
   return (
     <section aria-label="Daily activity" className="space-y-4" style={{ color: palette.text }}>
       <div className="flex items-center gap-2">
@@ -53,7 +62,7 @@ export function DailyActivity({ cards, palette, onLogWork }) {
         <button type="button" aria-label="Next day with activity" disabled={selectedIndex === 0}
           onClick={() => chooseDay(days[selectedIndex - 1].key)} className="interactive-button rounded-lg border p-2 disabled:opacity-30" style={{ borderColor: palette.border }}><ChevronRight className="h-4 w-4" /></button>
       </div>
-      {onLogWork && <button type="button" onClick={() => setLoggingWork((open) => !open)} aria-expanded={loggingWork}
+      {onLogWork && <button type="button" onClick={() => { setLoggingWork(!loggingWork); setSessionPicker(null); setEditing(null); }} aria-expanded={loggingWork}
         className="interactive-button flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm" style={{ borderColor: palette.border }}>
         <Plus className="h-4 w-4" />Log past work
       </button>}
@@ -71,7 +80,7 @@ export function DailyActivity({ cards, palette, onLogWork }) {
       {day.tasks.length > 0 ? <div className="space-y-3">
         <div>
           <h4 className="text-sm font-semibold">Your day</h4>
-          <p className="mt-1 text-xs" style={{ color: palette.subtext }}>Tap a session to see its times. All times are local.</p>
+          <p className="mt-1 text-xs" style={{ color: palette.subtext }}>{onEditWork ? "Tap a task bar to see or edit its recorded times." : "Tap a session to see its times."} All times are local.</p>
         </div>
         {day.key === dayKey(new Date(now)) && <div className="text-right text-xs tabular-nums" style={{ color: palette.subtext }}>
           Now · <time dateTime={new Date(now).toISOString()}>{formatTime(now)}</time>
@@ -79,16 +88,46 @@ export function DailyActivity({ cards, palette, onLogWork }) {
         <div className="flex justify-between text-xs tabular-nums" style={{ color: palette.subtext }}>
           {[0, 0.25, 0.5, 0.75, 1].map((fraction) => <span key={fraction}>{formatTime(day.start + (day.end - day.start) * fraction)}</span>)}
         </div>
-        <SessionTrack intervals={day.intervals} day={day} color={palette.subtext} label="Total work" palette={palette} onSelect={setSelectedSession} now={day.key === dayKey(new Date(now)) ? now : null} />
-        {day.tasks.map((task, index) => <article key={task.id} className="space-y-1.5" aria-label={`${task.title}, ${formatWorkTime(task.seconds)} worked`}>
-          <div className="flex items-start justify-between gap-3 text-sm">
-            <div className="min-w-0"><h5 className="break-words font-medium">{task.title}</h5>
-              <p className="text-xs" style={{ color: palette.subtext }}>{task.running ? "Running" : task.deleted ? "Deleted task" : task.completed ? "Completed" : "In progress"}</p>
+        <SessionTrack intervals={day.intervals} day={day} color={palette.subtext} label="Total work" palette={palette} onSelect={(description) => { setSelectedSession(description); setSessionPicker(null); setEditing(null); }} now={day.key === dayKey(new Date(now)) ? now : null} />
+        {day.tasks.map((task, index) => {
+          const open = sessionPicker?.taskId === task.id;
+          const sessions = open ? task.sessions.filter((session) => session.start < sessionPicker.end && (session.end ?? now) > sessionPicker.start).sort((a, b) => a.start - b.start) : [];
+          return <article key={task.id} className="space-y-1.5" aria-label={`${task.title}, ${formatWorkTime(task.seconds)} worked`}>
+            <div className="flex items-start justify-between gap-3 text-sm">
+              <div className="min-w-0"><h5 className="break-words font-medium">{task.title}</h5>
+                <p className="text-xs" style={{ color: palette.subtext }}>{task.running ? "Running" : task.deleted ? "Deleted task" : task.completed ? "Completed" : "In progress"}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="tabular-nums" style={{ color: palette.subtext }}>{formatWorkTime(task.seconds)}</span>
+                {onEditWork && <button type="button" title="Edit sessions" aria-label={`Edit sessions for ${task.title}`} aria-expanded={open}
+                  className="interactive-button rounded-md border p-2" style={{ borderColor: palette.border }} onClick={() => {
+                    setSelectedSession("");
+                    if (open) { setSessionPicker(null); setEditing(null); } else openSessions(task);
+                  }}><Pencil className="h-3.5 w-3.5" /></button>}
+              </div>
             </div>
-            <span className="shrink-0 tabular-nums" style={{ color: palette.subtext }}>{formatWorkTime(task.seconds)}</span>
-          </div>
-          <SessionTrack intervals={task.intervals} day={day} color={BAR_COLORS[index % BAR_COLORS.length]} label={task.title} palette={palette} onSelect={setSelectedSession} now={day.key === dayKey(new Date(now)) ? now : null} />
-        </article>)}
+            <SessionTrack intervals={task.intervals} day={day} color={BAR_COLORS[index % BAR_COLORS.length]} label={task.title} palette={palette} onSelect={(description, start, end) => {
+              setSelectedSession(description);
+              if (onEditWork) openSessions(task, start, end);
+            }} now={day.key === dayKey(new Date(now)) ? now : null} />
+            {open && <div className="space-y-2 pt-1">
+              {(!editing || sessions.length > 1) && sessions.map((session) => {
+                const range = `${formatEndpoint.format(session.start)} – ${session.end == null ? "Running" : formatEndpoint.format(session.end)}`;
+                return session.end == null ? <p key={session.index} className="text-xs" style={{ color: palette.subtext }}>{range}. Pause the stopwatch to edit this session.</p> :
+                  <button key={session.index} type="button" aria-pressed={editing?.index === session.index}
+                    className="interactive-button block w-full rounded-lg border px-3 py-2 text-left text-sm" style={{ borderColor: palette.border, backgroundColor: editing?.index === session.index ? palette.badge : palette.surface }}
+                    onClick={() => setEditing(session)}>{session.subtaskTitle || "Main stopwatch"} · {range}</button>;
+              })}
+              {editing && <WorkSessionForm key={`${editing.index}:${editing.start}:${editing.end}`} day={day} session={editing} palette={palette}
+                onCancel={() => { setEditing(null); setSessionPicker(null); }} onSave={({ start, end }) => {
+                  onEditWork(task.id, editing, start, end);
+                  chooseDay(start < day.end && end > day.start ? day.key : dayKey(new Date(start)));
+                  setNow(Date.now());
+                  setSelectedSession("Session times saved.");
+                }} />}
+            </div>}
+          </article>;
+        })}
         <p role="status" className="min-h-5 text-xs" style={{ color: palette.subtext }}>{selectedSession}</p>
       </div> : <p className="py-4 text-center text-sm" style={{ color: palette.subtext }}>Start a stopwatch or log past work to record your day.</p>}
       <details className="border-t pt-3 text-xs leading-relaxed" style={{ borderColor: palette.border, color: palette.subtext }}>
