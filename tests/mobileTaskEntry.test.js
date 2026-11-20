@@ -679,9 +679,26 @@ test("archive logs past work as a completed task and adds sessions to existing u
     const study = Object.values(stored.cardsByCol).flat().find((card) => card.id === studyId);
     assert.equal(study.stopwatch.elapsedSec, 1800);
     assert.equal(Boolean(study.completedAt), false, "logging does not complete existing tasks");
+    const runRow = document.querySelector('article[aria-label="Morning run, 30m worked"]');
+    await tap([...runRow.querySelectorAll('button')].find((node) => node.getAttribute('aria-label')?.startsWith('Morning run:')));
+    form = document.querySelector('form[aria-label="Edit session times"]');
+    fields = form.querySelectorAll('input[type="datetime-local"]');
+    assert.equal(fields[0].value, "2026-10-09T08:00");
+    await setField(fields[1], "2026-10-09T10:15");
+    await tap(button("Save times", form));
+    assert.match(form.querySelector('[role="alert"]').textContent, /current time/);
+    await setField(fields[0], "2026-10-09T08:05");
+    await setField(fields[1], "2026-10-09T08:25");
+    await tap(button("Save times", form));
+    assert.equal(document.querySelector('[data-testid="daily-work-total"]').textContent, "40m", "edited sessions still count overlaps once");
+    stored = JSON.parse(localStorage.getItem("kanban-timer-board:v1"));
+    const edited = stored.archivedCards.find((card) => card.id === run.id);
+    assert.equal(edited.stopwatch.elapsedSec, 1200);
+    assert.equal(edited.completedAt, run.completedAt);
+    assert.deepEqual(edited.workLog.sessions, [{ clock: "main", start: new Date(2026, 9, 9, 8, 5).getTime(), end: new Date(2026, 9, 9, 8, 25).getTime() }]);
     await tap(button("Completed tasks (1)"));
     assert.ok(document.querySelector('[role="dialog"]').textContent.includes("Morning run"));
-    assert.ok(document.querySelector('[role="dialog"]').textContent.includes("30:00 total stopwatch time"));
+    assert.ok(document.querySelector('[role="dialog"]').textContent.includes("20:00 total stopwatch time"));
   } finally { Date.now = realNow; }
 });
 

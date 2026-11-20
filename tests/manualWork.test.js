@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addWorkSession, createLoggedTask, localDateTimeValue } from "../src/utils/manualWork.js";
+import { addWorkSession, createLoggedTask, editWorkSession, localDateTimeValue } from "../src/utils/manualWork.js";
 import { dailyActivity, trackCardWork } from "../src/utils/workActivity.js";
 import { archivedTaskLoggedSeconds } from "../src/utils/archiveGroups.js";
 
@@ -42,6 +42,26 @@ test("explicit sessions split at midnight and retain separate task stopwatch dur
   const days = dailyActivity([task], now);
   assert.deepEqual(days.map((day) => day.seconds), [900, 900]);
   assert.equal(archivedTaskLoggedSeconds(task), 1800);
+  const session = days[0].tasks[0].sessions[0];
+  const edited = editWorkSession(task, session, end - 20 * minute, end + 5 * minute, now);
+  assert.deepEqual(dailyActivity([edited], now).map((day) => day.seconds), [1200, 300]);
+  assert.equal(archivedTaskLoggedSeconds(edited), 1500);
+});
+
+test("editing one of two overlapping sessions leaves the other clock and session alone", () => {
+  const task = createLoggedTask("study", "Study", start, start + 30 * minute, now);
+  task.subtasks = [{ id: "reading", title: "Reading", stopwatch: { elapsedSec: 1200, running: false } }];
+  task.workLog.sessions.push({ clock: "sub:reading", start: start + 20 * minute, end: start + 40 * minute });
+  const taskDay = dailyActivity([task], now)[0].tasks[0];
+  assert.equal(taskDay.intervals.length, 1);
+  assert.equal(taskDay.sessions.length, 2);
+  const reference = taskDay.sessions[1];
+  const edited = editWorkSession(task, reference, start + 15 * minute, start + 45 * minute, now);
+  assert.equal(edited.subtasks[0].stopwatch.elapsedSec, 1800);
+  assert.equal(edited.stopwatch, task.stopwatch);
+  assert.equal(edited.workLog.sessions[0], task.workLog.sessions[0]);
+  assert.equal(dailyActivity([edited], now)[0].seconds, 2700);
+  assert.equal(editWorkSession(edited, reference, start, now, now), edited, "stale references cannot overwrite a corrected session");
 });
 
 test("invalid or future intervals and blank titles cannot be saved", () => {

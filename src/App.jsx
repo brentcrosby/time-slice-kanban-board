@@ -12,7 +12,7 @@ import { DEFAULT_COLUMNS, MIN_SEGMENT_SEC } from "./constants";
 import { THEME_COLORS } from "./constants/themeColors";
 import { initializeWorkBoard, useWorkTrackedBoard } from "./hooks/useWorkTrackedBoard";
 import { correctWorkTime } from "./utils/workActivity";
-import { addWorkSession, createLoggedTask } from "./utils/manualWork";
+import { addWorkSession, createLoggedTask, editWorkSession, matchesWorkSession, validateWorkSession } from "./utils/manualWork";
 import { loadAutoArchiveDone, saveAutoArchiveDone } from "./utils/storage";
 import { useNowTicker } from "./hooks/useNowTicker";
 import { clamp, uid } from "./utils/misc";
@@ -905,6 +905,22 @@ export default function KanbanTimerBoard() {
     }
   };
 
+  const editLoggedWork = (taskId, reference, start, end) => {
+    const now = Date.now();
+    validateWorkSession(start, end, now);
+    const task = [...Object.values(cardsByCol).flat(), ...archivedCards].find((card) => card.id === taskId);
+    if (!matchesWorkSession(task?.workLog?.sessions?.[reference.index], reference) || reference.end == null) {
+      throw new Error("This session has changed. Close the editor and select it again.");
+    }
+    if (start === reference.start && end === reference.end) return;
+    replaceBoard((board) => {
+      const update = (card) => card.id === taskId ? editWorkSession(card, reference, start, end, now) : card;
+      const column = Object.keys(board.cardsByCol).find((id) => board.cardsByCol[id].some((card) => card.id === taskId));
+      return column ? { ...board, cardsByCol: { ...board.cardsByCol, [column]: board.cardsByCol[column].map(update) } }
+        : { ...board, archivedCards: board.archivedCards.map(update) };
+    });
+  };
+
   const clearColumn = (colId) => {
     let removedIds = [];
     updateCardsState(
@@ -1378,6 +1394,7 @@ export default function KanbanTimerBoard() {
           activeCards={Object.values(cardsByCol).flat()}
           onRestore={restoreArchivedTask}
           onLogWork={logPastWork}
+          onEditWork={editLoggedWork}
           onClose={() => setArchiveOpen(false)}
           palette={palette}
           isDark={isDark}
