@@ -702,6 +702,81 @@ test("archive logs past work as a completed task and adds sessions to existing u
   } finally { Date.now = realNow; }
 });
 
+test("archive drags move or resize one finished session, with preview, cancellation, and future bounds", async () => {
+  const realNow = Date.now;
+  const now = new Date(2026, 9, 9, 10).getTime();
+  const at = (hour, minute = 0) => new Date(2026, 9, 9, hour, minute).getTime();
+  Date.now = () => now;
+  const archived = { id: "walk", title: "Walk", segments: [], subtasks: [], completedAt: at(9), archivedAt: now,
+    stopwatch: { running: false, elapsedSec: 1800, lastStartTs: null },
+    workLog: { since: at(8), sessions: [{ clock: "main", start: at(8), end: at(8, 30) }] } };
+  const yesterday = (hour, minute = 0) => new Date(2026, 9, 8, hour, minute).getTime();
+  const earlier = { ...archived, id: "study", title: "Study", workLog: { since: yesterday(8), sessions: [
+    { clock: "main", start: yesterday(8), end: yesterday(10) },
+    { clock: "main", start: yesterday(9), end: yesterday(11) },
+  ] } };
+  const saved = () => JSON.parse(localStorage.getItem("kanban-timer-board:v1")).archivedCards[0];
+  const ends = () => saved().workLog.sessions.map(({ start, end }) => [start, end]);
+  const bar = () => {
+    const node = document.querySelector('section[aria-label="Daily activity"] article button[aria-label^="Walk:"]');
+    node.parentElement.getBoundingClientRect = () => ({ width: 720, left: 0 });
+    return node;
+  };
+  const pointer = async (node, type, clientX, pointerType = "mouse") => act(async () => {
+    node.dispatchEvent(new window.PointerEvent(type, { clientX, pointerId: 1, pointerType, isPrimary: true, button: 0, bubbles: true }));
+  });
+  try {
+    await act(async () => root.unmount());
+    localStorage.setItem("kanban-timer-board:v1", JSON.stringify({ cardsByCol: { todo: [], doing: [], done: [] }, archivedCards: [archived, earlier] }));
+    root = createRoot(document.getElementById("root"));
+    await act(async () => root.render(React.createElement(App)));
+    await tap(button("View archive"));
+    let node = bar();
+    const originalLeft = node.style.left;
+    await pointer(node, "pointerdown", 247);
+    await pointer(node, "pointermove", 262);
+    assert.notEqual(node.style.left, originalLeft, "moving previews the new position");
+    assert.deepEqual(ends(), [[at(8), at(8, 30)]], "preview has not saved yet");
+    await pointer(node, "pointercancel", 262);
+    assert.equal(node.style.left, originalLeft);
+    await pointer(node, "pointerup", 262);
+    assert.deepEqual(ends(), [[at(8), at(8, 30)]]);
+    await pointer(node, "pointerdown", 247);
+    await pointer(node, "pointermove", 262);
+    await pointer(node, "pointerup", 262);
+    assert.deepEqual(ends(), [[at(8, 30), at(9)]]);
+    assert.equal(saved().stopwatch.elapsedSec, 1800, "moving keeps the stopwatch duration");
+    node = bar();
+    await pointer(node.querySelector('[data-session-edge="start"]'), "pointerdown", 255, "touch");
+    await pointer(node, "pointermove", 250, "touch");
+    await pointer(node, "pointerup", 250, "touch");
+    assert.deepEqual(ends(), [[at(8, 20), at(9)]]);
+    node = bar();
+    await pointer(node.querySelector('[data-session-edge="end"]'), "pointerdown", 270);
+    await pointer(node, "pointermove", 330);
+    await pointer(node, "pointerup", 330);
+    assert.deepEqual(ends(), [[at(8, 20), now]], "dragging an end past now clamps it to the current time");
+    await act(async () => node.dispatchEvent(new MouseEvent("click", { detail: 1, bubbles: true })));
+    assert.equal(document.querySelector('form[aria-label="Edit session times"]'), null, "a drag does not also open the time editor");
+    assert.equal(saved().stopwatch.elapsedSec, 6000);
+    assert.equal(document.querySelector('[data-testid="daily-work-total"]').textContent, "1h 40m");
+    await tap(bar());
+    assert.ok(document.querySelector('form[aria-label="Edit session times"]'), "a normal tap still opens the editor");
+    await tap(button("Previous day with activity"));
+    const merged = document.querySelector('article button[aria-label^="Study:"]');
+    assert.equal(merged.querySelector('[data-session-edge]'), null, "the combined bar does not directly edit either session");
+    await tap(merged);
+    await tap(document.querySelectorAll('article button[aria-pressed="false"]')[1]);
+    const picked = document.querySelector('article button[aria-label^="Study:"][tabindex="-1"]');
+    picked.parentElement.getBoundingClientRect = () => ({ width: 720, left: 0 });
+    await pointer(picked, "pointerdown", 300);
+    await pointer(picked, "pointermove", 315);
+    await pointer(picked, "pointerup", 315);
+    const sessions = JSON.parse(localStorage.getItem("kanban-timer-board:v1")).archivedCards[1].workLog.sessions;
+    assert.deepEqual(sessions, [earlier.workLog.sessions[0], { clock: "main", start: yesterday(9, 30), end: yesterday(11, 30) }]);
+  } finally { Date.now = realNow; }
+});
+
 test("daily activity records unfinished overlapping tasks, corrections, deletion, and completion", async () => {
   const realNow = Date.now;
   let now = new Date(2026, 9, 4, 9).getTime();
