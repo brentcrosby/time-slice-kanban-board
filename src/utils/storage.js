@@ -1,5 +1,23 @@
-import { DEFAULT_SOUND, SOUND_KEY, STORAGE_KEY, THEME_KEY } from "../constants";
+import { DEFAULT_SOUND, MAX_SEGMENT_SEC, MIN_SEGMENT_SEC, SOUND_KEY, STORAGE_KEY, THEME_KEY } from "../constants";
 import { CARD_CONTROLS } from "../constants/cardControls";
+
+const GLOBAL_TIMER_KEY = "tasky:global-timer";
+const DEFAULT_GLOBAL_TIMER = { durationSec: 600, remainingMs: 600_000, endsAt: null };
+
+export function loadGlobalTimer() {
+  try {
+    const timer = JSON.parse(localStorage.getItem(GLOBAL_TIMER_KEY));
+    if (timer && Number.isInteger(timer.durationSec) && timer.durationSec >= MIN_SEGMENT_SEC && timer.durationSec <= MAX_SEGMENT_SEC
+      && Number.isFinite(timer.remainingMs) && timer.remainingMs >= 0 && timer.remainingMs <= timer.durationSec * 1000
+      && (timer.endsAt === null || (Number.isFinite(timer.endsAt) && timer.endsAt > 0))) return timer;
+  } catch { /* Fall back to the default duration. */ }
+  return DEFAULT_GLOBAL_TIMER;
+}
+
+export function saveGlobalTimer(timer) {
+  try { localStorage.setItem(GLOBAL_TIMER_KEY, JSON.stringify(timer)); }
+  catch { /* The timer still works for this session. */ }
+}
 
 export function loadPinnedControls() {
   try {

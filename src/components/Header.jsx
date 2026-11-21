@@ -1,11 +1,12 @@
 import React from "react";
-import { Archive, Cloud, CloudOff, Coffee, HelpCircle, LogIn, LogOut, Moon, Settings as SettingsIcon, Sun } from "lucide-react";
+import { Archive, Cloud, CloudOff, HelpCircle, LogIn, LogOut, Moon, Settings as SettingsIcon, Sun, VolumeX } from "lucide-react";
+import { GlobalTimer } from "./GlobalTimer";
 
 export function Header({
   onOpenHelp,
   onOpenSettings,
   onToggleTheme,
-  onStartBreak,
+  onGlobalTimerComplete,
   onStopChime,
   palette,
   theme,
@@ -21,10 +22,10 @@ export function Header({
 }) {
   return (
     <div
-      className="sticky top-0 z-10 w-full border-b backdrop-blur"
+      className="sticky top-0 z-[15] w-full border-b backdrop-blur"
       style={{ backgroundColor: palette.headerBg, borderColor: palette.border }}
     >
-      <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-3 py-3 sm:px-4">
         <h1 aria-label="Tasky" className="flex shrink-0 items-baseline gap-0.5 text-xl font-semibold tracking-tight" style={{ color: palette.text }}>
           <svg aria-hidden="true" viewBox="48 66 420 392" className="h-5 w-5" fill="currentColor" style={{ verticalAlign: "baseline" }}>
             <rect x="48" y="66" width="132" height="140" rx="24" />
@@ -32,7 +33,7 @@ export function Header({
             <rect x="336" y="66" width="132" height="140" rx="24" />
           </svg><span aria-hidden="true">asky</span>
         </h1>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1 sm:gap-2">
           {syncConfigured ? (
             syncUser ? (
               <>
@@ -72,18 +73,12 @@ export function Header({
           >
             <HelpCircle className="h-4 w-4" />
           </button>
-          <button
-            onClick={chimeActive ? onStopChime : onStartBreak}
-            title={chimeActive ? "Mute chime" : "Start a 10 minute break"}
-            className="header-action-button rounded-md p-2"
-            style={{
-              border: `1px solid ${palette.border}`,
-              backgroundColor: chimeActive ? palette.dangerBg : undefined,
-              color: chimeActive ? palette.dangerText : undefined,
-            }}
-          >
-            <Coffee className="h-4 w-4" />
-          </button>
+          <GlobalTimer palette={palette} onComplete={onGlobalTimerComplete} />
+          {chimeActive && <button type="button" onClick={onStopChime} title="Mute chime" aria-label="Mute chime"
+            className="header-action-button rounded-md border p-2"
+            style={{ borderColor: palette.border, backgroundColor: palette.dangerBg, color: palette.dangerText }}>
+            <VolumeX className="h-4 w-4" />
+          </button>}
           <button
             onClick={onOpenSettings}
             title="Settings"

@@ -35,7 +35,7 @@ import { dropTasks, moveTasks, pauseTask, promoteNewlyFlagged } from "./utils/ta
 import { editTaskStopwatchTotal, elapsedStopwatch, hasSubtaskStopwatch, materializeSubtaskStopwatches, pauseTaskStopwatches, resumeSubtaskStopwatch, resumeTaskStopwatch, transferSubtaskTimeToParent } from "./utils/subtaskStopwatch";
 
 const HISTORY_LIMIT = 100;
-const BREAK_DURATION_SEC = 600;
+const GLOBAL_TIMER_CHIME = Symbol("global-timer");
 
 const cloneBoardState = (state) => JSON.parse(JSON.stringify(state));
 
@@ -316,6 +316,12 @@ export default function KanbanTimerBoard() {
     [stopLoopingChime]
   );
 
+  const notifyTimerCompletion = (sourceIds = []) => {
+    if (!sound.enabled) return;
+    if (sound.loop) startLoopingChime(sourceIds);
+    else playChime(audioRef, { type: sound.type, volume: sound.volume });
+  };
+
   useEffect(() => {
     const arm = () => {
       console.log("[Audio] pointerdown arm triggered");
@@ -485,15 +491,7 @@ export default function KanbanTimerBoard() {
 
     console.log("[Timer] completion sweep hits", completions);
 
-    if (sound.enabled) {
-      if (sound.loop) startLoopingChime(completions.map(({ cardId }) => cardId));
-      else {
-        setLoopingChimeSources([]);
-        playChime(audioRef, { type: sound.type, volume: sound.volume });
-      }
-    } else {
-      console.log("[Audio] chime skipped; sound disabled");
-    }
+    notifyTimerCompletion(completions.map(({ cardId }) => cardId));
 
     setCardsByCol((prev) => {
       let mutated = false;
@@ -622,42 +620,6 @@ export default function KanbanTimerBoard() {
     const newId = addCard(colId, { title: "", isDraft: true, group, position });
     setPendingTitleEditId(newId);
     return newId;
-  };
-
-  const startBreak = () => {
-    const id = uid();
-    const now = Date.now();
-    const durationSec = BREAK_DURATION_SEC;
-    const segments = [
-      { id: `${id}-seg-0`, durationSec, remainingSec: durationSec },
-    ];
-
-    const runningCard = deriveCardFromSegments(
-      {
-        id,
-        title: "Break",
-        notes: "",
-        group: null,
-        running: true,
-        lastStartTs: now,
-        overtime: false,
-        createdAt: now,
-        isBreak: true,
-      },
-      segments,
-      {
-        running: true,
-        lastStartTs: now,
-        remainingSecAtStart: segments[0]?.remainingSec ?? durationSec,
-        activeSegmentIndex: 0,
-        overtime: false,
-      }
-    );
-
-    updateCardsState(
-      (prev) => ({ ...prev, doing: [runningCard, ...(prev.doing || [])] }),
-      { track: true }
-    );
   };
 
   const updateCard = (colId, cardId, patch) => {
@@ -1277,7 +1239,7 @@ export default function KanbanTimerBoard() {
         onOpenHelp={() => setHelpOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onToggleTheme={toggleTheme}
-        onStartBreak={startBreak}
+        onGlobalTimerComplete={() => notifyTimerCompletion([GLOBAL_TIMER_CHIME])}
         onStopChime={stopLoopingChime}
         palette={palette}
         theme={theme}
