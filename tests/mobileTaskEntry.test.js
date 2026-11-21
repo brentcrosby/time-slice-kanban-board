@@ -90,6 +90,70 @@ async function add(value = "", column = "doing") {
   if (value) await type(value);
 }
 
+test("the global timer sets, pauses, resumes after reload, and chimes without adding a task", async () => {
+  const realNow = Date.now;
+  let now = realNow();
+  Date.now = () => now;
+  let chimes = 0;
+  window.AudioContext = class {
+    state = "running";
+    currentTime = 0;
+    createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; }
+    createOscillator() {
+      return { frequency: { setValueAtTime() {} }, connect: (gain) => gain, start: () => { chimes++; }, stop() {} };
+    }
+  };
+  const open = () => tap(document.querySelector('button[title="Global timer"]'));
+  const panel = () => document.querySelector('section[aria-label="Global timer controls"]');
+  const display = () => document.querySelector('[data-global-timer-display]').textContent;
+  const checkAt = async (offset) => {
+    now += offset;
+    await act(async () => window.dispatchEvent(new Event("focus")));
+  };
+  try {
+    assert.equal(display(), "10:00");
+    await open();
+    const field = panel().querySelector("input");
+    const enterDuration = async (value) => act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(field, value);
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await enterDuration("3s");
+    await tap(button("Set", panel()));
+    assert.match(panel().querySelector('[role="alert"]').textContent, /5 seconds/);
+    await enterDuration("30s");
+    await tap(button("Set", panel()));
+    assert.equal(display(), "0:30");
+    await tap(button("Start", panel()));
+    await checkAt(10_000);
+    assert.equal(display(), "0:20");
+    await tap(button("Pause", panel()));
+    await checkAt(50_000);
+    assert.equal(display(), "0:20");
+    await tap(button("Resume", panel()));
+    await act(async () => root.unmount());
+    now += 5_000;
+    root = createRoot(document.getElementById("root"));
+    await act(async () => root.render(React.createElement(App)));
+    assert.equal(display(), "0:15");
+    await checkAt(15_000);
+    assert.equal(display(), "0:00");
+    assert.equal(chimes, 1);
+    await checkAt(1000);
+    assert.equal(chimes, 1, "checking again does not ring twice");
+    await tap(button("Mute chime"));
+    await open();
+    await tap(button("Reset", panel()));
+    assert.equal(display(), "0:30");
+    assert.deepEqual(savedCards(), []);
+    assert.deepEqual(JSON.parse(localStorage.getItem("kanban-timer-board:v1")).archivedCards, []);
+  } finally {
+    if (button("Mute chime")) await tap(button("Mute chime"));
+    delete window.AudioContext;
+    Date.now = realNow;
+  }
+});
+
 for (const method of ["Return", "keyboard Done/blur", "Save"]) {
   test(`${method} saves exactly one named task without leaving a blank task behind`, async () => {
     await add("  Make breakfast  ");
